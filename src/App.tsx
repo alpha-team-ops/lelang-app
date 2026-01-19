@@ -2,22 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import './App.css';
 import DashboardLayout from './components/DashboardLayout';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import AccessDeniedPage from './pages/AccessDeniedPage';
-import OverviewPage from './pages/OverviewPage';
-import AnalyticsPage from './pages/AnalyticsPage';
-import AuctionPage from './pages/AuctionPage';
-import UserManagementPage from './pages/UserManagementPage';
-import RolesPage from './pages/RolesPage';
-import SettingsPage from './pages/SettingsPage';
-import {
-  Dashboard as DashboardIcon,
-  Analytics as AnalyticsIcon,
-  Gavel as GavelIcon,
-  Person as PersonIcon,
-  Settings as SettingsIcon,
-} from '@mui/icons-material';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+import AccessDeniedPage from './pages/auth/AccessDeniedPage';
+import { menuCategories, protectedRoutes } from './config/routes';
 
 const theme = createTheme({
   palette: {
@@ -30,36 +18,6 @@ const theme = createTheme({
     },
   },
 });
-
-// Sample menu categories
-const menuCategories = [
-  {
-    category: 'Dashboard',
-    items: [
-      { text: 'Overview', icon: <DashboardIcon />, path: '/admin' },
-      { text: 'Analytics', icon: <AnalyticsIcon />, path: '/admin/analytics' },
-    ]
-  },
-  {
-    category: 'Auction Management',
-    items: [
-      { text: 'Auctions', icon: <GavelIcon />, path: '/admin/auctions' },
-    ]
-  },
-  {
-    category: 'User Management',
-    items: [
-      { text: 'Users', icon: <PersonIcon />, path: '/admin/users' },
-      { text: 'Roles', icon: <SettingsIcon />, path: '/admin/roles' },
-    ]
-  },
-  {
-    category: 'Settings',
-    items: [
-      { text: 'System Settings', icon: <SettingsIcon />, path: '/admin/settings' },
-    ]
-  }
-];
 
 function App() {
   return (
@@ -87,20 +45,10 @@ function App() {
               />
             }
           >
-            {/* Protected dashboard routes */}
-            <Route path="/admin" element={<OverviewPage />} />
-            <Route path="/admin/analytics" element={<AnalyticsPage />} />
-
-            {/* Protected auction routes */}
-            <Route path="/admin/auctions" element={<AuctionPage />} />
-
-            {/* Protected user management routes */}
-            <Route path="/admin/users" element={<UserManagementPage />} />
-            <Route path="/admin/roles" element={<RolesPage />} />
-
-            {/* Protected settings routes */}
-            <Route path="/admin/settings" element={<SettingsPage />} />
-            
+            {/* Dynamic protected routes */}
+            {protectedRoutes.map((route) => (
+              <Route key={route.path} path={route.path} element={route.element} />
+            ))}
           </Route>
 
           {/* Catch all - redirect to admin */}
