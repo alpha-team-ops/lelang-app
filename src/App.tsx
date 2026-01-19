@@ -5,7 +5,7 @@ import DashboardLayout from './components/DashboardLayout';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import AccessDeniedPage from './pages/auth/AccessDeniedPage';
-import { menuCategories, protectedRoutes } from './config/routes';
+import { menuCategories, protectedRoutes, portalRoutes } from './config/routes';
 
 const theme = createTheme({
   palette: {
@@ -29,6 +29,11 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/access-denied" element={<AccessDeniedPage />} />
+
+          {/* Portal public routes (without layout) */}
+          {portalRoutes.map((route) => (
+            <Route key={route.path} path={route.path} element={route.element} />
+          ))}
 
           {/* Protected routes with layout */}
           <Route 

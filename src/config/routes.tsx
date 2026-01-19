@@ -13,6 +13,10 @@ import UserManagementPage from '../pages/admin/managements/UserManagementPage';
 import RolesPage from '../pages/admin/managements/RolesPage';
 import SettingsPage from '../pages/admin/settings/SettingsPage';
 
+// Portal pages
+import PortalForm from '../pages/portal/PortalForm';
+import AuctionList from '../pages/portal/AuctionList';
+
 export interface MenuItem {
   text: string;
   icon: React.ReactNode;
@@ -59,7 +63,7 @@ export const menuCategories: MenuCategory[] = [
   }
 ];
 
-// Protected routes
+// Protected routes (Admin)
 export const protectedRoutes: ProtectedRoute[] = [
   {
     path: '/admin',
@@ -89,5 +93,16 @@ export const protectedRoutes: ProtectedRoute[] = [
     path: '/admin/settings',
     element: <SettingsPage />,
   },
-  // Tambahkan route baru di sini
+];
+
+// Public routes (Portal)
+export const portalRoutes: ProtectedRoute[] = [
+  {
+    path: '/portal',
+    element: <PortalForm />,
+  },
+  {
+    path: '/portal/auctions',
+    element: <AuctionList />,
+  },
 ];
