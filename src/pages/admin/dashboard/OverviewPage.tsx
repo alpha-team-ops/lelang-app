@@ -8,8 +8,6 @@ import {
   CardContent,
   Chip,
   Tooltip,
-  Button,
-  Divider,
 } from '@mui/material';
 import {
   Gavel as GavelIcon,
