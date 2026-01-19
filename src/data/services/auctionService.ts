@@ -1,5 +1,5 @@
 import type { Auction, PortalAuction } from '../types/index';
-import { adminAuctionsMock, portalAuctionsMock } from '../mock/auctions';
+import { adminAuctionsMock } from '../mock/auctions';
 
 export const auctionService = {
   // Admin Auctions
@@ -74,18 +74,46 @@ export const auctionService = {
     return true;
   },
 
-  // Portal Auctions (User-facing)
+  // Portal Auctions (User-facing) - Only LIVE auctions
   getAllPortalAuctions: async (): Promise<PortalAuction[]> => {
-    return portalAuctionsMock;
+    // Filter hanya auctions yang status LIVE dari admin auctions
+    const liveAuctions = adminAuctionsMock.filter(a => a.status === 'LIVE');
+    
+    // Convert admin auctions format ke portal format
+    return liveAuctions.map(a => ({
+      id: a.id,
+      namaBarang: a.title,
+      kategori: a.category,
+      kondisi: a.condition,
+      hargaSaatIni: a.currentBid,
+      hargaReserve: a.reservePrice,
+      sisaWaktu: `${Math.floor(Math.random() * 12) + 1}h ${Math.floor(Math.random() * 60)}m`, // Placeholder
+      peserta: a.participantCount,
+      deskripsi: a.description,
+      gambar: a.image || '📦',
+    }));
     
     // Nanti tinggal ganti ke:
-    // const response = await fetch('/api/auctions/portal');
+    // const response = await fetch('/api/auctions/portal?status=LIVE');
     // return response.json();
   },
 
   getPortalAuctionById: async (id: string): Promise<PortalAuction | null> => {
-    const auction = portalAuctionsMock.find(a => a.id === id);
-    return auction || null;
+    const auction = adminAuctionsMock.find(a => a.id === id && a.status === 'LIVE');
+    if (!auction) return null;
+    
+    return {
+      id: auction.id,
+      namaBarang: auction.title,
+      kategori: auction.category,
+      kondisi: auction.condition,
+      hargaSaatIni: auction.currentBid,
+      hargaReserve: auction.reservePrice,
+      sisaWaktu: `${Math.floor(Math.random() * 12) + 1}h ${Math.floor(Math.random() * 60)}m`,
+      peserta: auction.participantCount,
+      deskripsi: auction.description,
+      gambar: auction.image || '📦',
+    };
     
     // Nanti tinggal ganti ke:
     // const response = await fetch(`/api/auctions/portal/${id}`);
@@ -93,11 +121,26 @@ export const auctionService = {
   },
 
   searchAuctions: async (query: string): Promise<PortalAuction[]> => {
-    return portalAuctionsMock.filter(a =>
-      a.namaBarang.toLowerCase().includes(query.toLowerCase()) ||
-      a.kategori.toLowerCase().includes(query.toLowerCase()) ||
-      a.deskripsi.toLowerCase().includes(query.toLowerCase())
-    );
+    const liveAuctions = adminAuctionsMock.filter(a => a.status === 'LIVE');
+    
+    return liveAuctions
+      .filter(a =>
+        a.title.toLowerCase().includes(query.toLowerCase()) ||
+        a.category.toLowerCase().includes(query.toLowerCase()) ||
+        a.description.toLowerCase().includes(query.toLowerCase())
+      )
+      .map(a => ({
+        id: a.id,
+        namaBarang: a.title,
+        kategori: a.category,
+        kondisi: a.condition,
+        hargaSaatIni: a.currentBid,
+        hargaReserve: a.reservePrice,
+        sisaWaktu: `${Math.floor(Math.random() * 12) + 1}h ${Math.floor(Math.random() * 60)}m`,
+        peserta: a.participantCount,
+        deskripsi: a.description,
+        gambar: a.image || '📦',
+      }));
     
     // Nanti tinggal ganti ke:
     // const response = await fetch(`/api/auctions/portal/search?q=${query}`);
@@ -105,7 +148,20 @@ export const auctionService = {
   },
 
   getAuctionsByCategory: async (category: string): Promise<PortalAuction[]> => {
-    return portalAuctionsMock.filter(a => a.kategori === category);
+    const liveAuctions = adminAuctionsMock.filter(a => a.status === 'LIVE' && a.category === category);
+    
+    return liveAuctions.map(a => ({
+      id: a.id,
+      namaBarang: a.title,
+      kategori: a.category,
+      kondisi: a.condition,
+      hargaSaatIni: a.currentBid,
+      hargaReserve: a.reservePrice,
+      sisaWaktu: `${Math.floor(Math.random() * 12) + 1}h ${Math.floor(Math.random() * 60)}m`,
+      peserta: a.participantCount,
+      deskripsi: a.description,
+      gambar: a.image || '📦',
+    }));
     
     // Nanti tinggal ganti ke:
     // const response = await fetch(`/api/auctions/portal?category=${category}`);
