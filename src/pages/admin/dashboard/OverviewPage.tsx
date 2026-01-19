@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Grid,
   Typography,
@@ -8,6 +8,7 @@ import {
   CardContent,
   Chip,
   Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import {
   Gavel as GavelIcon,
@@ -20,6 +21,8 @@ import {
   HourglassEmpty as HourglassIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
+import { statsService, auctionService } from '../../../data/services';
+import type { DashboardStats, Auction } from '../../../data/types';
 
 interface StatCardProps {
   title: string;
@@ -152,28 +155,51 @@ const StatCard: React.FC<StatCardProps> = ({
 
 export default function OverviewPage() {
   const [revenueFilter, setRevenueFilter] = useState('today');
-  
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [auctions, setAuctions] = useState<Auction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [statsData, auctionsData] = await Promise.all([
+          statsService.getDashboardStats(),
+          auctionService.getAllAdminAuctions(),
+        ]);
+        setStats(statsData);
+        setAuctions(auctionsData);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Calculate derived metrics
+  const activeAuctions = auctions.filter(a => a.status === 'LIVE' || a.status === 'ENDING').length;
+  const endingSoon = auctions.filter(a => a.status === 'ENDING').length;
+  const highestBid = auctions.length > 0 ? Math.max(...auctions.map(a => a.currentBid)) : 0;
+  const highestBidAuction = auctions.find(a => a.currentBid === highestBid);
+  const avgBidsPerAuction = stats ? (stats.totalBids / (stats.totalAuctions || 1)).toFixed(1) : '0';
+
   const analytics = {
-    // Row 1 - STATUS
-    active_auctions: 24,
+    active_auctions: activeAuctions,
     active_auctions_trend: 12,
-    auctions_ending_soon: 7,
+    auctions_ending_soon: endingSoon,
     active_users_today: 156,
     active_users_trend: 8,
-    
-    // Row 2 - AKTIVITAS
-    total_bids_today: 342,
-    avg_bid_per_auction: 15.2,
-    highest_bid_today: 2500000,
-    highest_bid_item: 'Vintage Watch',
-    highest_bid_bidder: 'John Doe',
-    
-    // Row 3 - HASIL
+    total_bids_today: stats?.totalBids || 0,
+    avg_bid_per_auction: parseFloat(avgBidsPerAuction),
+    highest_bid_today: highestBid,
+    highest_bid_item: highestBidAuction?.title || 'N/A',
+    highest_bid_bidder: highestBidAuction?.currentBidder || 'N/A',
     revenue_today: 18500000,
-    revenue_7days: 125000000,
-    
-    // Optional - KILLER CARD
-    avg_time_to_first_bid: 4.5, // dalam menit
+    revenue_7days: stats?.totalVolume || 0,
+    avg_time_to_first_bid: 4.5,
   };
 
   const getGreeting = () => {
@@ -182,6 +208,14 @@ export default function OverviewPage() {
     if (hour < 18) return 'Good Afternoon';
     return 'Good Evening';
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ py: { xs: 2, md: 3 }, px: { xs: 2, md: 3 } }}>

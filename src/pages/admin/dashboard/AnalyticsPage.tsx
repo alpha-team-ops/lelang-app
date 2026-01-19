@@ -297,6 +297,7 @@ const formatCurrency = (value: number): string => {
 
 // Main AnalyticsPage Component
 const AnalyticsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

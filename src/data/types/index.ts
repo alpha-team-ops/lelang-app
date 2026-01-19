@@ -1,0 +1,59 @@
+// Auction Types
+export interface Auction {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  condition: string;
+  startingPrice: number;
+  reservePrice: number;
+  bidIncrement: number;
+  currentBid: number;
+  totalBids: number;
+  status: 'DRAFT' | 'SCHEDULED' | 'LIVE' | 'ENDING' | 'ENDED' | 'CANCELLED';
+  startTime: Date;
+  endTime: Date;
+  seller: string;
+  currentBidder?: string;
+  image?: string;
+  viewCount: number;
+  participantCount: number;
+}
+
+export interface PortalAuction {
+  id: string;
+  namaBarang: string;
+  kategori: string;
+  kondisi: string;
+  hargaSaatIni: number;
+  hargaReserve: number;
+  sisaWaktu: string;
+  peserta: number;
+  deskripsi: string;
+  gambar: string;
+}
+
+// Statistics Types
+export interface DashboardStats {
+  totalAuctions: number;
+  activeAuctions: number;
+  totalBids: number;
+  totalVolume: number;
+  completedAuctions: number;
+  pendingAuctions: number;
+  cancelledAuctions: number;
+  averageBidsPerAuction: number;
+}
+
+// User Types
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: 'admin' | 'seller' | 'buyer' | 'user';
+  status: 'active' | 'inactive' | 'suspended';
+  joinedDate: Date;
+  totalTransactions: number;
+  rating: number;
+}
