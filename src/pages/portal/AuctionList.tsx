@@ -1,23 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserSession, clearUserSession, getSessionRemainingTime, formatRemainingTime } from './utils/sessionManager';
+import { auctionService } from '../../data/services';
+import type { PortalAuction } from '../../data/types';
 import AuctionModal from './AuctionModal';
 import './styles/portal.css';
 
-interface Auction {
-  id: string;
-  namaBarang: string;
-  kategori: string;
-  kondisi: string;
-  hargaSaatIni: number;
-  hargaReserve: number;
-  sisaWaktu: string;
-  peserta: number;
-  deskripsi: string;
-  gambar: string;
-}
-
-const dummyAuctions: Auction[] = [
+const dummyAuctions: PortalAuction[] = [
   {
     id: '1',
     namaBarang: 'Laptop ASUS ROG Gaming',
@@ -94,12 +83,37 @@ const dummyAuctions: Auction[] = [
 
 export default function AuctionList() {
   const navigate = useNavigate();
-  const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
+  const [selectedAuction, setSelectedAuction] = useState<PortalAuction | null>(null);
   const [sessionTime, setSessionTime] = useState<number>(0);
-  const [auctions, setAuctions] = useState<Auction[]>(dummyAuctions);
+  const [auctions, setAuctions] = useState<PortalAuction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const userSession = getUserSession();
 
+  // Load auctions from service
+  useEffect(() => {
+    const loadAuctions = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await auctionService.getAllPortalAuctions();
+        setAuctions(data);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Failed to load auctions';
+        setError(errorMsg);
+        console.error('Error loading auctions:', err);
+        // Fallback to dummy data if error
+        setAuctions(dummyAuctions);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAuctions();
+  }, []);
+
+  // Session timer
   useEffect(() => {
     // Check if user is authenticated
     if (!userSession) {
@@ -141,6 +155,46 @@ export default function AuctionList() {
     );
     setSelectedAuction(null);
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="auction-container">
+        <div className="auction-header">
+          <div className="auction-title-section">
+            <h1>🏛️ Portal Lelang</h1>
+            <p>Loading lelang...</p>
+          </div>
+        </div>
+        <div className="auction-grid">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="auction-card" style={{ opacity: 0.6 }}>
+              <div className="auction-image">
+                <div className="auction-image-placeholder">⏳</div>
+              </div>
+              <div className="auction-content">
+                <div className="auction-name">Loading...</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="auction-container">
+        <div className="auction-header">
+          <div className="auction-title-section">
+            <h1>🏛️ Portal Lelang</h1>
+            <p style={{ color: '#dc2626' }}>Error: {error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auction-container">
