@@ -1,6 +1,24 @@
 import type { Auction, PortalAuction } from '../types/index';
 import { adminAuctionsMock } from '../mock/auctions';
 
+// Helper function to calculate remaining time
+const calculateSisaWaktu = (endTime: Date): string => {
+  const now = new Date();
+  const diff = endTime.getTime() - now.getTime();
+
+  if (diff <= 0) return 'Sudah Berakhir';
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+  if (days > 0) {
+    return `${days}h ${hours}h ${minutes}m`;
+  }
+  return `${hours}h ${minutes}m ${seconds}s`;
+};
+
 export const auctionService = {
   // Admin Auctions
   getAllAdminAuctions: async (): Promise<Auction[]> => {
@@ -87,7 +105,7 @@ export const auctionService = {
       kondisi: a.condition,
       hargaSaatIni: a.currentBid,
       hargaReserve: a.reservePrice,
-      sisaWaktu: `${Math.floor(Math.random() * 12) + 1}h ${Math.floor(Math.random() * 60)}m`, // Placeholder
+      sisaWaktu: calculateSisaWaktu(a.endTime),
       peserta: a.participantCount,
       deskripsi: a.description,
       gambar: a.image || '📦',
@@ -109,7 +127,7 @@ export const auctionService = {
       kondisi: auction.condition,
       hargaSaatIni: auction.currentBid,
       hargaReserve: auction.reservePrice,
-      sisaWaktu: `${Math.floor(Math.random() * 12) + 1}h ${Math.floor(Math.random() * 60)}m`,
+      sisaWaktu: calculateSisaWaktu(auction.endTime),
       peserta: auction.participantCount,
       deskripsi: auction.description,
       gambar: auction.image || '📦',
@@ -136,7 +154,7 @@ export const auctionService = {
         kondisi: a.condition,
         hargaSaatIni: a.currentBid,
         hargaReserve: a.reservePrice,
-        sisaWaktu: `${Math.floor(Math.random() * 12) + 1}h ${Math.floor(Math.random() * 60)}m`,
+        sisaWaktu: calculateSisaWaktu(a.endTime),
         peserta: a.participantCount,
         deskripsi: a.description,
         gambar: a.image || '📦',
@@ -157,7 +175,7 @@ export const auctionService = {
       kondisi: a.condition,
       hargaSaatIni: a.currentBid,
       hargaReserve: a.reservePrice,
-      sisaWaktu: `${Math.floor(Math.random() * 12) + 1}h ${Math.floor(Math.random() * 60)}m`,
+      sisaWaktu: calculateSisaWaktu(a.endTime),
       peserta: a.participantCount,
       deskripsi: a.description,
       gambar: a.image || '📦',
