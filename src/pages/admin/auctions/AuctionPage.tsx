@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -8,13 +9,6 @@ import {
   Tabs,
   Tab,
   Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -311,6 +305,7 @@ const AuctionDetailDialog: React.FC<{
 
 // Main AuctionPage
 const AuctionPage: React.FC = () => {
+  const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -462,7 +457,11 @@ const AuctionPage: React.FC = () => {
             Manage and monitor all auctions
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => navigate('/admin/auctions/create')}
+        >
           Create Auction
         </Button>
       </Box>
@@ -564,7 +563,7 @@ const AuctionPage: React.FC = () => {
   );
 };
 
-// Auction List Table Component
+// Auction List Table Component (Card Layout)
 const AuctionListTable: React.FC<{
   auctions: Auction[];
   onViewDetail: (auction: Auction) => void;
@@ -580,90 +579,132 @@ const AuctionListTable: React.FC<{
   }
 
   return (
-    <TableContainer component={Paper} sx={{ borderRadius: '8px', boxShadow: 'none', border: '1px solid #e0e0e0' }}>
-      <Table>
-        <TableHead sx={{ backgroundColor: '#fafbfc' }}>
-          <TableRow>
-            <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
-            <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 600 }}>
-              Current Bid
-            </TableCell>
-            <TableCell align="right" sx={{ fontWeight: 600 }}>
-              Bids
-            </TableCell>
-            <TableCell align="center" sx={{ fontWeight: 600 }}>
-              Time Remaining
-            </TableCell>
-            <TableCell align="center" sx={{ fontWeight: 600 }}>
-              Actions
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {auctions.map((auction) => (
-            <TableRow
-              key={auction.id}
+    <Grid container spacing={2.5}>
+      {auctions.map((auction) => (
+        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={auction.id}>
+          <Card
+            sx={{
+              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+              borderRadius: '12px',
+              transition: 'all 0.3s ease',
+              border: auction.status === 'LIVE' ? '2px solid #ef4444' : '1px solid transparent',
+              '&:hover': {
+                boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
+                transform: 'translateY(-4px)',
+              },
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+            }}
+          >
+            {/* Image Placeholder */}
+            <Box
               sx={{
-                '&:hover': { backgroundColor: '#f5f5f5' },
-                backgroundColor: auction.status === 'LIVE' ? 'rgba(239, 68, 68, 0.05)' : 'transparent',
+                height: '160px',
+                backgroundColor: '#f0f0f0',
+                borderRadius: '12px 12px 0 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                overflow: 'hidden',
               }}
             >
-              <TableCell>
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {auction.title}
+              <Typography variant="caption" color="textSecondary">
+                [Auction Image]
+              </Typography>
+              {/* Status Badge on Image */}
+              <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+                <StatusBadge status={auction.status} />
+              </Box>
+            </Box>
+
+            {/* Card Content */}
+            <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Title & Category */}
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, fontSize: '15px' }}>
+                  {auction.title}
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  {auction.category}
+                </Typography>
+              </Box>
+
+              {/* Price Info */}
+              <Box sx={{ bgcolor: '#f5f5f5', p: 1.5, borderRadius: '8px' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="caption" color="textSecondary">
+                    Current Bid
                   </Typography>
                   <Typography variant="caption" color="textSecondary">
-                    {auction.category}
+                    Bids
                   </Typography>
                 </Box>
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={auction.status} />
-              </TableCell>
-              <TableCell align="right">
-                <Typography variant="body2" sx={{ fontWeight: 600, color: '#22c55e' }}>
-                  Rp {auction.currentBid.toLocaleString('id-ID')}
-                </Typography>
-              </TableCell>
-              <TableCell align="right">
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {auction.totalBids}
-                </Typography>
-              </TableCell>
-              <TableCell align="center">
-                {auction.status === 'LIVE' || auction.status === 'ENDING' ? (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#22c55e' }}>
+                    Rp {auction.currentBid.toLocaleString('id-ID')}
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {auction.totalBids}
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Timer or Status */}
+              {auction.status === 'LIVE' || auction.status === 'ENDING' ? (
+                <Box sx={{ bgcolor: '#fef3c7', p: 1.5, borderRadius: '8px', display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CountdownTimer endTime={auction.endTime} />
-                ) : (
+                </Box>
+              ) : (
+                <Box sx={{ bgcolor: '#f0f0f0', p: 1.5, borderRadius: '8px' }}>
                   <Typography variant="caption" color="textSecondary">
                     {auction.status === 'DRAFT' || auction.status === 'SCHEDULED'
                       ? 'Not Started'
                       : 'Ended'}
                   </Typography>
-                )}
-              </TableCell>
-              <TableCell align="center">
-                <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                  <IconButton
-                    size="small"
-                    onClick={() => onViewDetail(auction)}
-                    title="View Details"
-                  >
-                    <EyeIcon sx={{ fontSize: '18px' }} />
-                  </IconButton>
-                  {auction.status !== 'ENDED' && auction.status !== 'CANCELLED' && (
-                    <IconButton size="small" title="Edit">
-                      <EditIcon sx={{ fontSize: '18px' }} />
-                    </IconButton>
-                  )}
                 </Box>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+              )}
+
+              {/* View Count */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="caption" color="textSecondary">
+                  👁️ {auction.viewCount} views
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  💬 {auction.totalBids} bids
+                </Typography>
+              </Box>
+
+              {/* Action Buttons */}
+              <Box sx={{ display: 'flex', gap: 1, mt: 'auto' }}>
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="contained"
+                  startIcon={<EyeIcon />}
+                  onClick={() => onViewDetail(auction)}
+                  sx={{ bgcolor: '#667eea', fontSize: '12px' }}
+                >
+                  View
+                </Button>
+                {auction.status !== 'ENDED' && auction.status !== 'CANCELLED' && (
+                  <Button
+                    fullWidth
+                    size="small"
+                    variant="outlined"
+                    startIcon={<EditIcon />}
+                    sx={{ fontSize: '12px' }}
+                  >
+                    Edit
+                  </Button>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      ))}
+    </Grid>
   );
 };
 
