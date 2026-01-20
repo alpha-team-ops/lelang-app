@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -30,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { auctionService } from '../../../data/services';
 import type { Auction } from '../../../data/types';
+import CreateAuctionModal from './CreateAuctionModal';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -289,10 +289,10 @@ const AuctionDetailDialog: React.FC<{
 
 // Main AuctionPage
 const AuctionPage: React.FC = () => {
-  const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -401,7 +401,7 @@ const AuctionPage: React.FC = () => {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => navigate('/admin/auctions/create')}
+          onClick={() => setCreateModalOpen(true)}
         >
           Create Auction
         </Button>
@@ -500,6 +500,17 @@ const AuctionPage: React.FC = () => {
 
       {/* Detail Dialog */}
       <AuctionDetailDialog open={detailOpen} auction={selectedAuction} onClose={() => setDetailOpen(false)} />
+
+      {/* Create Auction Modal */}
+      <CreateAuctionModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSubmit={(data) => {
+          console.log('New auction created:', data);
+          // Reload auctions
+          auctionService.getAllAdminAuctions().then(setAuctions);
+        }}
+      />
     </Box>
   );
 };

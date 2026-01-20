@@ -8,7 +8,6 @@ import {
 import OverviewPage from '../pages/admin/dashboard/OverviewPage';
 import AnalyticsPage from '../pages/admin/dashboard/AnalyticsPage';
 import AuctionPage from '../pages/admin/auctions/AuctionPage';
-import CreateAuctionPage from '../pages/admin/auctions/CreateAuctionPage';
 import UserManagementPage from '../pages/admin/managements/UserManagementPage';
 import RolesPage from '../pages/admin/managements/RolesPage';
 import SettingsPage from '../pages/admin/settings/SettingsPage';
@@ -76,10 +75,6 @@ export const protectedRoutes: ProtectedRoute[] = [
   {
     path: '/admin/auctions',
     element: <AuctionPage />,
-  },
-  {
-    path: '/admin/auctions/create',
-    element: <CreateAuctionPage />,
   },
   {
     path: '/admin/users',
