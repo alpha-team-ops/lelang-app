@@ -197,61 +197,61 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
           </div>
         </div>
 
-        {/* Deskripsi */}
+        {/* Description */}
         <div className="modal-section">
-          <div className="modal-section-title">📝 Deskripsi Barang</div>
+          <div className="modal-section-title">📝 Item Description</div>
           <div style={{ fontSize: '14px', fontWeight: '500', color: '#4b5563', lineHeight: '1.6', marginTop: '12px' }}>
             {auction.deskripsi}
           </div>
         </div>
 
-        {/* Harga Info */}
+        {/* Price Info */}
         <div className="modal-section">
-          <div className="modal-section-title">💰 Informasi Harga & Peserta</div>
+          <div className="modal-section-title">💰 Price & Participants Info</div>
           <div className="price-box">
             <div className="price-item">
-              <div className="price-label">Harga Saat Ini</div>
+              <div className="price-label">Current Price</div>
               <div className="price-value">
                 Rp {auction.hargaSaatIni.toLocaleString('id-ID')}
               </div>
             </div>
             <div className="price-item">
-              <div className="price-label">Harga Awal</div>
+              <div className="price-label">Starting Price</div>
               <div className="price-value">
                 Rp {auction.hargaReserve.toLocaleString('id-ID')}
               </div>
             </div>
             <div className="price-item">
-              <div className="price-label">Sisa Waktu</div>
+              <div className="price-label">Time Remaining</div>
               <div className="price-value" style={{ color: '#f97316' }}>
                 {auction.sisaWaktu}
               </div>
             </div>
             <div className="price-item">
-              <div className="price-label">Total Peserta</div>
+              <div className="price-label">Total Participants</div>
               <div className="price-value" style={{ color: '#0ea5e9' }}>
-                {auction.peserta} orang
+                {auction.peserta} people
               </div>
             </div>
           </div>
         </div>
 
-        {/* Aturan Penawaran */}
+        {/* Bidding Rules */}
         <div className="modal-section">
           <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.7' }}>
             <div style={{ fontWeight: '700', marginBottom: '8px', color: '#4b5563', fontSize: '13px' }}>
-              ⚠️ Aturan Penawaran:
+              ⚠️ Bidding Rules:
             </div>
             <ul style={{ marginLeft: '16px', listStyle: 'none' }}>
-              <li>• Penawaran harus lebih tinggi dari harga saat ini</li>
-              <li>• Penawaran harus kelipatan Rp 50.000</li>
-              <li>• Penawaran tidak bisa dibatalkan setelah dikirim</li>
-              <li>• Pemenang harus melunasi dalam 24 jam</li>
+              <li>• Bid amount must be higher than current price</li>
+              <li>• Bid must be multiple of Rp 50,000</li>
+              <li>• Bids cannot be canceled after submission</li>
+              <li>• Winner must pay within 24 hours</li>
             </ul>
           </div>
         </div>
 
-        {/* Info Penawaran */}
+        {/* Bid Info */}
         <div className="modal-section">
           <div
             style={{
@@ -264,17 +264,17 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
               lineHeight: '1.6',
             }}
           >
-            <div style={{ marginBottom: '6px', fontWeight: '600' }}>💡 Info Penawaran:</div>
+            <div style={{ marginBottom: '6px', fontWeight: '600' }}>💡 Bid Info:</div>
             <div>• Minimum: Rp {minBidAmount.toLocaleString('id-ID')}</div>
-            <div>• Kelipatan: Rp {MIN_BID_INCREMENT.toLocaleString('id-ID')}</div>
+            <div>• Increment: Rp {MIN_BID_INCREMENT.toLocaleString('id-ID')}</div>
           </div>
         </div>
 
         </div>
 
-        {/* Modal Footer - Penawaran Baru (Fixed) */}
+        {/* Modal Footer - New Bid (Fixed) */}
         <div className="modal-footer">
-          <div className="modal-section-title">🏷️ Penawaran Baru</div>
+          <div className="modal-section-title">🏷️ New Bid</div>
           <form className="bid-form" onSubmit={handleSubmit}>
             {/* Bid Amount Input */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -285,7 +285,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
                   className="bid-input"
                   value={formatCurrency(bidAmount)}
                   onChange={handleBidChange}
-                  placeholder="Masukkan jumlah penawaran"
+                  placeholder="Enter bid amount"
                   disabled={isSubmitting || bidSuccess}
                   inputMode="numeric"
                   style={{
@@ -329,17 +329,17 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
                         animation: 'spin 1s linear infinite',
                       }}
                     ></span>
-                    Memproses...
+                    Processing...
                   </>
                 ) : bidSuccess ? (
                   <>
                     <span>✓</span>
-                    Berhasil Dikirim!
+                    Bid Submitted!
                   </>
                 ) : (
                   <>
                     <span>💰</span>
-                    Kirim Penawaran
+                    Submit Bid
                   </>
                 )}
               </button>

@@ -197,22 +197,22 @@ const AuctionDetailDialog: React.FC<{
 
           {/* Category & Condition */}
           <div className="modal-section">
-            <div className="modal-section-title">📦 Kategori & Kondisi</div>
+            <div className="modal-section-title">📦 Category & Condition</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '12px' }}>
               <div style={{ paddingLeft: '12px', borderLeft: '3px solid #0ea5e9' }}>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Kategori</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Category</div>
                 <div style={{ fontSize: '15px', fontWeight: '700', color: '#1f2937' }}>{auction.category}</div>
               </div>
               <div style={{ paddingLeft: '12px', borderLeft: '3px solid #22c55e' }}>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Kondisi</div>
-                <div style={{ fontSize: '15px', fontWeight: '700', color: '#22c55e' }}>✓ Bekas - Sangat Baik</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Condition</div>
+                <div style={{ fontSize: '15px', fontWeight: '700', color: '#22c55e' }}>✓ Used - Excellent</div>
               </div>
             </div>
           </div>
 
           {/* Description */}
           <div className="modal-section">
-            <div className="modal-section-title">📝 Deskripsi</div>
+            <div className="modal-section-title">📝 Description</div>
             <div style={{ fontSize: '14px', color: '#4b5563', lineHeight: 1.6, marginTop: '12px' }}>
               {auction.description}
             </div>
@@ -220,33 +220,33 @@ const AuctionDetailDialog: React.FC<{
 
           {/* Prices & Participants */}
           <div className="modal-section">
-            <div className="modal-section-title">💰 Informasi Harga & Peserta</div>
+            <div className="modal-section-title">💰 Price & Participants Info</div>
             <div style={{ backgroundColor: '#f0f4ff', padding: '16px', borderRadius: '8px', marginTop: '12px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px 16px' }}>
                 {/* Row 1 */}
                 <div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Harga Saat Ini</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Current Price</div>
                   <div style={{ fontSize: '18px', fontWeight: '700', color: '#0ea5e9' }}>
                     Rp {auction.currentBid.toLocaleString('id-ID')}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Harga Awal</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Starting Price</div>
                   <div style={{ fontSize: '18px', fontWeight: '700', color: '#764ba2' }}>
                     Rp {auction.startingPrice.toLocaleString('id-ID')}
                   </div>
                 </div>
                 {/* Row 2 */}
                 <div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>⏰ Waktu Berakhir</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>⏰ End Time</div>
                   <div style={{ fontSize: '18px', fontWeight: '700', color: '#f97316' }}>
                     {auction.endTime.toLocaleDateString('id-ID')}, {auction.endTime.toLocaleTimeString('id-ID')}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Total Peserta</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Total Participants</div>
                   <div style={{ fontSize: '18px', fontWeight: '700', color: '#0ea5e9' }}>
-                    {auction.totalBids} orang
+                    {auction.totalBids} people
                   </div>
                 </div>
               </div>
@@ -257,8 +257,8 @@ const AuctionDetailDialog: React.FC<{
           {isEnded && (
             <div className="modal-section">
               <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '12px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textAlign: 'center', borderLeft: '3px solid #22c55e' }}>
-                ✓ Lelang Selesai
-                {auction.currentBidder && ` - Dimenangkan oleh ${auction.currentBidder}`}
+                ✓ Auction Completed
+                {auction.currentBidder && ` - Won by ${auction.currentBidder}`}
               </div>
             </div>
           )}
@@ -274,7 +274,7 @@ const AuctionDetailDialog: React.FC<{
                 startIcon={<EditIcon />}
                 sx={{ backgroundColor: '#667eea', textTransform: 'none', fontWeight: '600' }}
               >
-                Edit Lelang
+                Edit Auction
               </Button>
               <Button
                 fullWidth
@@ -283,7 +283,7 @@ const AuctionDetailDialog: React.FC<{
                 startIcon={<DeleteIcon />}
                 sx={{ textTransform: 'none', fontWeight: '600' }}
               >
-                Batalkan Lelang
+                Cancel Auction
               </Button>
             </>
           )}
@@ -292,7 +292,7 @@ const AuctionDetailDialog: React.FC<{
             onClick={onClose}
             sx={{ textTransform: 'none', fontWeight: '600' }}
           >
-            Tutup
+            Close
           </Button>
         </div>
       </div>
