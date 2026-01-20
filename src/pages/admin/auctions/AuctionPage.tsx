@@ -122,6 +122,10 @@ const AuctionDetailDialog: React.FC<{
 }> = ({ open, auction, onClose }) => {
   const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
 
+  React.useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [auction?.id]);
+
   if (!auction) return null;
 
   const isLive = auction.status === 'LIVE';
@@ -129,7 +133,6 @@ const AuctionDetailDialog: React.FC<{
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      {open && selectedImageIndex > (auction.images?.length || 0) - 1 && setSelectedImageIndex(0)}
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box sx={{ fontWeight: 600, fontSize: '16px' }}>{auction.title}</Box>
         <IconButton size="small" onClick={onClose}>
