@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import type { PortalAuction } from '../../data/types';
 import './styles/portal.css';
@@ -17,6 +17,14 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bidSuccess, setBidSuccess] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  // Prevent body scroll when modal opens
+  useEffect(() => {
+    document.body.classList.add('modal-open');
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, []);
 
   const handleBidChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, ''); // Only numbers
@@ -104,26 +112,32 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
           ✕
         </button>
 
-        {/* Success Message */}
-        {bidSuccess && (
-          <div
-            style={{
-              background: '#d1fae5',
-              color: '#065f46',
-              padding: '12px',
-              borderRadius: '8px',
-              marginBottom: '16px',
-              fontSize: '14px',
-              fontWeight: '600',
-              textAlign: 'center',
-            }}
-          >
-            ✓ Penawaran Anda diterima!
-          </div>
-        )}
+        {/* Modal Header */}
+        <div className="modal-header">
+          {/* Success Message */}
+          {bidSuccess && (
+            <div
+              style={{
+                background: '#d1fae5',
+                color: '#065f46',
+                padding: '12px',
+                borderRadius: '8px',
+                marginBottom: '16px',
+                fontSize: '14px',
+                fontWeight: '600',
+                textAlign: 'center',
+              }}
+            >
+              ✓ Penawaran Anda diterima!
+            </div>
+          )}
 
-        {/* Auction Title */}
-        <div className="modal-title">{auction.namaBarang}</div>
+          {/* Auction Title */}
+          <div className="modal-title">{auction.namaBarang}</div>
+        </div>
+
+        {/* Modal Content - Scrollable */}
+        <div className="modal-content">
 
         {/* Image Gallery */}
         {auction.images && auction.images.length > 0 ? (
@@ -134,7 +148,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
                 alt={auction.namaBarang}
                 style={{
                   width: '100%',
-                  height: '200px',
+                  aspectRatio: '4 / 3',
                   objectFit: 'cover',
                   borderRadius: '8px',
                   marginBottom: '8px',
@@ -170,28 +184,30 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
 
         {/* Kategori & Kondisi */}
         <div className="modal-section">
-          <div className="modal-section-title">Kategori & Kondisi</div>
-          <div className="modal-section-content">
-            <div style={{ marginBottom: '8px' }}>
-              📦 {auction.kategori}
+          <div className="modal-section-title">📦 Kategori & Kondisi</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '12px' }}>
+            <div style={{ paddingLeft: '12px', borderLeft: '3px solid #0ea5e9' }}>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Kategori</div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#1f2937' }}>{auction.kategori}</div>
             </div>
-            <div style={{ color: '#22c55e', fontWeight: '700' }}>
-              ✓ {auction.kondisi}
+            <div style={{ paddingLeft: '12px', borderLeft: '3px solid #22c55e' }}>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Kondisi</div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#22c55e' }}>✓ {auction.kondisi}</div>
             </div>
           </div>
         </div>
 
         {/* Deskripsi */}
         <div className="modal-section">
-          <div className="modal-section-title">Deskripsi Barang</div>
-          <div className="modal-section-content" style={{ fontSize: '14px', fontWeight: '500' }}>
+          <div className="modal-section-title">📝 Deskripsi Barang</div>
+          <div style={{ fontSize: '14px', fontWeight: '500', color: '#4b5563', lineHeight: '1.6', marginTop: '12px' }}>
             {auction.deskripsi}
           </div>
         </div>
 
         {/* Harga Info */}
         <div className="modal-section">
-          <div className="modal-section-title">Informasi Harga</div>
+          <div className="modal-section-title">💰 Informasi Harga & Peserta</div>
           <div className="price-box">
             <div className="price-item">
               <div className="price-label">Harga Saat Ini</div>
@@ -220,12 +236,48 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
           </div>
         </div>
 
-        {/* Bid Form */}
+        {/* Aturan Penawaran */}
         <div className="modal-section">
-          <div className="modal-section-title">Penawaran Baru</div>
+          <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.7' }}>
+            <div style={{ fontWeight: '700', marginBottom: '8px', color: '#4b5563', fontSize: '13px' }}>
+              ⚠️ Aturan Penawaran:
+            </div>
+            <ul style={{ marginLeft: '16px', listStyle: 'none' }}>
+              <li>• Penawaran harus lebih tinggi dari harga saat ini</li>
+              <li>• Penawaran harus kelipatan Rp 50.000</li>
+              <li>• Penawaran tidak bisa dibatalkan setelah dikirim</li>
+              <li>• Pemenang harus melunasi dalam 24 jam</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Info Penawaran */}
+        <div className="modal-section">
+          <div
+            style={{
+              fontSize: '13px',
+              color: '#6b7280',
+              padding: '12px 14px',
+              background: '#f9fafb',
+              borderRadius: '8px',
+              border: '1px solid #f0f0f0',
+              lineHeight: '1.6',
+            }}
+          >
+            <div style={{ marginBottom: '6px', fontWeight: '600' }}>💡 Info Penawaran:</div>
+            <div>• Minimum: Rp {minBidAmount.toLocaleString('id-ID')}</div>
+            <div>• Kelipatan: Rp {MIN_BID_INCREMENT.toLocaleString('id-ID')}</div>
+          </div>
+        </div>
+
+        </div>
+
+        {/* Modal Footer - Penawaran Baru (Fixed) */}
+        <div className="modal-footer">
+          <div className="modal-section-title">🏷️ Penawaran Baru</div>
           <form className="bid-form" onSubmit={handleSubmit}>
             {/* Bid Amount Input */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div className="bid-input-group">
                 <div className="bid-prefix">Rp</div>
                 <input
@@ -233,36 +285,24 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
                   className="bid-input"
                   value={formatCurrency(bidAmount)}
                   onChange={handleBidChange}
-                  placeholder="0"
+                  placeholder="Masukkan jumlah penawaran"
                   disabled={isSubmitting || bidSuccess}
                   inputMode="numeric"
                   style={{
                     textAlign: 'right',
                     fontWeight: '600',
                     fontSize: '16px',
+                    color: bidAmount ? '#1f2937' : '#d1d5db',
                   }}
                 />
               </div>
 
-              {/* Bid Info */}
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: '#6b7280',
-                  padding: '8px 0',
-                  lineHeight: '1.6',
-                }}
-              >
-                <div>
-                  • Minimum penawaran: Rp {minBidAmount.toLocaleString('id-ID')}
-                </div>
-                <div>
-                  • Kelipatan: Rp {MIN_BID_INCREMENT.toLocaleString('id-ID')}
-                </div>
-              </div>
-
               {/* Error Message */}
-              {error && <div className="bid-error">❌ {error}</div>}
+              {error && (
+                <div className="bid-error">
+                  {error}
+                </div>
+              )}
 
               {/* Submit Button */}
               <button
@@ -294,7 +334,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
                 ) : bidSuccess ? (
                   <>
                     <span>✓</span>
-                    Berhasil!
+                    Berhasil Dikirim!
                   </>
                 ) : (
                   <>
@@ -305,28 +345,6 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
               </button>
             </div>
           </form>
-        </div>
-
-        {/* Rules */}
-        <div
-          style={{
-            marginTop: '20px',
-            paddingTop: '16px',
-            borderTop: '1px solid #e5e7eb',
-            fontSize: '12px',
-            color: '#6b7280',
-            lineHeight: '1.6',
-          }}
-        >
-          <div style={{ fontWeight: '600', marginBottom: '6px', color: '#4b5563' }}>
-            Aturan Penawaran:
-          </div>
-          <ul style={{ marginLeft: '16px', listStyle: 'none' }}>
-            <li>• Penawaran harus lebih tinggi dari harga saat ini</li>
-            <li>• Penawaran harus kelipatan Rp 50.000</li>
-            <li>• Penawaran tidak bisa dibatalkan setelah dikirim</li>
-            <li>• Pemenang lelang harus menyelesaikan pembayaran dalam 24 jam</li>
-          </ul>
         </div>
       </div>
 

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import './styles/portal.css';
 
 interface ImageModalProps {
@@ -13,6 +14,13 @@ export default function ImageModal({
   caption = '',
   onClose,
 }: ImageModalProps) {
+  // Prevent body scroll when modal opens
+  useEffect(() => {
+    document.body.classList.add('modal-open');
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, []);
   return (
     <>
       <div className="image-backdrop" onClick={onClose} />

@@ -436,13 +436,21 @@ body {
 .auction-modal {
   background: white;
   border-radius: 16px 16px 0 0;
-  padding: 24px;
+  padding: 0;
   width: 100%;
   max-width: 500px;
   max-height: 90vh;
-  overflow-y: auto;
   animation: slideUp 0.3s ease;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Prevent scrolling on body when modal is open */
+body.modal-open {
+  overflow: hidden;
 }
 
 @media (min-width: 768px) {
@@ -452,8 +460,36 @@ body {
   }
 }
 
+/* Modal Header - Fixed */
+.modal-header {
+  padding: 24px;
+  padding-bottom: 12px;
+  border-bottom: none;
+  flex-shrink: 0;
+}
+
+/* Modal Content - Scrollable */
+.modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 24px 24px 24px;
+}
+
+/* Modal Footer - Fixed if needed */
+.modal-footer {
+  padding: 20px 24px;
+  border-top: 1px solid #f0f0f0;
+  flex-shrink: 0;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .modal-close {
-  float: right;
+  position: absolute;
+  top: 16px;
+  right: 16px;
   background: none;
   border: none;
   font-size: 24px;
@@ -466,6 +502,7 @@ body {
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
+  z-index: 10;
 }
 
 .modal-close:hover {
@@ -484,6 +521,14 @@ body {
 
 .modal-section {
   margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.modal-section:last-of-type {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
 .modal-section-title {
@@ -505,16 +550,18 @@ body {
 .price-box {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 12px;
-  background: var(--light);
-  border-radius: 8px;
+  gap: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+  border-radius: 12px;
   margin-bottom: 16px;
+  border: 1px solid #e8ecff;
 }
 
 .price-item {
   display: flex;
   flex-direction: column;
+  gap: 6px;
 }
 
 .price-label {
@@ -533,60 +580,75 @@ body {
 .bid-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  gap: 14px;
+}
+
+.bid-error {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  border-left: 4px solid #dc2626;
 }
 
 .bid-input-group {
   display: flex;
-  gap: 8px;
+  gap: 0;
+  border: 2px solid #e8ecff;
+  border-radius: 10px;
+  background: white;
+  overflow: hidden;
 }
 
 .bid-input {
   flex: 1;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 0;
+  font-size: 16px;
+  font-weight: 600;
   font-family: inherit;
+  background: white;
 }
 
 .bid-input:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+  background: #f8f9ff;
 }
 
 .bid-prefix {
   display: flex;
   align-items: center;
-  padding: 12px 12px;
-  background: var(--light);
-  border-radius: 8px;
-  font-weight: 600;
-  color: #6b7280;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 0;
+  font-weight: 700;
+  color: white;
+  font-size: 18px;
 }
 
 .bid-submit {
-  padding: 12px;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  padding: 14px;
+  background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 600;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
 }
 
 .bid-submit:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(14, 165, 233, 0.3);
+  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.4);
 }
 
 .bid-submit:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
@@ -659,6 +721,7 @@ body {
   align-items: center;
   justify-content: center;
   overflow: auto;
+  aspect-ratio: 4 / 3;
 }
 
 .image-placeholder-large {

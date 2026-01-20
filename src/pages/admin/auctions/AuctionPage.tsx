@@ -8,14 +8,8 @@ import {
   Tabs,
   Tab,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Stack,
   Grid,
   Alert,
-  IconButton,
   Skeleton,
 } from '@mui/material';
 import {
@@ -24,12 +18,11 @@ import {
   Visibility as EyeIcon,
   Add as AddIcon,
   Timer as TimerIcon,
-  CheckCircle as CheckCircleIcon,
-  Close as CloseIcon,
 } from '@mui/icons-material';
 import { auctionService } from '../../../data/services';
 import type { Auction } from '../../../data/types';
 import CreateAuctionModal from './CreateAuctionModal';
+import '../../portal/styles/portal.css';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -114,7 +107,7 @@ const CountdownTimer: React.FC<{ endTime: Date }> = ({ endTime }) => {
   );
 };
 
-// Auction Detail Dialog
+// Auction Detail Dialog - Portal Style
 const AuctionDetailDialog: React.FC<{
   open: boolean;
   auction: Auction | null;
@@ -126,219 +119,184 @@ const AuctionDetailDialog: React.FC<{
     setSelectedImageIndex(0);
   }, [auction?.id]);
 
-  if (!auction) return null;
+  React.useEffect(() => {
+    if (open) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [open]);
 
-  const isLive = auction.status === 'LIVE';
+  if (!auction || !open) return null;
+
   const isEnded = auction.status === 'ENDED';
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box sx={{ fontWeight: 600, fontSize: '16px' }}>{auction.title}</Box>
-        <IconButton size="small" onClick={onClose}>
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="auction-modal" onClick={(e) => e.stopPropagation()}>
+        {/* Close Button */}
+        <button className="modal-close" onClick={onClose}>
+          ✕
+        </button>
 
-      <DialogContent sx={{ py: 3 }}>
-        <Stack spacing={2}>
-          {/* Status */}
-          <Box>
+        {/* Modal Header - Fixed */}
+        <div className="modal-header">
+          <div style={{ marginBottom: '8px', display: 'flex', gap: '8px' }}>
             <StatusBadge status={auction.status} />
-          </Box>
+          </div>
+          <div className="modal-title">{auction.title}</div>
+        </div>
 
+        {/* Modal Content - Scrollable */}
+        <div className="modal-content">
           {/* Image Gallery */}
           {auction.images && auction.images.length > 0 ? (
-            <Box>
-              <Box
-                sx={{
-                  width: '100%',
-                  height: '250px',
-                  backgroundColor: '#f0f0f0',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  mb: 1,
-                }}
-              >
-                <Box
-                  component="img"
+            <div className="modal-section">
+              <div>
+                <img
                   src={auction.images[selectedImageIndex]}
                   alt={auction.title}
-                  sx={{
+                  style={{
                     width: '100%',
-                    height: '100%',
+                    aspectRatio: '4 / 3',
                     objectFit: 'cover',
+                    borderRadius: '8px',
+                    marginBottom: '8px',
                   }}
                 />
-              </Box>
-              {auction.images.length > 1 && (
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))', gap: 1 }}>
-                  {auction.images.map((img, idx) => (
-                    <Box
-                      key={idx}
-                      component="img"
-                      src={img}
-                      alt={`${auction.title} - ${idx + 1}`}
-                      onClick={() => setSelectedImageIndex(idx)}
-                      sx={{
-                        width: '100%',
-                        height: '70px',
-                        objectFit: 'cover',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        border: idx === selectedImageIndex ? '3px solid #667eea' : '1px solid #e0e0e0',
-                        '&:hover': { opacity: 0.8 },
-                        transition: 'all 0.2s ease',
-                      }}
-                    />
-                  ))}
-                </Box>
-              )}
-            </Box>
+                {auction.images.length > 1 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', gap: '8px' }}>
+                    {auction.images.map((img, idx) => (
+                      <img
+                        key={idx}
+                        src={img}
+                        alt={`${auction.title} - ${idx + 1}`}
+                        onClick={() => setSelectedImageIndex(idx)}
+                        style={{
+                          width: '100%',
+                          height: '60px',
+                          objectFit: 'cover',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          border: idx === selectedImageIndex ? '2px solid #667eea' : '1px solid #e0e0e0',
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
-            <Box
-              sx={{
-                height: '200px',
-                backgroundColor: '#f0f0f0',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Typography variant="body2" color="textSecondary">
-                [No Image Available]
-              </Typography>
-            </Box>
+            <div className="modal-section" style={{ backgroundColor: '#f0f0f0', padding: '20px', borderRadius: '8px', textAlign: 'center', color: '#999' }}>
+              [No Images Available]
+            </div>
           )}
+
+          {/* Category & Condition */}
+          <div className="modal-section">
+            <div className="modal-section-title">📦 Kategori & Kondisi</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '12px' }}>
+              <div style={{ paddingLeft: '12px', borderLeft: '3px solid #0ea5e9' }}>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Kategori</div>
+                <div style={{ fontSize: '15px', fontWeight: '700', color: '#1f2937' }}>{auction.category}</div>
+              </div>
+              <div style={{ paddingLeft: '12px', borderLeft: '3px solid #22c55e' }}>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Kondisi</div>
+                <div style={{ fontSize: '15px', fontWeight: '700', color: '#22c55e' }}>✓ Bekas - Sangat Baik</div>
+              </div>
+            </div>
+          </div>
 
           {/* Description */}
-          <Box>
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-              Description
-            </Typography>
-            <Typography variant="body2">{auction.description}</Typography>
-          </Box>
+          <div className="modal-section">
+            <div className="modal-section-title">📝 Deskripsi</div>
+            <div style={{ fontSize: '14px', color: '#4b5563', lineHeight: 1.6, marginTop: '12px' }}>
+              {auction.description}
+            </div>
+          </div>
 
-          {/* Prices */}
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Typography variant="caption" color="textSecondary">
-                Starting Price
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: '#667eea' }}>
-                Rp {auction.startingPrice.toLocaleString('id-ID')}
-              </Typography>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Typography variant="caption" color="textSecondary">
-                Reserve Price
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: '#764ba2' }}>
-                Rp {auction.reservePrice.toLocaleString('id-ID')}
-              </Typography>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Typography variant="caption" color="textSecondary">
-                Current Bid
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: '#22c55e' }}>
-                Rp {auction.currentBid.toLocaleString('id-ID')}
-              </Typography>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Typography variant="caption" color="textSecondary">
-                Total Bids
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: '#f97316' }}>
-                {auction.totalBids}
-              </Typography>
-            </Grid>
-          </Grid>
-
-          {/* Timer for Live */}
-          {isLive && (
-            <Alert severity="warning" icon={<TimerIcon />}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Auction is live!</span>
-                <CountdownTimer endTime={auction.endTime} />
-              </Box>
-            </Alert>
-          )}
-
-          {/* Current Bidder */}
-          {auction.currentBidder && (
-            <Box>
-              <Typography variant="caption" color="textSecondary">
-                Current Highest Bidder
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {auction.currentBidder}
-              </Typography>
-            </Box>
-          )}
-
-          {/* Engagement */}
-          <Box>
-            <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block' }}>
-              Engagement
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Box>
-                <Typography variant="caption" color="textSecondary">
-                  Views
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {auction.viewCount}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="textSecondary">
-                  Bids
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {auction.totalBids}
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-
-          {/* End Time */}
-          <Box>
-            <Typography variant="caption" color="textSecondary">
-              End Time
-            </Typography>
-            <Typography variant="body2">
-              {auction.endTime.toLocaleString('id-ID')}
-            </Typography>
-          </Box>
+          {/* Prices & Participants */}
+          <div className="modal-section">
+            <div className="modal-section-title">💰 Informasi Harga & Peserta</div>
+            <div style={{ backgroundColor: '#f0f4ff', padding: '16px', borderRadius: '8px', marginTop: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px 16px' }}>
+                {/* Row 1 */}
+                <div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Harga Saat Ini</div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#0ea5e9' }}>
+                    Rp {auction.currentBid.toLocaleString('id-ID')}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Harga Reserve</div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#764ba2' }}>
+                    Rp {auction.reservePrice.toLocaleString('id-ID')}
+                  </div>
+                </div>
+                {/* Row 2 */}
+                <div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>⏰ Waktu Berakhir</div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#f97316' }}>
+                    {auction.endTime.toLocaleDateString('id-ID')}, {auction.endTime.toLocaleTimeString('id-ID')}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Total Peserta</div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#0ea5e9' }}>
+                    {auction.totalBids} orang
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Results */}
           {isEnded && (
-            <Alert severity="success" icon={<CheckCircleIcon />}>
-              <Typography variant="body2">
-                ✓ Auction Completed
-                {auction.currentBidder && ` - Won by ${auction.currentBidder}`}
-              </Typography>
-            </Alert>
+            <div className="modal-section">
+              <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '12px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textAlign: 'center', borderLeft: '3px solid #22c55e' }}>
+                ✓ Lelang Selesai
+                {auction.currentBidder && ` - Dimenangkan oleh ${auction.currentBidder}`}
+              </div>
+            </div>
           )}
-        </Stack>
-      </DialogContent>
+        </div>
 
-      <DialogActions>
-        {!isEnded && (
-          <>
-            <Button variant="outlined" startIcon={<EditIcon />}>
-              Edit
-            </Button>
-            <Button variant="contained" color="error" startIcon={<DeleteIcon />}>
-              Cancel Auction
-            </Button>
-          </>
-        )}
-        <Button onClick={onClose}>Close</Button>
-      </DialogActions>
-    </Dialog>
+        {/* Modal Footer - Fixed */}
+        <div className="modal-footer">
+          {!isEnded && (
+            <>
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={<EditIcon />}
+                sx={{ backgroundColor: '#667eea', textTransform: 'none', fontWeight: '600' }}
+              >
+                Edit Lelang
+              </Button>
+              <Button
+                fullWidth
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteIcon />}
+                sx={{ textTransform: 'none', fontWeight: '600' }}
+              >
+                Batalkan Lelang
+              </Button>
+            </>
+          )}
+          <Button
+            fullWidth
+            onClick={onClose}
+            sx={{ textTransform: 'none', fontWeight: '600' }}
+          >
+            Tutup
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -409,14 +367,14 @@ const AuctionPage: React.FC = () => {
         <Box sx={{ mb: 4 }}>
           <Skeleton variant="text" width="30%" height={40} />
         </Box>
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 3 }}>
-          {[1, 2, 3, 4].map((i) => (
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(calc((100% - 32px) / 5), 1fr))', gap: 2.5 }}>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
             <Card key={i} sx={{ height: '300px' }}>
               <CardContent>
+                <Skeleton variant="rectangular" height={150} sx={{ mb: 2 }} />
                 <Skeleton variant="text" width="80%" />
                 <Skeleton variant="text" width="60%" sx={{ mt: 1 }} />
-                <Skeleton variant="rectangular" height={100} sx={{ mt: 2, mb: 1 }} />
-                <Skeleton variant="text" width="40%" />
+                <Skeleton variant="text" width="40%" sx={{ mt: 2 }} />
               </CardContent>
             </Card>
           ))}
@@ -588,28 +546,30 @@ const AuctionListTable: React.FC<{
   return (
     <Grid container spacing={2.5}>
       {auctions.map((auction) => (
-        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={auction.id}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={auction.id}>
           <Card
             sx={{
-              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-              borderRadius: '12px',
-              transition: 'all 0.3s ease',
-              border: auction.status === 'LIVE' ? '2px solid #ef4444' : '1px solid transparent',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              borderRadius: '14px',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              border: auction.status === 'LIVE' ? '1px solid #ef4444' : '1px solid #f0f0f0',
               '&:hover': {
-                boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
-                transform: 'translateY(-4px)',
+                boxShadow: '0 12px 24px rgba(0,0,0,0.12)',
+                transform: 'translateY(-6px)',
+                borderColor: auction.status === 'LIVE' ? '#ef4444' : '#e0e0e0',
               },
               display: 'flex',
               flexDirection: 'column',
               height: '100%',
             }}
           >
-            {/* Image Placeholder */}
+            {/* Image Container */}
             <Box
               sx={{
-                height: '160px',
-                backgroundColor: '#f0f0f0',
-                borderRadius: '12px 12px 0 0',
+                width: '100%',
+                aspectRatio: '4 / 3',
+                backgroundColor: '#f5f5f5',
+                borderRadius: '14px 14px 0 0',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -626,6 +586,7 @@ const AuctionListTable: React.FC<{
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
+                    transition: 'transform 0.3s ease',
                   }}
                 />
               ) : (
@@ -633,78 +594,219 @@ const AuctionListTable: React.FC<{
                   [No Image]
                 </Typography>
               )}
-              {/* Status Badge on Image */}
-              <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
-                <StatusBadge status={auction.status} />
+              {/* Status Badge - Gradient */}
+              <Box 
+                sx={{ 
+                  position: 'absolute', 
+                  top: 12, 
+                  right: 12,
+                  zIndex: 2
+                }}
+              >
+                {auction.status === 'LIVE' && (
+                  <Box
+                    sx={{
+                      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                      color: 'white',
+                      padding: '6px 12px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <span style={{ fontSize: '10px', animation: 'pulse 2s infinite' }}>●</span>
+                    Live
+                  </Box>
+                )}
               </Box>
             </Box>
 
             {/* Card Content */}
-            <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5, padding: '16px' }}>
               {/* Title & Category */}
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, fontSize: '15px' }}>
+              <Box sx={{ pb: 1 }}>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: '700', 
+                    fontSize: '15px',
+                    color: '#1f2937',
+                    lineHeight: 1.3,
+                    mb: 0.25,
+                  }}
+                  noWrap
+                >
                   {auction.title}
                 </Typography>
-                <Typography variant="caption" color="textSecondary">
+                <Typography 
+                  variant="caption" 
+                  sx={{
+                    color: '#9ca3af',
+                    fontSize: '12px',
+                  }}
+                >
                   {auction.category}
                 </Typography>
               </Box>
 
-              {/* Price Info */}
-              <Box sx={{ bgcolor: '#f5f5f5', p: 1.5, borderRadius: '8px' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="caption" color="textSecondary">
-                    Current Bid
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    Bids
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#22c55e' }}>
-                    Rp {auction.currentBid.toLocaleString('id-ID')}
-                  </Typography>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              {/* Price Info - Compact */}
+              <Box 
+                sx={{ 
+                  background: 'linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%)',
+                  p: 1.5,
+                  borderRadius: '10px',
+                  border: '1px solid #e8ecff',
+                }}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box>
+                    <Typography 
+                      variant="caption" 
+                      sx={{
+                        color: '#6b7280',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        display: 'block',
+                        mb: 0.25,
+                      }}
+                    >
+                      Bid
+                    </Typography>
+                    <Typography 
+                      sx={{ 
+                        fontWeight: '700', 
+                        color: '#22c55e',
+                        fontSize: '15px',
+                      }}
+                    >
+                      Rp {auction.currentBid.toLocaleString('id-ID')}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                      color: '#92400e',
+                      padding: '6px 10px',
+                      borderRadius: '8px',
+                      fontWeight: '700',
+                      fontSize: '13px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div style={{ fontSize: '11px', color: '#92400e' }}>Bids</div>
                     {auction.totalBids}
-                  </Typography>
+                  </Box>
                 </Box>
               </Box>
 
-              {/* Timer or Status */}
+              {/* Timer or Status - Compact */}
               {auction.status === 'LIVE' || auction.status === 'ENDING' ? (
-                <Box sx={{ bgcolor: '#fef3c7', p: 1.5, borderRadius: '8px', display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CountdownTimer endTime={auction.endTime} />
+                <Box 
+                  sx={{ 
+                    background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                    p: 1.5,
+                    borderRadius: '10px',
+                    border: '1px solid #fcd34d',
+                  }}
+                >
+                  <Typography 
+                    sx={{ 
+                      fontSize: '11px', 
+                      fontWeight: '700', 
+                      color: '#92400e',
+                      mb: 0.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    🔴 Lelang berakhir
+                  </Typography>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CountdownTimer endTime={auction.endTime} />
+                  </div>
                 </Box>
               ) : (
-                <Box sx={{ bgcolor: '#f0f0f0', p: 1.5, borderRadius: '8px' }}>
-                  <Typography variant="caption" color="textSecondary">
+                <Box 
+                  sx={{ 
+                    bgcolor: '#f3f4f6', 
+                    p: 1.5, 
+                    borderRadius: '10px',
+                    border: '1px solid #e5e7eb',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography 
+                    variant="caption" 
+                    sx={{
+                      color: '#6b7280',
+                      fontWeight: '600',
+                      fontSize: '12px',
+                    }}
+                  >
                     {auction.status === 'DRAFT' || auction.status === 'SCHEDULED'
-                      ? 'Not Started'
-                      : 'Ended'}
+                      ? '⏱️ Not Started'
+                      : '✓ Ended'}
                   </Typography>
                 </Box>
               )}
 
-              {/* View Count */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="caption" color="textSecondary">
-                  👁️ {auction.viewCount} views
+              {/* Engagement Info - Compact */}
+              <Box 
+                sx={{ 
+                  display: 'flex',
+                  gap: 2,
+                  py: 0.5,
+                  fontSize: '12px',
+                }}
+              >
+                <Typography 
+                  sx={{
+                    color: '#6b7280',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                  }}
+                >
+                  👁️ {auction.viewCount}
                 </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  💬 {auction.totalBids} bids
+                <Typography 
+                  sx={{
+                    color: '#6b7280',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                  }}
+                >
+                  💬 {auction.totalBids}
                 </Typography>
               </Box>
 
-              {/* Action Buttons */}
-              <Box sx={{ display: 'flex', gap: 1, mt: 'auto' }}>
+              {/* Action Buttons - Compact */}
+              <Box sx={{ display: 'flex', gap: 1, mt: 'auto', pt: 1 }}>
                 <Button
                   fullWidth
                   size="small"
                   variant="contained"
-                  startIcon={<EyeIcon />}
+                  startIcon={<EyeIcon sx={{ fontSize: '16px' }} />}
                   onClick={() => onViewDetail(auction)}
-                  sx={{ bgcolor: '#667eea', fontSize: '12px' }}
+                  sx={{ 
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    textTransform: 'none',
+                    fontWeight: '600',
+                    fontSize: '12px',
+                    padding: '8px 12px',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      boxShadow: '0 8px 20px rgba(102, 126, 234, 0.3)',
+                      transform: 'translateY(-2px)',
+                    },
+                  }}
                 >
                   View
                 </Button>
@@ -713,8 +815,21 @@ const AuctionListTable: React.FC<{
                     fullWidth
                     size="small"
                     variant="outlined"
-                    startIcon={<EditIcon />}
-                    sx={{ fontSize: '12px' }}
+                    startIcon={<EditIcon sx={{ fontSize: '16px' }} />}
+                    sx={{ 
+                      textTransform: 'none',
+                      fontWeight: '600',
+                      fontSize: '12px',
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      borderColor: '#e5e7eb',
+                      color: '#667eea',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.04)',
+                      },
+                    }}
                   >
                     Edit
                   </Button>
