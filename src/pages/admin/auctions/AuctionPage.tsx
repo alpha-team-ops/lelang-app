@@ -128,7 +128,7 @@ const AuctionDetailDialog: React.FC<{
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h6">{auction.title}</Typography>
+        <Box sx={{ fontWeight: 600, fontSize: '16px' }}>{auction.title}</Box>
         <IconButton size="small" onClick={onClose}>
           <CloseIcon />
         </IconButton>

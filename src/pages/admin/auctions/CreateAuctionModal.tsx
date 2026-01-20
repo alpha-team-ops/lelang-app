@@ -219,7 +219,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
           alignItems: 'center',
           fontWeight: 700,
           fontSize: '18px',
-          pb: 1.5,
+          pb: 3,
           borderBottom: '1px solid #e0e0e0',
         }}
       >
@@ -233,7 +233,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
         </Button>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: 2.5, maxHeight: '70vh', overflowY: 'auto' }}>
+      <DialogContent sx={{ pb: 3, px: 3, maxHeight: '70vh', overflowY: 'auto', '&.MuiDialogContent-root': { pt: 3 } }}>
         <Stack spacing={2}>
           {/* Section 1: Judul Barang */}
           <Box>
