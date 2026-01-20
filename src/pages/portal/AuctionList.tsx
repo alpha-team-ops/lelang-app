@@ -186,8 +186,8 @@ export default function AuctionList() {
                   </div>
                 </div>
                 <div className="info-item">
-                  <div className="info-label">Peserta</div>
-                  <div className="info-value participants">{auction.peserta} orang</div>
+                  <div className="info-label">Participants</div>
+                  <div className="info-value participants">{auction.peserta} people</div>
                 </div>
               </div>
 
@@ -202,7 +202,7 @@ export default function AuctionList() {
                 className="auction-button"
                 onClick={() => setSelectedAuction(auction)}
               >
-                💰 Lakukan Penawaran
+                💰 Place Bid
               </button>
             </div>
           </div>

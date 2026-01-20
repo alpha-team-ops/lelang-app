@@ -39,7 +39,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
 
   const validateBid = (): boolean => {
     if (!bidAmount) {
-      setError('Silakan masukkan jumlah penawaran');
+      setError('Please enter a bid amount');
       return false;
     }
 
@@ -47,20 +47,20 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
     const minBid = auction.hargaSaatIni + MIN_BID_INCREMENT;
 
     if (bidValue <= auction.hargaSaatIni) {
-      setError(`Penawaran harus lebih tinggi dari Rp ${auction.hargaSaatIni.toLocaleString('id-ID')}`);
+      setError(`Bid must be higher than Rp ${auction.hargaSaatIni.toLocaleString('id-ID')}`);
       return false;
     }
 
     if ((bidValue - auction.hargaSaatIni) % MIN_BID_INCREMENT !== 0) {
       setError(
-        `Penawaran harus kelipatan Rp ${MIN_BID_INCREMENT.toLocaleString('id-ID')} dari harga saat ini`
+        `Bid must be multiple of Rp ${MIN_BID_INCREMENT.toLocaleString('id-ID')} from current price`
       );
       return false;
     }
 
     if (bidValue < minBid) {
       setError(
-        `Penawaran minimum adalah Rp ${minBid.toLocaleString('id-ID')}`
+        `Minimum bid is Rp ${minBid.toLocaleString('id-ID')}`
       );
       return false;
     }
@@ -96,7 +96,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
         onClose();
       }, 1500);
     } catch (err) {
-      setError('Gagal mengirim penawaran. Silakan coba lagi.');
+      setError('Failed to submit bid. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -128,7 +128,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
                 textAlign: 'center',
               }}
             >
-              ✓ Penawaran Anda diterima!
+              ✓ Your bid has been submitted!
             </div>
           )}
 
@@ -182,16 +182,16 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
           </div>
         )}
 
-        {/* Kategori & Kondisi */}
+        {/* Category & Condition */}
         <div className="modal-section">
-          <div className="modal-section-title">📦 Kategori & Kondisi</div>
+          <div className="modal-section-title">📦 Category & Condition</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '12px' }}>
             <div style={{ paddingLeft: '12px', borderLeft: '3px solid #0ea5e9' }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Kategori</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Category</div>
               <div style={{ fontSize: '15px', fontWeight: '700', color: '#1f2937' }}>{auction.kategori}</div>
             </div>
             <div style={{ paddingLeft: '12px', borderLeft: '3px solid #22c55e' }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Kondisi</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Condition</div>
               <div style={{ fontSize: '15px', fontWeight: '700', color: '#22c55e' }}>✓ {auction.kondisi}</div>
             </div>
           </div>
