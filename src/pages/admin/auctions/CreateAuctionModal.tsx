@@ -212,7 +212,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
     if (!formData.condition) newErrors.condition = 'Kondisi wajib dipilih';
     if (formData.startingPrice === '' || formData.startingPrice <= 0)
       newErrors.startingPrice = 'Harga Awal harus lebih besar dari 0';
-    if (formData.reservePrice === '' || formData.reservePrice <= 0)
+    if (formData.reservePrice !== '' && formData.reservePrice <= 0)
       newErrors.reservePrice = 'Harga Saat Ini harus lebih besar dari 0';
     if (formData.bidIncrement === '' || formData.bidIncrement <= 0)
       newErrors.bidIncrement = 'Kelipatan Penawaran harus lebih besar dari 0';
