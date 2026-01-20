@@ -282,44 +282,47 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
         </Button>
       </DialogTitle>
 
-      <DialogContent sx={{ pb: 3, px: 3, maxHeight: '70vh', overflowY: 'auto', '&.MuiDialogContent-root': { pt: 3 } }}>
-        <Stack spacing={2}>
+      <DialogContent sx={{ pb: 3, px: 3, maxHeight: '80vh', overflowY: 'auto', '&.MuiDialogContent-root': { pt: 3 } }}>
+        <Stack spacing={4}>
           {/* Section 0: Gambar Barang */}
-          <Box>
-            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, color: '#1f2937' }}>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
               📸 GAMBAR BARANG
             </Typography>
             <Box
+              component="label"
               sx={{
-                border: '2px dashed #e0e0e0',
+                display: 'block',
+                border: '1px solid #e0e0e0',
                 borderRadius: '8px',
-                p: 2,
-                textAlign: 'center',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
-                bgcolor: '#f9f9f9',
                 '&:hover': {
                   borderColor: '#667eea',
-                  bgcolor: '#f0f4ff',
+                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.15)',
+                  bgcolor: '#f9f9f9',
                 },
               }}
-              component="label"
             >
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleImageUpload}
-                style={{ display: 'none' }}
-              />
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                <CloudUploadIcon sx={{ fontSize: '32px', color: '#667eea' }} />
-                <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea' }}>
-                  Klik atau drag gambar di sini
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  Format: JPG, PNG, GIF (Max 5 gambar)
-                </Typography>
+              <Box sx={{ py: 3, px: 3, textAlign: 'center' }}>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  style={{ display: 'none' }}
+                />
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 1 }}>
+                  <CloudUploadIcon sx={{ fontSize: '48px', color: '#667eea' }} />
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography sx={{ fontWeight: 600, color: '#667eea', fontSize: '15px', lineHeight: 1.4 }}>
+                      Klik atau drag gambar di sini
+                    </Typography>
+                    <Typography sx={{ color: '#999', fontSize: '13px', lineHeight: 1.4, mt: 0.75 }}>
+                      JPG, PNG, GIF (Max 5 gambar)
+                    </Typography>
+                  </Box>
+                </Box>
               </Box>
             </Box>
 
