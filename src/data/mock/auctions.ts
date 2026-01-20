@@ -42,9 +42,9 @@ export const adminAuctionsMock: Auction[] = [
     currentBidder: 'Pembeli_123',
     image: '💻',
     images: [
-      PLACEHOLDER_IMAGES.laptop,
-      createSVGPlaceholder('667eea', 'Laptop Angle 1'),
-      createSVGPlaceholder('667eea', 'Laptop Angle 2'),
+      'https://www.asus.com/media/Odin/Websites/global/Series/30.png',
+      'https://www.asus.com/media/Odin/Websites/global/ProductLine/20200824120842.jpg',
+      'https://awsimages.detik.net.id/community/media/visual/2020/08/02/asus-rog-zephyrus-duo-15_169.png?w=620',
     ],
     viewCount: 342,
     participantCount: 12,
