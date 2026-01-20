@@ -25,7 +25,10 @@ function App() {
       <CssBaseline />
       <BrowserRouter>
         <Routes>
-          {/* Public routes */}
+          {/* Catch-all for root */}
+          <Route path="/" element={<Navigate to="/admin" replace />} />
+
+          {/* Public auth routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/access-denied" element={<AccessDeniedPage />} />
@@ -56,8 +59,7 @@ function App() {
             ))}
           </Route>
 
-          {/* Catch all - redirect to admin */}
-          <Route path="/" element={<Navigate to="/admin" replace />} />
+          {/* Catch all - redirect to login for undefined routes */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
