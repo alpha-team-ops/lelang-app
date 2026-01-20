@@ -164,6 +164,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
 
     const newPreviews: string[] = [];
     const newFiles: File[] = [];
+    let loadedCount = 0;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -176,6 +177,12 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
       reader.onload = (event) => {
         if (event.target?.result) {
           newPreviews.push(event.target.result as string);
+          loadedCount++;
+
+          // Update state once all images are loaded
+          if (loadedCount === Object.keys(newFiles).length) {
+            setImagePreviews((prev) => [...prev, ...newPreviews]);
+          }
         }
       };
       reader.readAsDataURL(file);
@@ -186,10 +193,6 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
       ...prev,
       images: [...(prev.images || []), ...newFiles],
     }));
-
-    setTimeout(() => {
-      setImagePreviews((prev) => [...prev, ...newPreviews]);
-    }, 100);
   };
 
   const handleRemoveImage = (index: number) => {
