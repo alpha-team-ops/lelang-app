@@ -54,8 +54,6 @@ export default function PortalForm() {
 
     if (!formData.idNip.trim()) {
       newErrors.idNip = 'ID/NIP harus diisi';
-    } else if (!/^\d{10,}$/.test(formData.idNip)) {
-      newErrors.idNip = 'ID/NIP harus berupa angka minimal 10 digit';
     }
 
     if (!formData.direktorat.trim()) {
