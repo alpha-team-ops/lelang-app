@@ -2,84 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserSession, clearUserSession, getSessionRemainingTime, formatRemainingTime } from './utils/sessionManager';
 import { auctionService } from '../../data/services';
+import { portalAuctionsMock } from '../../data/mock/auctions';
 import type { PortalAuction } from '../../data/types';
 import AuctionModal from './AuctionModal';
 import './styles/portal.css';
-
-const dummyAuctions: PortalAuction[] = [
-  {
-    id: '1',
-    namaBarang: 'Laptop ASUS ROG Gaming',
-    kategori: 'Elektronik',
-    kondisi: 'Bekas - Sangat Baik',
-    hargaSaatIni: 8500000,
-    hargaReserve: 7500000,
-    sisaWaktu: '2h 45m 30s',
-    peserta: 12,
-    deskripsi: 'Laptop gaming performance tinggi, 15.6" FHD 144Hz, RTX 4080, RAM 32GB',
-    gambar: '💻',
-  },
-  {
-    id: '2',
-    namaBarang: 'iPhone 14 Pro Max 256GB',
-    kategori: 'Smartphone',
-    kondisi: 'Bekas - Seperti Baru',
-    hargaSaatIni: 12000000,
-    hargaReserve: 11500000,
-    sisaWaktu: '4h 20m 15s',
-    peserta: 28,
-    deskripsi: 'Dalam kondisi sempurna, lengkap dengan box dan aksesori original',
-    gambar: '📱',
-  },
-  {
-    id: '3',
-    namaBarang: 'Canon EOS R5 Mirrorless',
-    kategori: 'Kamera',
-    kondisi: 'Bekas - Baik',
-    hargaSaatIni: 18000000,
-    hargaReserve: 16500000,
-    sisaWaktu: '1h 15m 45s',
-    peserta: 8,
-    deskripsi: 'Kamera profesional 45MP, 8K video recording, AF canggih',
-    gambar: '📷',
-  },
-  {
-    id: '4',
-    namaBarang: 'Apple Watch Series 8',
-    kategori: 'Wearable',
-    kondisi: 'Bekas - Sangat Baik',
-    hargaSaatIni: 4500000,
-    hargaReserve: 4000000,
-    sisaWaktu: '6h 30m 00s',
-    peserta: 15,
-    deskripsi: '41mm Midnight, semua fitur berfungsi dengan baik',
-    gambar: '⌚',
-  },
-  {
-    id: '5',
-    namaBarang: 'iPad Pro 12.9" M2',
-    kategori: 'Tablet',
-    kondisi: 'Bekas - Sangat Baik',
-    hargaSaatIni: 9000000,
-    hargaReserve: 8200000,
-    sisaWaktu: '3h 50m 20s',
-    peserta: 10,
-    deskripsi: '256GB storage, Magic Keyboard included, baterai masih bagus',
-    gambar: '📊',
-  },
-  {
-    id: '6',
-    namaBarang: 'Sony WH-1000XM5 Headphones',
-    kategori: 'Audio',
-    kondisi: 'Bekas - Seperti Baru',
-    hargaSaatIni: 3500000,
-    hargaReserve: 3000000,
-    sisaWaktu: '12h 00m 00s',
-    peserta: 20,
-    deskripsi: 'Premium noise-cancelling headphones, koleksi pribadi',
-    gambar: '🎧',
-  },
-];
 
 export default function AuctionList() {
   const navigate = useNavigate();
@@ -103,8 +29,8 @@ export default function AuctionList() {
         const errorMsg = err instanceof Error ? err.message : 'Failed to load auctions';
         setError(errorMsg);
         console.error('Error loading auctions:', err);
-        // Fallback to dummy data if error
-        setAuctions(dummyAuctions);
+        // Fallback to mock data if error
+        setAuctions(portalAuctionsMock);
       } finally {
         setLoading(false);
       }
@@ -229,7 +155,19 @@ export default function AuctionList() {
           <div key={auction.id} className="auction-card">
             {/* Image */}
             <div className="auction-image">
-              <div className="auction-image-placeholder">{auction.gambar}</div>
+              {auction.images && auction.images.length > 0 ? (
+                <img 
+                  src={auction.images[0]} 
+                  alt={auction.namaBarang}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                />
+              ) : (
+                <div className="auction-image-placeholder">{auction.gambar}</div>
+              )}
               <div className="auction-category-badge">{auction.kategori}</div>
             </div>
 

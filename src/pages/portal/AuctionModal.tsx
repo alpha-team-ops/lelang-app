@@ -1,22 +1,10 @@
 import { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
+import type { PortalAuction } from '../../data/types';
 import './styles/portal.css';
 
-interface Auction {
-  id: string;
-  namaBarang: string;
-  kategori: string;
-  kondisi: string;
-  hargaSaatIni: number;
-  hargaReserve: number;
-  sisaWaktu: string;
-  peserta: number;
-  deskripsi: string;
-  gambar: string;
-}
-
 interface AuctionModalProps {
-  auction: Auction;
+  auction: PortalAuction;
   onClose: () => void;
   onBidSuccess: (newPrice: number) => void;
 }
@@ -28,6 +16,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
   const [error, setError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bidSuccess, setBidSuccess] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const handleBidChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, ''); // Only numbers
@@ -135,6 +124,49 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
 
         {/* Auction Title */}
         <div className="modal-title">{auction.namaBarang}</div>
+
+        {/* Image Gallery */}
+        {auction.images && auction.images.length > 0 ? (
+          <div className="modal-section">
+            <div style={{ marginBottom: '12px' }}>
+              <img
+                src={auction.images[selectedImageIndex]}
+                alt={auction.namaBarang}
+                style={{
+                  width: '100%',
+                  height: '200px',
+                  objectFit: 'cover',
+                  borderRadius: '8px',
+                  marginBottom: '8px',
+                }}
+              />
+              {auction.images.length > 1 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', gap: '8px' }}>
+                  {auction.images.map((img, idx) => (
+                    <img
+                      key={idx}
+                      src={img}
+                      alt={`${auction.namaBarang} - ${idx + 1}`}
+                      onClick={() => setSelectedImageIndex(idx)}
+                      style={{
+                        width: '100%',
+                        height: '60px',
+                        objectFit: 'cover',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        border: idx === selectedImageIndex ? '2px solid #667eea' : '1px solid #e0e0e0',
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="modal-section" style={{ backgroundColor: '#f0f0f0', padding: '20px', borderRadius: '8px', textAlign: 'center', color: '#999' }}>
+            [No Images Available]
+          </div>
+        )}
 
         {/* Kategori & Kondisi */}
         <div className="modal-section">

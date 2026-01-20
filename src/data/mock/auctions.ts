@@ -1,14 +1,19 @@
 import type { Auction, PortalAuction } from '../types/index';
 
-// Placeholder image URLs - using placeholder.com for reliability
+// Helper function to create SVG placeholder
+const createSVGPlaceholder = (color: string, text: string): string => {
+  return `data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Crect fill='%23${color}' width='400' height='400'/%3E%3Ctext x='200' y='200' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='white'%3E${text.substring(0, 20)}%3C/text%3E%3C/svg%3E`;
+};
+
+// Placeholder image URLs - using SVG data URLs for reliability
 const PLACEHOLDER_IMAGES = {
-  laptop: 'https://via.placeholder.com/400x400/667eea/ffffff?text=Laptop+ASUS+ROG',
-  iphone: 'https://via.placeholder.com/400x400/222/fff?text=iPhone+14+Pro',
-  camera: 'https://via.placeholder.com/400x400/f97316/fff?text=Canon+EOS+R5',
-  watch: 'https://via.placeholder.com/400x400/764ba2/fff?text=Apple+Watch',
-  ipad: 'https://via.placeholder.com/400x400/3b82f6/fff?text=iPad+Pro+M2',
-  headphones: 'https://via.placeholder.com/400x400/fbbf24/000?text=Sony+Headphones',
-  chair: 'https://via.placeholder.com/400x400/ec4899/fff?text=Gaming+Chair',
+  laptop: createSVGPlaceholder('667eea', 'Laptop'),
+  iphone: createSVGPlaceholder('222222', 'iPhone'),
+  camera: createSVGPlaceholder('f97316', 'Camera'),
+  watch: createSVGPlaceholder('764ba2', 'Watch'),
+  ipad: createSVGPlaceholder('3b82f6', 'iPad'),
+  headphones: createSVGPlaceholder('fbbf24', 'Headphones'),
+  chair: createSVGPlaceholder('ec4899', 'Chair'),
 };
 
 // Admin Auctions Mock Data
@@ -32,8 +37,8 @@ export const adminAuctionsMock: Auction[] = [
     image: '💻',
     images: [
       PLACEHOLDER_IMAGES.laptop,
-      'https://via.placeholder.com/400x400/667eea/ffffff?text=Laptop+Angle+1',
-      'https://via.placeholder.com/400x400/667eea/ffffff?text=Laptop+Angle+2',
+      createSVGPlaceholder('667eea', 'Laptop Angle 1'),
+      createSVGPlaceholder('667eea', 'Laptop Angle 2'),
     ],
     viewCount: 342,
     participantCount: 12,
@@ -57,9 +62,9 @@ export const adminAuctionsMock: Auction[] = [
     image: '📱',
     images: [
       PLACEHOLDER_IMAGES.iphone,
-      'https://via.placeholder.com/400x400/222/fff?text=iPhone+Front',
-      'https://via.placeholder.com/400x400/222/fff?text=iPhone+Back',
-      'https://via.placeholder.com/400x400/222/fff?text=iPhone+Box',
+      createSVGPlaceholder('222222', 'iPhone Front'),
+      createSVGPlaceholder('222222', 'iPhone Back'),
+      createSVGPlaceholder('222222', 'iPhone Box'),
     ],
     viewCount: 892,
     participantCount: 28,
@@ -83,8 +88,8 @@ export const adminAuctionsMock: Auction[] = [
     image: '📷',
     images: [
       PLACEHOLDER_IMAGES.camera,
-      'https://via.placeholder.com/400x400/f97316/fff?text=Camera+Angle+1',
-      'https://via.placeholder.com/400x400/f97316/fff?text=Camera+Lens',
+      createSVGPlaceholder('f97316', 'Camera Angle 1'),
+      createSVGPlaceholder('f97316', 'Camera Lens'),
     ],
     viewCount: 456,
     participantCount: 8,
@@ -107,7 +112,7 @@ export const adminAuctionsMock: Auction[] = [
     image: '⌚',
     images: [
       PLACEHOLDER_IMAGES.watch,
-      'https://via.placeholder.com/400x400/764ba2/fff?text=Watch+Front',
+      createSVGPlaceholder('764ba2', 'Watch Front'),
     ],
     viewCount: 234,
     participantCount: 15,
@@ -131,8 +136,8 @@ export const adminAuctionsMock: Auction[] = [
     image: '📊',
     images: [
       PLACEHOLDER_IMAGES.ipad,
-      'https://via.placeholder.com/400x400/3b82f6/fff?text=iPad+Front',
-      'https://via.placeholder.com/400x400/3b82f6/fff?text=iPad+Back',
+      createSVGPlaceholder('3b82f6', 'iPad Front'),
+      createSVGPlaceholder('3b82f6', 'iPad Back'),
     ],
     viewCount: 567,
     participantCount: 10,
@@ -156,7 +161,7 @@ export const adminAuctionsMock: Auction[] = [
     image: '🎧',
     images: [
       PLACEHOLDER_IMAGES.headphones,
-      'https://via.placeholder.com/400x400/fbbf24/000?text=Headphones+Side',
+      createSVGPlaceholder('fbbf24', 'Headphones Side'),
     ],
     viewCount: 678,
     participantCount: 20,
@@ -179,9 +184,9 @@ export const adminAuctionsMock: Auction[] = [
     image: '🪑',
     images: [
       PLACEHOLDER_IMAGES.chair,
-      'https://via.placeholder.com/400x400/ec4899/fff?text=Chair+Front',
-      'https://via.placeholder.com/400x400/ec4899/fff?text=Chair+Side',
-      'https://via.placeholder.com/400x400/ec4899/fff?text=Chair+Detail',
+      createSVGPlaceholder('ec4899', 'Front'),
+      createSVGPlaceholder('ec4899', 'Side'),
+      createSVGPlaceholder('ec4899', 'Detail'),
     ],
     viewCount: 45,
     participantCount: 0,
@@ -204,8 +209,8 @@ export const adminAuctionsMock: Auction[] = [
     image: '⌚',
     images: [
       PLACEHOLDER_IMAGES.watch,
-      'https://via.placeholder.com/400x400/764ba2/fff?text=Rolex+Front',
-      'https://via.placeholder.com/400x400/764ba2/fff?text=Rolex+Certificate',
+      createSVGPlaceholder('764ba2', 'Rolex Front'),
+      createSVGPlaceholder('764ba2', 'Rolex Certificate'),
     ],
     viewCount: 234,
     participantCount: 0,
@@ -225,6 +230,11 @@ export const portalAuctionsMock: PortalAuction[] = [
     peserta: 12,
     deskripsi: 'Laptop gaming performance tinggi, 15.6" FHD 144Hz, RTX 4080, RAM 32GB',
     gambar: '💻',
+    images: [
+      PLACEHOLDER_IMAGES.laptop,
+      createSVGPlaceholder('667eea', 'Laptop Angle 1'),
+      createSVGPlaceholder('667eea', 'Laptop Angle 2'),
+    ],
   },
   {
     id: '2',
@@ -237,6 +247,12 @@ export const portalAuctionsMock: PortalAuction[] = [
     peserta: 28,
     deskripsi: 'Dalam kondisi sempurna, lengkap dengan box dan aksesori original',
     gambar: '📱',
+    images: [
+      PLACEHOLDER_IMAGES.iphone,
+      createSVGPlaceholder('222222', 'iPhone Front'),
+      createSVGPlaceholder('222222', 'iPhone Back'),
+      createSVGPlaceholder('222222', 'iPhone Box'),
+    ],
   },
   {
     id: '3',
@@ -249,6 +265,11 @@ export const portalAuctionsMock: PortalAuction[] = [
     peserta: 8,
     deskripsi: 'Kamera profesional 45MP, 8K video recording, AF canggih',
     gambar: '📷',
+    images: [
+      PLACEHOLDER_IMAGES.camera,
+      createSVGPlaceholder('f97316', 'Camera Angle 1'),
+      createSVGPlaceholder('f97316', 'Camera Lens'),
+    ],
   },
   {
     id: '4',
@@ -261,6 +282,10 @@ export const portalAuctionsMock: PortalAuction[] = [
     peserta: 15,
     deskripsi: '41mm Midnight, semua fitur berfungsi dengan baik',
     gambar: '⌚',
+    images: [
+      PLACEHOLDER_IMAGES.watch,
+      createSVGPlaceholder('764ba2', 'Watch Front'),
+    ],
   },
   {
     id: '5',
@@ -273,6 +298,11 @@ export const portalAuctionsMock: PortalAuction[] = [
     peserta: 10,
     deskripsi: '256GB storage, Magic Keyboard included, baterai masih bagus',
     gambar: '📊',
+    images: [
+      PLACEHOLDER_IMAGES.ipad,
+      createSVGPlaceholder('3b82f6', 'iPad Front'),
+      createSVGPlaceholder('3b82f6', 'iPad Back'),
+    ],
   },
   {
     id: '6',
@@ -285,5 +315,9 @@ export const portalAuctionsMock: PortalAuction[] = [
     peserta: 20,
     deskripsi: 'Premium noise-cancelling headphones, koleksi pribadi',
     gambar: '🎧',
+    images: [
+      PLACEHOLDER_IMAGES.headphones,
+      createSVGPlaceholder('fbbf24', 'Headphones Side'),
+    ],
   },
 ];

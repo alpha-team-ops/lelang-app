@@ -109,6 +109,7 @@ export const auctionService = {
       peserta: a.participantCount,
       deskripsi: a.description,
       gambar: a.image || '📦',
+      images: a.images || [],
     }));
     
     // Nanti tinggal ganti ke:
@@ -131,6 +132,7 @@ export const auctionService = {
       peserta: auction.participantCount,
       deskripsi: auction.description,
       gambar: auction.image || '📦',
+      images: auction.images || [],
     };
     
     // Nanti tinggal ganti ke:
@@ -158,6 +160,7 @@ export const auctionService = {
         peserta: a.participantCount,
         deskripsi: a.description,
         gambar: a.image || '📦',
+        images: a.images || [],
       }));
     
     // Nanti tinggal ganti ke:
@@ -179,6 +182,7 @@ export const auctionService = {
       peserta: a.participantCount,
       deskripsi: a.description,
       gambar: a.image || '📦',
+      images: a.images || [],
     }));
     
     // Nanti tinggal ganti ke:

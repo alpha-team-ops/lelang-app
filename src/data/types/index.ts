@@ -32,6 +32,7 @@ export interface PortalAuction {
   peserta: number;
   deskripsi: string;
   gambar: string;
+  images?: string[]; // Array of image URLs
 }
 
 // Statistics Types

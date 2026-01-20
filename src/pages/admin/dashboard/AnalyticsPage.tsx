@@ -373,8 +373,6 @@ const AnalyticsPage: React.FC = () => {
     );
   }
 
-  const COLORS = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#f97316'];
-
   return (
     <Box sx={{ py: { xs: 2, md: 3 }, px: { xs: 2, md: 3 } }}>
       {/* Header */}
