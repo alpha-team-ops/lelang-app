@@ -14,11 +14,14 @@ import {
   InputAdornment,
   Chip,
   Typography,
+  IconButton,
 } from '@mui/material';
 import {
   Schedule as ScheduleIcon,
   People as PeopleIcon,
   Close as CloseIcon,
+  CloudUpload as CloudUploadIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { Card, CardContent } from '@mui/material';
 
@@ -119,6 +122,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -151,6 +155,48 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
     setFormData((prev) => ({
       ...prev,
       [name]: value,
+    }));
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newPreviews: string[] = [];
+    const newFiles: File[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        continue;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          newPreviews.push(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+      newFiles.push(file);
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      images: [...(prev.images || []), ...newFiles],
+    }));
+
+    setTimeout(() => {
+      setImagePreviews((prev) => [...prev, ...newPreviews]);
+    }, 100);
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    setFormData((prev) => ({
+      ...prev,
+      images: prev.images?.filter((_, i) => i !== index),
     }));
   };
 
@@ -235,6 +281,95 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
 
       <DialogContent sx={{ pb: 3, px: 3, maxHeight: '70vh', overflowY: 'auto', '&.MuiDialogContent-root': { pt: 3 } }}>
         <Stack spacing={2}>
+          {/* Section 0: Gambar Barang */}
+          <Box>
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, color: '#1f2937' }}>
+              📸 GAMBAR BARANG
+            </Typography>
+            <Box
+              sx={{
+                border: '2px dashed #e0e0e0',
+                borderRadius: '8px',
+                p: 2,
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                bgcolor: '#f9f9f9',
+                '&:hover': {
+                  borderColor: '#667eea',
+                  bgcolor: '#f0f4ff',
+                },
+              }}
+              component="label"
+            >
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleImageUpload}
+                style={{ display: 'none' }}
+              />
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                <CloudUploadIcon sx={{ fontSize: '32px', color: '#667eea' }} />
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea' }}>
+                  Klik atau drag gambar di sini
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  Format: JPG, PNG, GIF (Max 5 gambar)
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Image Previews */}
+            {imagePreviews.length > 0 && (
+              <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 1.5 }}>
+                {imagePreviews.map((preview, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      position: 'relative',
+                      paddingBottom: '100%',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      border: '1px solid #e0e0e0',
+                      bgcolor: '#f0f0f0',
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={preview}
+                      alt={`Preview ${index + 1}`}
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemoveImage(index)}
+                      sx={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        bgcolor: 'rgba(0, 0, 0, 0.6)',
+                        color: 'white',
+                        '&:hover': {
+                          bgcolor: 'rgba(0, 0, 0, 0.8)',
+                        },
+                      }}
+                    >
+                      <DeleteIcon sx={{ fontSize: '16px' }} />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+
           {/* Section 1: Judul Barang */}
           <Box>
             <TextField
