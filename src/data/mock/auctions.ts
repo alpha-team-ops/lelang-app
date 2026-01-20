@@ -5,6 +5,12 @@ const createSVGPlaceholder = (color: string, text: string): string => {
   return `data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Crect fill='%23${color}' width='400' height='400'/%3E%3Ctext x='200' y='200' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='white'%3E${text.substring(0, 20)}%3C/text%3E%3C/svg%3E`;
 };
 
+// Create nice gradient SVG images for iPhone
+const createGradientSVG = (gradientStart: string, gradientEnd: string, text: string): string => {
+  const id = Math.random().toString(36).substr(2, 9);
+  return `data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='grad${id}' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23${gradientStart};stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%23${gradientEnd};stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23grad${id})' width='400' height='400'/%3E%3Ctext x='200' y='200' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' font-weight='bold' fill='white'%3E${text}%3C/text%3E%3C/svg%3E`;
+};
+
 // Placeholder image URLs - using SVG data URLs for reliability
 const PLACEHOLDER_IMAGES = {
   laptop: createSVGPlaceholder('667eea', 'Laptop'),
@@ -61,10 +67,10 @@ export const adminAuctionsMock: Auction[] = [
     currentBidder: 'Pembeli_456',
     image: '📱',
     images: [
-      PLACEHOLDER_IMAGES.iphone,
-      createSVGPlaceholder('222222', 'iPhone Front'),
-      createSVGPlaceholder('222222', 'iPhone Back'),
-      createSVGPlaceholder('222222', 'iPhone Box'),
+      createGradientSVG('1f2937', '111827', 'iPhone 14 Pro Max'),
+      createGradientSVG('374151', '1f2937', 'Space Black'),
+      createGradientSVG('4b5563', '0f172a', 'Rear Camera'),
+      createGradientSVG('1e293b', '0f172a', 'Original Box'),
     ],
     viewCount: 892,
     participantCount: 28,
