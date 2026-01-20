@@ -14,6 +14,7 @@ import {
   Grid,
   Chip,
   Alert,
+  Pagination,
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import type { BidActivity } from '../../../data/mock/bidActivity';
@@ -23,6 +24,8 @@ const AuctionActivityPage: React.FC = () => {
   const [activities] = useState<BidActivity[]>(mockBidActivity);
   const [filteredActivities, setFilteredActivities] = useState<BidActivity[]>(mockBidActivity);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage] = useState(10);
 
   useEffect(() => {
     const filtered = activities.filter((activity) =>
@@ -31,6 +34,7 @@ const AuctionActivityPage: React.FC = () => {
       activity.bidAmount.toString().includes(searchTerm)
     );
     setFilteredActivities(filtered);
+    setPage(0); // Reset to first page when search changes
   }, [searchTerm, activities]);
 
   const getStatusColor = (status: string) => {
@@ -39,8 +43,6 @@ const AuctionActivityPage: React.FC = () => {
         return 'success';
       case 'OUTBID':
         return 'warning';
-      case 'PENDING':
-        return 'info';
       default:
         return 'default';
     }
@@ -49,11 +51,9 @@ const AuctionActivityPage: React.FC = () => {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'ACCEPTED':
-        return '✓ Diterima';
+        return '✓ Accepted';
       case 'OUTBID':
-        return '⚠️ Tertandingi';
-      case 'PENDING':
-        return '⏳ Menunggu';
+        return '⚠️ Outbid';
       default:
         return status;
     }
@@ -64,10 +64,10 @@ const AuctionActivityPage: React.FC = () => {
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-          Aktivitas Penawaran
+          Bid Activity
         </Typography>
         <Typography variant="body2" sx={{ color: 'rgba(0, 0, 0, 0.6)' }}>
-          Log lengkap semua penawaran yang masuk untuk setiap item lelang
+          Complete log of all bids received for each auction item
         </Typography>
       </Box>
 
@@ -76,7 +76,7 @@ const AuctionActivityPage: React.FC = () => {
         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: '14px', p: 2, border: '1px solid #f0f0f0' }}>
             <Typography variant="body2" color="textSecondary" sx={{ mb: 1, fontWeight: 500 }}>
-              Total Penawaran
+              Total Bids
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 700, color: '#667eea' }}>
               {activities.length}
@@ -86,7 +86,7 @@ const AuctionActivityPage: React.FC = () => {
         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: '14px', p: 2, border: '1px solid #f0f0f0' }}>
             <Typography variant="body2" color="textSecondary" sx={{ mb: 1, fontWeight: 500 }}>
-              Diterima
+              Accepted
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 700, color: '#22c55e' }}>
               {activities.filter((a) => a.status === 'ACCEPTED').length}
@@ -96,7 +96,7 @@ const AuctionActivityPage: React.FC = () => {
         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: '14px', p: 2, border: '1px solid #f0f0f0' }}>
             <Typography variant="body2" color="textSecondary" sx={{ mb: 1, fontWeight: 500 }}>
-              Tertandingi
+              Outbid
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 700, color: '#f97316' }}>
               {activities.filter((a) => a.status === 'OUTBID').length}
@@ -106,7 +106,7 @@ const AuctionActivityPage: React.FC = () => {
         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: '14px', p: 2, border: '1px solid #f0f0f0' }}>
             <Typography variant="body2" color="textSecondary" sx={{ mb: 1, fontWeight: 500 }}>
-              Total Nilai Bid
+              Total Bid Value
             </Typography>
             <Typography variant="h6" sx={{ fontWeight: 700, color: '#764ba2' }}>
               Rp {activities.reduce((sum, a) => sum + a.bidAmount, 0).toLocaleString('id-ID')}
@@ -120,7 +120,7 @@ const AuctionActivityPage: React.FC = () => {
         <Box sx={{ p: 2.5 }}>
           <TextField
             fullWidth
-            placeholder="Cari berdasarkan nama barang, nama pembeli, atau jumlah penawaran..."
+            placeholder="Search by auction item, bidder name, or bid amount..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
@@ -145,20 +145,20 @@ const AuctionActivityPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow sx={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                <TableCell sx={{ fontWeight: 700, color: '#374151', py: 2 }}>Barang Lelang</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#374151', py: 2 }}>Pembeli</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#374151', py: 2 }}>Auction Item</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#374151', py: 2 }}>Bidder</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, color: '#374151', py: 2 }}>
-                  Jumlah Penawaran
+                  Bid Amount
                 </TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700, color: '#374151', py: 2 }}>
                   Status
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#374151', py: 2 }}>Waktu</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#374151', py: 2 }}>Time</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredActivities.length > 0 ? (
-                filteredActivities.map((activity, index) => (
+                filteredActivities.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((activity, index) => (
                   <TableRow
                     key={activity.id}
                     sx={{
@@ -205,7 +205,7 @@ const AuctionActivityPage: React.FC = () => {
                 <TableRow>
                   <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                     <Typography variant="body2" color="textSecondary">
-                      Tidak ada data penawaran yang cocok
+                      No matching bid records found
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -213,12 +213,25 @@ const AuctionActivityPage: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        {/* Pagination */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2.5, borderTop: '1px solid #e5e7eb' }}>
+          <Typography variant="body2" sx={{ color: '#6b7280' }}>
+            Showing {page * rowsPerPage + 1}-{Math.min((page + 1) * rowsPerPage, filteredActivities.length)} of {filteredActivities.length} bids
+          </Typography>
+          <Pagination
+            count={Math.ceil(filteredActivities.length / rowsPerPage)}
+            page={page + 1}
+            onChange={(_, newPage) => setPage(newPage - 1)}
+            color="primary"
+            shape="rounded"
+          />
+        </Box>
       </Card>
 
       {/* Info */}
       <Alert severity="info" sx={{ mt: 3 }}>
         <Typography variant="body2">
-          💡 Tabel menampilkan log lengkap semua penawaran yang diterima untuk setiap item lelang, termasuk informasi pembeli, jumlah penawaran, status, dan waktu.
+          💡 The table displays a complete log of all bids received for each auction item, including bidder information, bid amounts, status, and timestamp.
         </Typography>
       </Alert>
     </Box>
