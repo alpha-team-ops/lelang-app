@@ -1,5 +1,16 @@
 import type { Auction, PortalAuction } from '../types/index';
 
+// Placeholder image URLs - using placeholder.com for reliability
+const PLACEHOLDER_IMAGES = {
+  laptop: 'https://via.placeholder.com/400x400/667eea/ffffff?text=Laptop+ASUS+ROG',
+  iphone: 'https://via.placeholder.com/400x400/222/fff?text=iPhone+14+Pro',
+  camera: 'https://via.placeholder.com/400x400/f97316/fff?text=Canon+EOS+R5',
+  watch: 'https://via.placeholder.com/400x400/764ba2/fff?text=Apple+Watch',
+  ipad: 'https://via.placeholder.com/400x400/3b82f6/fff?text=iPad+Pro+M2',
+  headphones: 'https://via.placeholder.com/400x400/fbbf24/000?text=Sony+Headphones',
+  chair: 'https://via.placeholder.com/400x400/ec4899/fff?text=Gaming+Chair',
+};
+
 // Admin Auctions Mock Data
 export const adminAuctionsMock: Auction[] = [
   {
@@ -19,6 +30,11 @@ export const adminAuctionsMock: Auction[] = [
     seller: 'Admin',
     currentBidder: 'Pembeli_123',
     image: '💻',
+    images: [
+      PLACEHOLDER_IMAGES.laptop,
+      'https://via.placeholder.com/400x400/667eea/ffffff?text=Laptop+Angle+1',
+      'https://via.placeholder.com/400x400/667eea/ffffff?text=Laptop+Angle+2',
+    ],
     viewCount: 342,
     participantCount: 12,
   },
@@ -39,6 +55,12 @@ export const adminAuctionsMock: Auction[] = [
     seller: 'Admin',
     currentBidder: 'Pembeli_456',
     image: '📱',
+    images: [
+      PLACEHOLDER_IMAGES.iphone,
+      'https://via.placeholder.com/400x400/222/fff?text=iPhone+Front',
+      'https://via.placeholder.com/400x400/222/fff?text=iPhone+Back',
+      'https://via.placeholder.com/400x400/222/fff?text=iPhone+Box',
+    ],
     viewCount: 892,
     participantCount: 28,
   },
@@ -59,6 +81,11 @@ export const adminAuctionsMock: Auction[] = [
     seller: 'Admin',
     currentBidder: 'Pembeli_789',
     image: '📷',
+    images: [
+      PLACEHOLDER_IMAGES.camera,
+      'https://via.placeholder.com/400x400/f97316/fff?text=Camera+Angle+1',
+      'https://via.placeholder.com/400x400/f97316/fff?text=Camera+Lens',
+    ],
     viewCount: 456,
     participantCount: 8,
   },
@@ -78,6 +105,10 @@ export const adminAuctionsMock: Auction[] = [
     endTime: new Date('2026-01-28T16:00:00'),
     seller: 'Admin',
     image: '⌚',
+    images: [
+      PLACEHOLDER_IMAGES.watch,
+      'https://via.placeholder.com/400x400/764ba2/fff?text=Watch+Front',
+    ],
     viewCount: 234,
     participantCount: 15,
   },
@@ -98,6 +129,11 @@ export const adminAuctionsMock: Auction[] = [
     seller: 'Admin',
     currentBidder: 'Pembeli_101',
     image: '📊',
+    images: [
+      PLACEHOLDER_IMAGES.ipad,
+      'https://via.placeholder.com/400x400/3b82f6/fff?text=iPad+Front',
+      'https://via.placeholder.com/400x400/3b82f6/fff?text=iPad+Back',
+    ],
     viewCount: 567,
     participantCount: 10,
   },
@@ -118,6 +154,10 @@ export const adminAuctionsMock: Auction[] = [
     seller: 'Admin',
     currentBidder: 'Pembeli_202',
     image: '🎧',
+    images: [
+      PLACEHOLDER_IMAGES.headphones,
+      'https://via.placeholder.com/400x400/fbbf24/000?text=Headphones+Side',
+    ],
     viewCount: 678,
     participantCount: 20,
   },
@@ -137,6 +177,12 @@ export const adminAuctionsMock: Auction[] = [
     endTime: new Date('2026-02-01T10:00:00'),
     seller: 'Admin',
     image: '🪑',
+    images: [
+      PLACEHOLDER_IMAGES.chair,
+      'https://via.placeholder.com/400x400/ec4899/fff?text=Chair+Front',
+      'https://via.placeholder.com/400x400/ec4899/fff?text=Chair+Side',
+      'https://via.placeholder.com/400x400/ec4899/fff?text=Chair+Detail',
+    ],
     viewCount: 45,
     participantCount: 0,
   },
@@ -156,6 +202,11 @@ export const adminAuctionsMock: Auction[] = [
     endTime: new Date('2026-02-05T14:00:00'),
     seller: 'Admin',
     image: '⌚',
+    images: [
+      PLACEHOLDER_IMAGES.watch,
+      'https://via.placeholder.com/400x400/764ba2/fff?text=Rolex+Front',
+      'https://via.placeholder.com/400x400/764ba2/fff?text=Rolex+Certificate',
+    ],
     viewCount: 234,
     participantCount: 0,
   },

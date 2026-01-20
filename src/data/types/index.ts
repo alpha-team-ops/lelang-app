@@ -16,6 +16,7 @@ export interface Auction {
   seller: string;
   currentBidder?: string;
   image?: string;
+  images?: string[]; // Array of image URLs from Minio
   viewCount: number;
   participantCount: number;
 }

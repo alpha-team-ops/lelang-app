@@ -141,21 +141,68 @@ const AuctionDetailDialog: React.FC<{
             <StatusBadge status={auction.status} />
           </Box>
 
-          {/* Image Placeholder */}
-          <Box
-            sx={{
-              height: '200px',
-              backgroundColor: '#f0f0f0',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Typography variant="body2" color="textSecondary">
-              [Auction Image]
-            </Typography>
-          </Box>
+          {/* Image Gallery */}
+          {auction.images && auction.images.length > 0 ? (
+            <Box>
+              <Box
+                sx={{
+                  width: '100%',
+                  height: '250px',
+                  backgroundColor: '#f0f0f0',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  mb: 1,
+                }}
+              >
+                <Box
+                  component="img"
+                  src={auction.images[0]}
+                  alt={auction.title}
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                />
+              </Box>
+              {auction.images.length > 1 && (
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))', gap: 1 }}>
+                  {auction.images.map((img, idx) => (
+                    <Box
+                      key={idx}
+                      component="img"
+                      src={img}
+                      alt={`${auction.title} - ${idx + 1}`}
+                      sx={{
+                        width: '100%',
+                        height: '70px',
+                        objectFit: 'cover',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        border: idx === 0 ? '2px solid #667eea' : '1px solid #e0e0e0',
+                        '&:hover': { opacity: 0.8 },
+                      }}
+                    />
+                  ))}
+                </Box>
+              )}
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                height: '200px',
+                backgroundColor: '#f0f0f0',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Typography variant="body2" color="textSecondary">
+                [No Image Available]
+              </Typography>
+            </Box>
+          )}
 
           {/* Description */}
           <Box>
@@ -562,9 +609,22 @@ const AuctionListTable: React.FC<{
                 overflow: 'hidden',
               }}
             >
-              <Typography variant="caption" color="textSecondary">
-                [Auction Image]
-              </Typography>
+              {auction.images && auction.images.length > 0 ? (
+                <Box
+                  component="img"
+                  src={auction.images[0]}
+                  alt={auction.title}
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                />
+              ) : (
+                <Typography variant="caption" color="textSecondary">
+                  [No Image]
+                </Typography>
+              )}
               {/* Status Badge on Image */}
               <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
                 <StatusBadge status={auction.status} />
