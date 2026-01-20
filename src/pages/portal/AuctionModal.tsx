@@ -216,7 +216,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
               </div>
             </div>
             <div className="price-item">
-              <div className="price-label">Harga Reserve</div>
+              <div className="price-label">Harga Awal</div>
               <div className="price-value">
                 Rp {auction.hargaReserve.toLocaleString('id-ID')}
               </div>
