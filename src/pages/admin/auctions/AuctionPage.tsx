@@ -120,6 +120,8 @@ const AuctionDetailDialog: React.FC<{
   auction: Auction | null;
   onClose: () => void;
 }> = ({ open, auction, onClose }) => {
+  const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
+
   if (!auction) return null;
 
   const isLive = auction.status === 'LIVE';
@@ -127,6 +129,7 @@ const AuctionDetailDialog: React.FC<{
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      {open && selectedImageIndex > (auction.images?.length || 0) - 1 && setSelectedImageIndex(0)}
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box sx={{ fontWeight: 600, fontSize: '16px' }}>{auction.title}</Box>
         <IconButton size="small" onClick={onClose}>
@@ -156,7 +159,7 @@ const AuctionDetailDialog: React.FC<{
               >
                 <Box
                   component="img"
-                  src={auction.images[0]}
+                  src={auction.images[selectedImageIndex]}
                   alt={auction.title}
                   sx={{
                     width: '100%',
@@ -173,14 +176,16 @@ const AuctionDetailDialog: React.FC<{
                       component="img"
                       src={img}
                       alt={`${auction.title} - ${idx + 1}`}
+                      onClick={() => setSelectedImageIndex(idx)}
                       sx={{
                         width: '100%',
                         height: '70px',
                         objectFit: 'cover',
                         borderRadius: '4px',
                         cursor: 'pointer',
-                        border: idx === 0 ? '2px solid #667eea' : '1px solid #e0e0e0',
+                        border: idx === selectedImageIndex ? '3px solid #667eea' : '1px solid #e0e0e0',
                         '&:hover': { opacity: 0.8 },
+                        transition: 'all 0.2s ease',
                       }}
                     />
                   ))}
