@@ -231,9 +231,9 @@ const AuctionDetailDialog: React.FC<{
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Harga Reserve</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Harga Mulai</div>
                   <div style={{ fontSize: '18px', fontWeight: '700', color: '#764ba2' }}>
-                    Rp {auction.reservePrice.toLocaleString('id-ID')}
+                    Rp {auction.startingPrice.toLocaleString('id-ID')}
                   </div>
                 </div>
                 {/* Row 2 */}
