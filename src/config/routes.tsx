@@ -4,10 +4,12 @@ import {
   Gavel as GavelIcon,
   Person as PersonIcon,
   Settings as SettingsIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import OverviewPage from '../pages/admin/dashboard/OverviewPage';
 import AnalyticsPage from '../pages/admin/dashboard/AnalyticsPage';
 import AuctionPage from '../pages/admin/auctions/AuctionPage';
+import AuctionActivityPage from '../pages/admin/auctions/AuctionActivityPage';
 import UserManagementPage from '../pages/admin/managements/UserManagementPage';
 import RolesPage from '../pages/admin/managements/RolesPage';
 import SettingsPage from '../pages/admin/settings/SettingsPage';
@@ -45,6 +47,7 @@ export const menuCategories: MenuCategory[] = [
     category: 'Auction Management',
     items: [
       { text: 'Auctions', icon: <GavelIcon />, path: '/admin/auctions' },
+      { text: 'Activity', icon: <HistoryIcon />, path: '/admin/auction-activity' },
     ]
   },
   {
@@ -75,6 +78,10 @@ export const protectedRoutes: ProtectedRoute[] = [
   {
     path: '/admin/auctions',
     element: <AuctionPage />,
+  },
+  {
+    path: '/admin/auction-activity',
+    element: <AuctionActivityPage />,
   },
   {
     path: '/admin/users',
