@@ -205,7 +205,7 @@ const AuctionDetailDialog: React.FC<{
               </div>
               <div style={{ paddingLeft: '12px', borderLeft: '3px solid #22c55e' }}>
                 <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Condition</div>
-                <div style={{ fontSize: '15px', fontWeight: '700', color: '#22c55e' }}>✓ Used - Excellent</div>
+                <div style={{ fontSize: '15px', fontWeight: '700', color: '#22c55e' }}>✓ {auction.condition}</div>
               </div>
             </div>
           </div>
