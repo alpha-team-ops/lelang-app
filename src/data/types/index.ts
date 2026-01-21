@@ -5,6 +5,9 @@ export interface Auction {
   description: string;
   category: string;
   condition: string;
+  serialNumber?: string; // Serial Number / SN barang
+  itemLocation?: string; // Lokasi Barang
+  purchaseYear?: number; // Tahun Pembelian Barang
   startingPrice: number;
   reservePrice: number;
   bidIncrement: number;

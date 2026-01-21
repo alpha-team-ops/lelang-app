@@ -18,7 +18,6 @@ import {
 } from '@mui/material';
 import {
   Schedule as ScheduleIcon,
-  People as PeopleIcon,
   Close as CloseIcon,
   CloudUpload as CloudUploadIcon,
   Delete as DeleteIcon,
@@ -30,7 +29,9 @@ interface FormData {
   description: string;
   category: string;
   condition: string;
-  sn: string;
+  serialNumber: string;
+  itemLocation: string;
+  purchaseYear: number | '';
   startingPrice: number | '';
   reservePrice: number | '';
   bidIncrement: number | '';
@@ -38,7 +39,6 @@ interface FormData {
   startTime: string;
   endDate: string;
   endTime: string;
-  participantCount: number;
   images?: File[];
 }
 
@@ -47,7 +47,9 @@ interface FormErrors {
   description?: string;
   category?: string;
   condition?: string;
-  sn?: string;
+  serialNumber?: string;
+  itemLocation?: string;
+  purchaseYear?: string;
   startingPrice?: string;
   reservePrice?: string;
   bidIncrement?: string;
@@ -112,7 +114,9 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
     description: '',
     category: '',
     condition: '',
-    sn: '',
+    serialNumber: '',
+    itemLocation: '',
+    purchaseYear: '',
     startingPrice: '',
     reservePrice: '',
     bidIncrement: '',
@@ -120,7 +124,6 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
     startTime: '',
     endDate: '',
     endTime: '',
-    participantCount: 0,
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -209,20 +212,20 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!formData.title.trim()) newErrors.title = 'Judul Lelang wajib diisi';
-    if (!formData.description.trim()) newErrors.description = 'Deskripsi Barang wajib diisi';
-    if (!formData.category) newErrors.category = 'Kategori wajib dipilih';
-    if (!formData.condition) newErrors.condition = 'Kondisi wajib dipilih';
+    if (!formData.title.trim()) newErrors.title = 'Title is required';
+    if (!formData.description.trim()) newErrors.description = 'Description is required';
+    if (!formData.category) newErrors.category = 'Category is required';
+    if (!formData.condition) newErrors.condition = 'Condition is required';
     if (formData.startingPrice === '' || formData.startingPrice <= 0)
-      newErrors.startingPrice = 'Harga Awal harus lebih besar dari 0';
+      newErrors.startingPrice = 'Starting price must be greater than 0';
     if (formData.reservePrice !== '' && formData.reservePrice <= 0)
-      newErrors.reservePrice = 'Harga Saat Ini harus lebih besar dari 0';
+      newErrors.reservePrice = 'Reserve price must be greater than 0';
     if (formData.bidIncrement === '' || formData.bidIncrement <= 0)
-      newErrors.bidIncrement = 'Kelipatan Penawaran harus lebih besar dari 0';
-    if (!formData.startDate) newErrors.startDate = 'Tanggal mulai wajib diisi';
-    if (!formData.startTime) newErrors.startTime = 'Jam mulai wajib diisi';
-    if (!formData.endDate) newErrors.endDate = 'Tanggal berakhir wajib diisi';
-    if (!formData.endTime) newErrors.endTime = 'Jam berakhir wajib diisi';
+      newErrors.bidIncrement = 'Bid increment must be greater than 0';
+    if (!formData.startDate) newErrors.startDate = 'Start date is required';
+    if (!formData.startTime) newErrors.startTime = 'Start time is required';
+    if (!formData.endDate) newErrors.endDate = 'End date is required';
+    if (!formData.endTime) newErrors.endTime = 'End time is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -239,7 +242,9 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
           description: '',
           category: '',
           condition: '',
-          sn: '',
+          serialNumber: '',
+          itemLocation: '',
+          purchaseYear: '',
           startingPrice: '',
           reservePrice: '',
           bidIncrement: '',
@@ -247,7 +252,6 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
           startTime: '',
           endDate: '',
           endTime: '',
-          participantCount: 0,
         });
         setErrors({});
         setIsSubmitting(false);
@@ -264,7 +268,21 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
   );
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: { xs: '16px 16px 0 0', md: '16px' },
+          maxHeight: '90vh',
+          '@media (min-width: 768px)': {
+            maxHeight: '80vh',
+          },
+        },
+      }}
+    >
       <DialogTitle
         sx={{
           display: 'flex',
@@ -276,7 +294,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
           borderBottom: '1px solid #e0e0e0',
         }}
       >
-        Form Penawaran Lelang
+        Create Auction
         <Button
           size="small"
           onClick={onClose}
@@ -291,7 +309,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
           {/* Section 0: Gambar Barang */}
           <Box sx={{ mb: 3 }}>
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
-              📸 GAMBAR BARANG
+              � IMAGES
             </Typography>
             <Box
               component="label"
@@ -320,10 +338,10 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                   <CloudUploadIcon sx={{ fontSize: '48px', color: '#667eea' }} />
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography sx={{ fontWeight: 600, color: '#667eea', fontSize: '15px', lineHeight: 1.4 }}>
-                      Klik atau drag gambar di sini
+                      Click or drag images here
                     </Typography>
                     <Typography sx={{ color: '#999', fontSize: '13px', lineHeight: 1.4, mt: 0.75 }}>
-                      JPG, PNG, GIF (Max 5 gambar)
+                      JPG, PNG, GIF (Max 5 images)
                     </Typography>
                   </Box>
                 </Box>
@@ -451,12 +469,43 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                 <TextField
                   fullWidth
                   label="Serial Number (SN)"
-                  name="sn"
-                  value={formData.sn}
+                  name="serialNumber"
+                  value={formData.serialNumber}
                   onChange={handleInputChange}
                   placeholder="e.g., ABC123456789"
-                  error={!!errors.sn}
-                  helperText={errors.sn}
+                  error={!!errors.serialNumber}
+                  helperText={errors.serialNumber}
+                  size="small"
+                  sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Item Location"
+                  name="itemLocation"
+                  value={formData.itemLocation}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Jakarta, Indonesia"
+                  error={!!errors.itemLocation}
+                  helperText={errors.itemLocation}
+                  size="small"
+                  sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Purchase Year"
+                  name="purchaseYear"
+                  type="number"
+                  value={formData.purchaseYear}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 2023"
+                  error={!!errors.purchaseYear}
+                  helperText={errors.purchaseYear}
                   size="small"
                   sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
                 />
@@ -505,7 +554,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
             />
           </Box>
 
-          {/* Section 4: Sisa Waktu & Peserta */}
+          {/* Section 4: Sisa Waktu */}
           <Grid container spacing={1.5}>
             <Grid size={{ xs: 6 }}>
               <Card sx={{ bgcolor: '#f5f5f5', border: '1px solid #e0e0e0', boxShadow: 'none', py: 1.5, px: 1 }}>
@@ -518,22 +567,6 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                   </Box>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: '#1f2937', fontSize: '13px', display: 'block' }}>
                     {timeRemaining || '- hari - jam'}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 6 }}>
-              <Card sx={{ bgcolor: '#f5f5f5', border: '1px solid #e0e0e0', boxShadow: 'none', py: 1.5, px: 1 }}>
-                <CardContent sx={{ py: 0, px: 0, textAlign: 'center', '&:last-child': { pb: 0 } }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, gap: 0.5 }}>
-                    <PeopleIcon sx={{ fontSize: '18px', color: '#667eea' }} />
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: '#667eea', fontSize: '11px' }}>
-                      PESERTA
-                    </Typography>
-                  </Box>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#1f2937', fontSize: '13px', display: 'block' }}>
-                    {formData.participantCount} orang
                   </Typography>
                 </CardContent>
               </Card>
@@ -671,30 +704,43 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
               </Grid>
             </Grid>
           </Box>
-
-          {/* Action Buttons */}
-          <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end', pt: 2, borderTop: '1px solid #e0e0e0' }}>
-            <Button
-              variant="outlined"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              Batal
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handlePublish}
-              disabled={isSubmitting}
-              sx={{
-                background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
-                fontWeight: 600,
-              }}
-            >
-              {isSubmitting ? 'Memproses...' : '✓ Kirim Penawaran'}
-            </Button>
-          </Box>
         </Stack>
       </DialogContent>
+
+      {/* FIXED FOOTER */}
+      <Box
+        sx={{
+          padding: '20px 24px',
+          borderTop: '1px solid #e0e0e0',
+          flexShrink: 0,
+          background: 'white',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+        }}
+      >
+        <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end' }}>
+          <Button
+            variant="outlined"
+            onClick={onClose}
+            disabled={isSubmitting}
+            sx={{ textTransform: 'none' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handlePublish}
+            disabled={isSubmitting}
+            sx={{
+              bgcolor: '#667eea',
+              textTransform: 'none',
+            }}
+          >
+            {isSubmitting ? 'Submitting...' : 'Publish Auction'}
+          </Button>
+        </Box>
+      </Box>
     </Dialog>
   );
 };

@@ -439,7 +439,7 @@ body {
   padding: 0;
   width: 100%;
   max-width: 500px;
-  max-height: 90vh;
+  height: 90vh;
   animation: slideUp 0.3s ease;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
   display: flex;
@@ -456,7 +456,7 @@ body.modal-open {
 @media (min-width: 768px) {
   .auction-modal {
     border-radius: 16px;
-    max-height: 80vh;
+    height: 80vh;
   }
 }
 

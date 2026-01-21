@@ -5,11 +5,13 @@ import {
   Person as PersonIcon,
   Settings as SettingsIcon,
   History as HistoryIcon,
+  List as ListIcon,
 } from '@mui/icons-material';
 import OverviewPage from '../pages/admin/dashboard/OverviewPage';
 import AnalyticsPage from '../pages/admin/dashboard/AnalyticsPage';
-import AuctionPage from '../pages/admin/auctions/AuctionPage';
-import AuctionActivityPage from '../pages/admin/auctions/AuctionActivityPage';
+import GalleryPage from '../pages/admin/auctions/GalleryPage';
+import TablePage from '../pages/admin/auctions/TablePage';
+import ActivityPage from '../pages/admin/auctions/ActivityPage';
 import UserManagementPage from '../pages/admin/managements/UserManagementPage';
 import RolesPage from '../pages/admin/managements/RolesPage';
 import SettingsPage from '../pages/admin/settings/SettingsPage';
@@ -46,7 +48,8 @@ export const menuCategories: MenuCategory[] = [
   {
     category: 'Auction Management',
     items: [
-      { text: 'Auctions', icon: <GavelIcon />, path: '/admin/auctions' },
+      { text: 'Gallery', icon: <GavelIcon />, path: '/admin/auction-gallery' },
+      { text: 'Table', icon: <ListIcon />, path: '/admin/auction-table' },
       { text: 'Activity', icon: <HistoryIcon />, path: '/admin/auction-activity' },
     ]
   },
@@ -76,12 +79,16 @@ export const protectedRoutes: ProtectedRoute[] = [
     element: <AnalyticsPage />,
   },
   {
-    path: '/admin/auctions',
-    element: <AuctionPage />,
+    path: '/admin/auction-gallery',
+    element: <GalleryPage />,
+  },
+  {
+    path: '/admin/auction-table',
+    element: <TablePage />,
   },
   {
     path: '/admin/auction-activity',
-    element: <AuctionActivityPage />,
+    element: <ActivityPage />,
   },
   {
     path: '/admin/users',
