@@ -30,6 +30,7 @@ interface FormData {
   description: string;
   category: string;
   condition: string;
+  sn: string;
   startingPrice: number | '';
   reservePrice: number | '';
   bidIncrement: number | '';
@@ -46,6 +47,7 @@ interface FormErrors {
   description?: string;
   category?: string;
   condition?: string;
+  sn?: string;
   startingPrice?: string;
   reservePrice?: string;
   bidIncrement?: string;
@@ -110,6 +112,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
     description: '',
     category: '',
     condition: '',
+    sn: '',
     startingPrice: '',
     reservePrice: '',
     bidIncrement: '',
@@ -236,6 +239,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
           description: '',
           category: '',
           condition: '',
+          sn: '',
           startingPrice: '',
           reservePrice: '',
           bidIncrement: '',
@@ -392,7 +396,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
             />
           </Box>
 
-          {/* Section 2: Info Barang (Category, Condition, Prices) */}
+          {/* Section 2: Info Barang (Category, Condition, SN, Prices) */}
           <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '8px' }}>
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 6 }}>
@@ -441,6 +445,21 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                     />
                   </Box>
                 )}
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  label="Serial Number (SN)"
+                  name="sn"
+                  value={formData.sn}
+                  onChange={handleInputChange}
+                  placeholder="e.g., ABC123456789"
+                  error={!!errors.sn}
+                  helperText={errors.sn}
+                  size="small"
+                  sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
+                />
               </Grid>
 
               <Grid size={{ xs: 6 }}>
