@@ -1,24 +1,6 @@
 import type { Auction, PortalAuction } from '../types/index';
 import { adminAuctionsMock } from '../mock/auctions';
 
-// Helper function to calculate remaining time
-const calculateSisaWaktu = (endTime: Date): string => {
-  const now = new Date();
-  const diff = endTime.getTime() - now.getTime();
-
-  if (diff <= 0) return 'Sudah Berakhir';
-
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-  if (days > 0) {
-    return `${days}h ${hours}h ${minutes}m`;
-  }
-  return `${hours}h ${minutes}m ${seconds}s`;
-};
-
 export const auctionService = {
   // Admin Auctions
   getAllAdminAuctions: async (): Promise<Auction[]> => {
@@ -100,15 +82,14 @@ export const auctionService = {
     // Convert admin auctions format ke portal format
     return liveAuctions.map(a => ({
       id: a.id,
-      namaBarang: a.title,
-      kategori: a.category,
-      kondisi: a.condition,
-      hargaSaatIni: a.currentBid,
-      hargaReserve: a.reservePrice,
-      sisaWaktu: calculateSisaWaktu(a.endTime),
-      peserta: a.participantCount,
-      deskripsi: a.description,
-      gambar: a.image || '📦',
+      title: a.title,
+      description: a.description,
+      category: a.category,
+      condition: a.condition,
+      currentBid: a.currentBid,
+      reservePrice: a.reservePrice,
+      endTime: a.endTime,
+      participantCount: a.participantCount,
       images: a.images || [],
     }));
     
@@ -123,15 +104,14 @@ export const auctionService = {
     
     return {
       id: auction.id,
-      namaBarang: auction.title,
-      kategori: auction.category,
-      kondisi: auction.condition,
-      hargaSaatIni: auction.currentBid,
-      hargaReserve: auction.reservePrice,
-      sisaWaktu: calculateSisaWaktu(auction.endTime),
-      peserta: auction.participantCount,
-      deskripsi: auction.description,
-      gambar: auction.image || '📦',
+      title: auction.title,
+      description: auction.description,
+      category: auction.category,
+      condition: auction.condition,
+      currentBid: auction.currentBid,
+      reservePrice: auction.reservePrice,
+      endTime: auction.endTime,
+      participantCount: auction.participantCount,
       images: auction.images || [],
     };
     
@@ -151,15 +131,14 @@ export const auctionService = {
       )
       .map(a => ({
         id: a.id,
-        namaBarang: a.title,
-        kategori: a.category,
-        kondisi: a.condition,
-        hargaSaatIni: a.currentBid,
-        hargaReserve: a.reservePrice,
-        sisaWaktu: calculateSisaWaktu(a.endTime),
-        peserta: a.participantCount,
-        deskripsi: a.description,
-        gambar: a.image || '📦',
+        title: a.title,
+        description: a.description,
+        category: a.category,
+        condition: a.condition,
+        currentBid: a.currentBid,
+        reservePrice: a.reservePrice,
+        endTime: a.endTime,
+        participantCount: a.participantCount,
         images: a.images || [],
       }));
     
@@ -173,15 +152,14 @@ export const auctionService = {
     
     return liveAuctions.map(a => ({
       id: a.id,
-      namaBarang: a.title,
-      kategori: a.category,
-      kondisi: a.condition,
-      hargaSaatIni: a.currentBid,
-      hargaReserve: a.reservePrice,
-      sisaWaktu: calculateSisaWaktu(a.endTime),
-      peserta: a.participantCount,
-      deskripsi: a.description,
-      gambar: a.image || '📦',
+      title: a.title,
+      description: a.description,
+      category: a.category,
+      condition: a.condition,
+      currentBid: a.currentBid,
+      reservePrice: a.reservePrice,
+      endTime: a.endTime,
+      participantCount: a.participantCount,
       images: a.images || [],
     }));
     

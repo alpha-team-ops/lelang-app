@@ -26,15 +26,14 @@ export interface Auction {
 
 export interface PortalAuction {
   id: string;
-  namaBarang: string;
-  kategori: string;
-  kondisi: string;
-  hargaSaatIni: number;
-  hargaReserve: number;
-  sisaWaktu: string;
-  peserta: number;
-  deskripsi: string;
-  gambar: string;
+  title: string;
+  description: string;
+  category: string;
+  condition: string;
+  currentBid: number;
+  reservePrice: number;
+  endTime: Date;
+  participantCount: number;
   images?: string[]; // Array of image URLs
 }
 

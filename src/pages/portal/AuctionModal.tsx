@@ -18,6 +18,22 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
   const [bidSuccess, setBidSuccess] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
+  // Calculate time remaining from endTime
+  const calculateTimeRemaining = (endTime: Date): string => {
+    const now = new Date();
+    const diff = endTime.getTime() - now.getTime();
+    
+    if (diff <= 0) return 'Ended';
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  };
+
   // Prevent body scroll when modal opens
   useEffect(() => {
     document.body.classList.add('modal-open');
@@ -44,14 +60,14 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
     }
 
     const bidValue = parseInt(bidAmount);
-    const minBid = auction.hargaSaatIni + MIN_BID_INCREMENT;
+    const minBid = auction.currentBid + MIN_BID_INCREMENT;
 
-    if (bidValue <= auction.hargaSaatIni) {
-      setError(`Bid must be higher than Rp ${auction.hargaSaatIni.toLocaleString('id-ID')}`);
+    if (bidValue <= auction.currentBid) {
+      setError(`Bid must be higher than Rp ${auction.currentBid.toLocaleString('id-ID')}`);
       return false;
     }
 
-    if ((bidValue - auction.hargaSaatIni) % MIN_BID_INCREMENT !== 0) {
+    if ((bidValue - auction.currentBid) % MIN_BID_INCREMENT !== 0) {
       setError(
         `Bid must be multiple of Rp ${MIN_BID_INCREMENT.toLocaleString('id-ID')} from current price`
       );
@@ -102,7 +118,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
     }
   };
 
-  const minBidAmount = auction.hargaSaatIni + MIN_BID_INCREMENT;
+  const minBidAmount = auction.currentBid + MIN_BID_INCREMENT;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -133,7 +149,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
           )}
 
           {/* Auction Title */}
-          <div className="modal-title">{auction.namaBarang}</div>
+          <div className="modal-title">{auction.title}</div>
         </div>
 
         {/* Modal Content - Scrollable */}
@@ -145,7 +161,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
             <div style={{ marginBottom: '12px' }}>
               <img
                 src={auction.images[selectedImageIndex]}
-                alt={auction.namaBarang}
+                alt={auction.title}
                 style={{
                   width: '100%',
                   aspectRatio: '4 / 3',
@@ -160,7 +176,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
                     <img
                       key={idx}
                       src={img}
-                      alt={`${auction.namaBarang} - ${idx + 1}`}
+                      alt={`${auction.title} - ${idx + 1}`}
                       onClick={() => setSelectedImageIndex(idx)}
                       style={{
                         width: '100%',
@@ -188,11 +204,11 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '12px' }}>
             <div style={{ paddingLeft: '12px', borderLeft: '3px solid #0ea5e9' }}>
               <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Category</div>
-              <div style={{ fontSize: '15px', fontWeight: '700', color: '#1f2937' }}>{auction.kategori}</div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#1f2937' }}>{auction.category}</div>
             </div>
             <div style={{ paddingLeft: '12px', borderLeft: '3px solid #22c55e' }}>
               <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Condition</div>
-              <div style={{ fontSize: '15px', fontWeight: '700', color: '#22c55e' }}>✓ {auction.kondisi}</div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#22c55e' }}>✓ {auction.condition}</div>
             </div>
           </div>
         </div>
@@ -201,7 +217,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
         <div className="modal-section">
           <div className="modal-section-title">📝 Item Description</div>
           <div style={{ fontSize: '14px', fontWeight: '500', color: '#4b5563', lineHeight: '1.6', marginTop: '12px' }}>
-            {auction.deskripsi}
+            {auction.description}
           </div>
         </div>
 
@@ -212,25 +228,25 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
             <div className="price-item">
               <div className="price-label">Current Price</div>
               <div className="price-value">
-                Rp {auction.hargaSaatIni.toLocaleString('id-ID')}
+                Rp {auction.currentBid.toLocaleString('id-ID')}
               </div>
             </div>
             <div className="price-item">
-              <div className="price-label">Starting Price</div>
+              <div className="price-label">Reserve Price</div>
               <div className="price-value">
-                Rp {auction.hargaReserve.toLocaleString('id-ID')}
+                Rp {auction.reservePrice.toLocaleString('id-ID')}
               </div>
             </div>
             <div className="price-item">
               <div className="price-label">Time Remaining</div>
               <div className="price-value" style={{ color: '#f97316' }}>
-                {auction.sisaWaktu}
+                {calculateTimeRemaining(auction.endTime)}
               </div>
             </div>
             <div className="price-item">
               <div className="price-label">Total Participants</div>
               <div className="price-value" style={{ color: '#0ea5e9' }}>
-                {auction.peserta} people
+                {auction.participantCount} people
               </div>
             </div>
           </div>

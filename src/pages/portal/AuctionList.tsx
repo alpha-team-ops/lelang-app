@@ -7,6 +7,23 @@ import type { PortalAuction } from '../../data/types';
 import AuctionModal from './AuctionModal';
 import './styles/portal.css';
 
+// Helper to calculate time remaining from endTime
+const calculateTimeRemaining = (endTime: Date): string => {
+  const now = new Date();
+  const diff = endTime.getTime() - now.getTime();
+
+  if (diff <= 0) return 'Sudah Berakhir';
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  }
+  return `${hours}h ${minutes}m`;
+};
+
 export default function AuctionList() {
   const navigate = useNavigate();
   const [selectedAuction, setSelectedAuction] = useState<PortalAuction | null>(null);
@@ -73,8 +90,8 @@ export default function AuctionList() {
         auction.id === auctionId
           ? {
               ...auction,
-              hargaSaatIni: newPrice,
-              peserta: auction.peserta + 1,
+              currentBid: newPrice,
+              participantCount: auction.participantCount + 1,
             }
           : auction
       )
@@ -158,7 +175,7 @@ export default function AuctionList() {
               {auction.images && auction.images.length > 0 ? (
                 <img 
                   src={auction.images[0]} 
-                  alt={auction.namaBarang}
+                  alt={auction.title}
                   style={{
                     width: '100%',
                     height: '100%',
@@ -166,35 +183,35 @@ export default function AuctionList() {
                   }}
                 />
               ) : (
-                <div className="auction-image-placeholder">{auction.gambar}</div>
+                <div className="auction-image-placeholder">📦</div>
               )}
-              <div className="auction-category-badge">{auction.kategori}</div>
+              <div className="auction-category-badge">{auction.category}</div>
             </div>
 
             {/* Content */}
             <div className="auction-content">
               {/* Name & Condition */}
-              <div className="auction-name">{auction.namaBarang}</div>
-              <div className="auction-condition">{auction.kondisi}</div>
+              <div className="auction-name">{auction.title}</div>
+              <div className="auction-condition">{auction.condition}</div>
 
               {/* Price & Participants */}
               <div className="auction-info">
                 <div className="info-item">
-                  <div className="info-label">Harga Saat Ini</div>
+                  <div className="info-label">Current Price</div>
                   <div className="info-value price">
-                    Rp {auction.hargaSaatIni.toLocaleString('id-ID')}
+                    Rp {auction.currentBid.toLocaleString('id-ID')}
                   </div>
                 </div>
                 <div className="info-item">
                   <div className="info-label">Participants</div>
-                  <div className="info-value participants">{auction.peserta} people</div>
+                  <div className="info-value participants">{auction.participantCount} people</div>
                 </div>
               </div>
 
               {/* Timer */}
               <div className="auction-timer">
                 <span className="auction-timer-icon">⏱️</span>
-                {auction.sisaWaktu}
+                {calculateTimeRemaining(auction.endTime)}
               </div>
 
               {/* Bid Button */}
