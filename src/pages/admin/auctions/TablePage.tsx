@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import 'jspdf/dist/jspdf.umd.min.js';
 import {
@@ -35,15 +35,16 @@ import {
   GetApp as GetAppIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material';
-import { adminAuctionsMock, winnerBidsMock } from '../../../data/mock/auctions';
+import { winnerBidsMock } from '../../../data/mock/auctions';
 import AuctionDetailModal from '../../../components/modals/auctions/AuctionDetailModal';
 import CreateAuctionModal from '../../../components/modals/auctions/CreateAuctionModal';
 import EditAuctionModal from '../../../components/modals/auctions/EditAuctionModal';
+import { auctionService } from '../../../data/services';
 import type { Auction, WinnerBid } from '../../../data/types';
 
 const TablePage: React.FC = () => {
   const [currentTab, setCurrentTab] = useState(0);
-  const [auctions, setAuctions] = useState<Auction[]>(adminAuctionsMock);
+  const [auctions, setAuctions] = useState<Auction[]>([]);
   const [searchText, setSearchText] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -59,6 +60,15 @@ const TablePage: React.FC = () => {
   const [winnerBidRowsPerPage, setWinnerBidRowsPerPage] = useState(10);
   const [selectedWinner, setSelectedWinner] = useState<WinnerBid | null>(null);
   const [winnerBidDetailDialogOpen, setWinnerBidDetailDialogOpen] = useState(false);
+
+  // Load auctions from service
+  useEffect(() => {
+    const loadAuctions = async () => {
+      const data = await auctionService.getAllAdminAuctions();
+      setAuctions(data);
+    };
+    loadAuctions();
+  }, []);
 
   // Filter dan search
   const filteredAuctions = useMemo(() => {

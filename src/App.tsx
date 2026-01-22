@@ -6,6 +6,7 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import AccessDeniedPage from './pages/auth/AccessDeniedPage';
 import { menuCategories, protectedRoutes, portalRoutes } from './config/routes';
+import { currentLoggedInUser } from './data/mock/currentUser';
 
 const theme = createTheme({
   palette: {
@@ -43,10 +44,7 @@ function App() {
             element={
               <DashboardLayout
                 menuCategories={menuCategories}
-                user={{
-                  full_name: 'Alpha Dev',
-                  email: 'alpha.dev@deraly.id',
-                }}
+                user={currentLoggedInUser}
                 onLogout={() => console.log('Logout')}
                 onProfile={() => console.log('Profile')}
                 onApiDocsClick={() => console.log('API Docs')}

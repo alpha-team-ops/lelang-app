@@ -91,6 +91,7 @@ export const auctionService = {
       endTime: a.endTime,
       participantCount: a.participantCount,
       images: a.images || [],
+      organizationCode: a.organizationCode,
     }));
     
     // Nanti tinggal ganti ke:
@@ -113,6 +114,7 @@ export const auctionService = {
       endTime: auction.endTime,
       participantCount: auction.participantCount,
       images: auction.images || [],
+      organizationCode: auction.organizationCode,
     };
     
     // Nanti tinggal ganti ke:
@@ -140,6 +142,7 @@ export const auctionService = {
         endTime: a.endTime,
         participantCount: a.participantCount,
         images: a.images || [],
+        organizationCode: a.organizationCode,
       }));
     
     // Nanti tinggal ganti ke:
@@ -161,6 +164,7 @@ export const auctionService = {
       endTime: a.endTime,
       participantCount: a.participantCount,
       images: a.images || [],
+      organizationCode: a.organizationCode,
     }));
     
     // Nanti tinggal ganti ke:

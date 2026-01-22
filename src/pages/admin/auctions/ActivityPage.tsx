@@ -21,11 +21,17 @@ import type { BidActivity } from '../../../data/mock/bidActivity';
 import { mockBidActivity } from '../../../data/mock/bidActivity';
 
 const AuctionActivityPage: React.FC = () => {
-  const [activities] = useState<BidActivity[]>(mockBidActivity);
-  const [filteredActivities, setFilteredActivities] = useState<BidActivity[]>(mockBidActivity);
+  const [activities, setActivities] = useState<BidActivity[]>([]);
+  const [filteredActivities, setFilteredActivities] = useState<BidActivity[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage] = useState(10);
+
+  // Load activities on mount
+  useEffect(() => {
+    setActivities(mockBidActivity);
+    setFilteredActivities(mockBidActivity);
+  }, []);
 
   useEffect(() => {
     const filtered = activities.filter((activity) =>

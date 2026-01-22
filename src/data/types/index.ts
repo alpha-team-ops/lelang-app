@@ -22,6 +22,7 @@ export interface Auction {
   images?: string[]; // Array of image URLs from Minio
   viewCount: number;
   participantCount: number;
+  organizationCode: string; // Organization code mapping
 }
 
 export interface PortalAuction {
@@ -35,6 +36,7 @@ export interface PortalAuction {
   endTime: Date;
   participantCount: number;
   images?: string[]; // Array of image URLs
+  organizationCode: string;
 }
 
 // Winner Bid Types

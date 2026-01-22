@@ -21,6 +21,7 @@ interface DashboardLayoutProps {
     email?: string;
     avatar_url?: string;
     username?: string;
+    role?: 'ADMIN' | 'MODERATOR' | 'USER';
   };
   onLogout?: () => void;
   onProfile?: () => void;

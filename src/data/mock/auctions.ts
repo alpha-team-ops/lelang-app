@@ -51,6 +51,7 @@ export const adminAuctionsMock: Auction[] = [
     ],
     viewCount: 342,
     participantCount: 12,
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '2',
@@ -80,6 +81,7 @@ export const adminAuctionsMock: Auction[] = [
     ],
     viewCount: 892,
     participantCount: 28,
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '3',
@@ -108,6 +110,7 @@ export const adminAuctionsMock: Auction[] = [
     ],
     viewCount: 456,
     participantCount: 8,
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '4',
@@ -134,6 +137,7 @@ export const adminAuctionsMock: Auction[] = [
     ],
     viewCount: 234,
     participantCount: 15,
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '5',
@@ -162,6 +166,7 @@ export const adminAuctionsMock: Auction[] = [
     ],
     viewCount: 567,
     participantCount: 10,
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '6',
@@ -189,6 +194,7 @@ export const adminAuctionsMock: Auction[] = [
     ],
     viewCount: 678,
     participantCount: 20,
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '7',
@@ -217,6 +223,7 @@ export const adminAuctionsMock: Auction[] = [
     ],
     viewCount: 45,
     participantCount: 0,
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '8',
@@ -244,6 +251,7 @@ export const adminAuctionsMock: Auction[] = [
     ],
     viewCount: 234,
     participantCount: 0,
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '9',
@@ -271,6 +279,7 @@ export const adminAuctionsMock: Auction[] = [
     ],
     viewCount: 892,
     participantCount: 18,
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '10',
@@ -296,6 +305,7 @@ export const adminAuctionsMock: Auction[] = [
     ],
     viewCount: 1245,
     participantCount: 22,
+    organizationCode: 'ORG-DERALY-001',
   },
 ];
 
@@ -316,6 +326,7 @@ export const portalAuctionsMock: PortalAuction[] = [
       createSVGPlaceholder('667eea', 'Laptop Angle 1'),
       createSVGPlaceholder('667eea', 'Laptop Angle 2'),
     ],
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '2',
@@ -333,6 +344,7 @@ export const portalAuctionsMock: PortalAuction[] = [
       createSVGPlaceholder('222222', 'iPhone Back'),
       createSVGPlaceholder('222222', 'iPhone Box'),
     ],
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '3',
@@ -349,6 +361,7 @@ export const portalAuctionsMock: PortalAuction[] = [
       createSVGPlaceholder('f97316', 'Camera Angle 1'),
       createSVGPlaceholder('f97316', 'Camera Lens'),
     ],
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '4',
@@ -364,6 +377,7 @@ export const portalAuctionsMock: PortalAuction[] = [
       PLACEHOLDER_IMAGES.watch,
       createSVGPlaceholder('764ba2', 'Watch Front'),
     ],
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '5',
@@ -380,6 +394,7 @@ export const portalAuctionsMock: PortalAuction[] = [
       createSVGPlaceholder('3b82f6', 'iPad Front'),
       createSVGPlaceholder('3b82f6', 'iPad Back'),
     ],
+    organizationCode: 'ORG-DERALY-001',
   },
   {
     id: '6',
@@ -395,6 +410,7 @@ export const portalAuctionsMock: PortalAuction[] = [
       PLACEHOLDER_IMAGES.headphones,
       createSVGPlaceholder('fbbf24', 'Headphones Side'),
     ],
+    organizationCode: 'ORG-DERALY-001',
   },
 ];
 
@@ -409,7 +425,7 @@ export const winnerBidsMock: WinnerBid[] = [
     fullName: 'Ahmad Rizki',
     corporateIdNip: 'CORP-2024-001',
     directorate: 'IT',
-    organizationCode: 'ORG-001',
+    organizationCode: 'ORG-DERALY-001',
     winningBid: 8500000,
     totalParticipants: 15,
     auctionEndTime: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
@@ -426,7 +442,7 @@ export const winnerBidsMock: WinnerBid[] = [
     fullName: 'Siti Nurhaliza',
     corporateIdNip: 'CORP-2024-002',
     directorate: 'HR',
-    organizationCode: 'ORG-002',
+    organizationCode: 'ORG-DERALY-001',
     winningBid: 12000000,
     totalParticipants: 28,
     auctionEndTime: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
@@ -443,7 +459,7 @@ export const winnerBidsMock: WinnerBid[] = [
     fullName: 'Budi Santoso',
     corporateIdNip: 'CORP-2024-003',
     directorate: 'Finance',
-    organizationCode: 'ORG-003',
+    organizationCode: 'ORG-DERALY-001',
     winningBid: 18000000,
     totalParticipants: 8,
     auctionEndTime: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
@@ -460,7 +476,7 @@ export const winnerBidsMock: WinnerBid[] = [
     fullName: 'Dewi Lestari',
     corporateIdNip: 'CORP-2024-004',
     directorate: 'Operations',
-    organizationCode: 'ORG-004',
+    organizationCode: 'ORG-DERALY-001',
     winningBid: 4500000,
     totalParticipants: 15,
     auctionEndTime: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
@@ -477,7 +493,7 @@ export const winnerBidsMock: WinnerBid[] = [
     fullName: 'Eka Wijaya',
     corporateIdNip: 'CORP-2024-005',
     directorate: 'Sales',
-    organizationCode: 'ORG-005',
+    organizationCode: 'ORG-DERALY-001',
     winningBid: 9000000,
     totalParticipants: 10,
     auctionEndTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
@@ -494,7 +510,7 @@ export const winnerBidsMock: WinnerBid[] = [
     fullName: 'Fara Nabila',
     corporateIdNip: 'CORP-2024-006',
     directorate: 'IT',
-    organizationCode: 'ORG-001',
+    organizationCode: 'ORG-DERALY-001',
     winningBid: 3500000,
     totalParticipants: 20,
     auctionEndTime: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
