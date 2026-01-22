@@ -12,17 +12,15 @@ import {
   Stack,
   Grid,
   InputAdornment,
-  Chip,
   Typography,
   IconButton,
 } from '@mui/material';
 import {
-  Schedule as ScheduleIcon,
   Close as CloseIcon,
   CloudUpload as CloudUploadIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { Card, CardContent } from '@mui/material';
+
 
 interface FormData {
   title: string;
@@ -88,24 +86,6 @@ const CONDITIONS = [
 const formatCurrency = (value: number | string): string => {
   if (value === '' || value === 0) return '';
   return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-};
-
-// Calculate time remaining
-const calculateTimeRemaining = (startDate: string, startTime: string, endDate: string, endTime: string) => {
-  if (!startDate || !startTime || !endDate || !endTime) return '';
-
-  const start = new Date(`${startDate}T${startTime}`);
-  const end = new Date(`${endDate}T${endTime}`);
-  const now = new Date();
-
-  if (now >= end) return 'Sudah Berakhir';
-  if (now < start) return 'Belum Dimulai';
-
-  const diff = end.getTime() - now.getTime();
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-  return `${days} hari ${hours} jam`;
 };
 
 const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, onSubmit }) => {
@@ -260,13 +240,6 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
     }
   };
 
-  const timeRemaining = calculateTimeRemaining(
-    formData.startDate,
-    formData.startTime,
-    formData.endDate,
-    formData.endTime
-  );
-
   return (
     <Dialog 
       open={open} 
@@ -398,28 +371,61 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
             )}
           </Box>
 
-          {/* Section 1: Judul Barang */}
-          <Box>
-            <TextField
-              fullWidth
-              label="Judul Barang"
-              name="title"
-              value={formData.title}
-              onChange={handleInputChange}
-              placeholder="e.g., Laptop HP ProBook 450"
-              error={!!errors.title}
-              helperText={errors.title}
-              size="small"
-              sx={{ '& .MuiOutlinedInput-root': { fontSize: '14px' } }}
-            />
+          {/* Section 1 & 2: Title & Description (Combined Card) */}
+          <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '8px' }}>
+            {/* Title */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5, fontSize: '12px' }}>
+                Title
+              </Typography>
+              <TextField
+                fullWidth
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                placeholder="e.g., Laptop HP ProBook 450"
+                error={!!errors.title}
+                helperText={errors.title}
+                size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    fontSize: '14px',
+                  },
+                }}
+              />
+            </Box>
+
+            {/* Description */}
+            <Box>
+              <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5, fontSize: '12px' }}>
+                Description
+              </Typography>
+              <TextField
+                fullWidth
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Complete product description, condition, specifications, etc."
+                multiline
+                rows={3}
+                error={!!errors.description}
+                helperText={errors.description}
+                size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    fontSize: '13px',
+                  },
+                }}
+              />
+            </Box>
           </Box>
 
-          {/* Section 2: Info Barang (Category, Condition, SN, Prices) */}
+          {/* Section 3: Item Information (Category, Condition, SN, Prices) */}
           <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '8px' }}>
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                  Kategori
+                  Category
                 </Typography>
                 <FormControl fullWidth error={!!errors.category} size="small">
                   <Select
@@ -438,7 +444,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
 
               <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                  Kondisi
+                  Condition
                 </Typography>
                 <FormControl fullWidth error={!!errors.condition} size="small">
                   <Select
@@ -453,16 +459,6 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                     ))}
                   </Select>
                 </FormControl>
-                {formData.condition && (
-                  <Box sx={{ mt: 0.5 }}>
-                    <Chip
-                      label={formData.condition}
-                      color="success"
-                      variant="filled"
-                      size="small"
-                    />
-                  </Box>
-                )}
               </Grid>
 
               <Grid size={{ xs: 12 }}>
@@ -511,142 +507,101 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                 />
               </Grid>
 
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                  Harga Awal
+                  Starting Price
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 700, color: '#667eea' }}>
                   Rp {formData.startingPrice !== '' ? formatCurrency(formData.startingPrice) : '0'}
                 </Typography>
               </Grid>
-
-              <Grid size={{ xs: 6 }}>
-                <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                  Harga Saat Ini
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700, color: '#f97316' }}>
-                  Rp {formData.reservePrice !== '' ? formatCurrency(formData.reservePrice) : '0'}
-                </Typography>
-              </Grid>
             </Grid>
           </Box>
 
-          {/* Section 3: Deskripsi Barang */}
-          <Box>
-            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, color: '#1f2937' }}>
-              DESKRIPSI BARANG
-            </Typography>
-            <TextField
-              fullWidth
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              placeholder="Deskripsi lengkap barang, kondisi, spesifikasi, dll."
-              multiline
-              rows={3}
-              error={!!errors.description}
-              helperText={errors.description}
-              size="small"
-              sx={{
-                '& .MuiOutlinedInput-root': { fontSize: '13px' },
-                bgcolor: '#f9f9f9',
-              }}
-            />
-          </Box>
-
-          {/* Section 4: Sisa Waktu */}
-          <Grid container spacing={1.5}>
-            <Grid size={{ xs: 6 }}>
-              <Card sx={{ bgcolor: '#f5f5f5', border: '1px solid #e0e0e0', boxShadow: 'none', py: 1.5, px: 1 }}>
-                <CardContent sx={{ py: 0, px: 0, textAlign: 'center', '&:last-child': { pb: 0 } }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, gap: 0.5 }}>
-                    <ScheduleIcon sx={{ fontSize: '18px', color: '#667eea' }} />
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: '#667eea', fontSize: '11px' }}>
-                      SISA WAKTU
-                    </Typography>
-                  </Box>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#1f2937', fontSize: '13px', display: 'block' }}>
-                    {timeRemaining || '- hari - jam'}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
-          {/* Section 5: Harga Penawaran */}
-          <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '8px' }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1.5, color: '#1f2937', fontSize: '13px' }}>
-              💰 Harga Penawaran
+          {/* Section 4: Price Offering */}
+          <Box sx={{ bgcolor: '#f5f5f5', p: 2.5, borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2, color: '#1f2937', fontSize: '13px' }}>
+              Price Offering
             </Typography>
 
-            <Grid container spacing={1.5}>
-              <Grid size={{ xs: 6 }}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
-                  label="Harga Awal"
+                  label="Starting Price"
                   name="startingPrice"
                   type="text"
                   value={formData.startingPrice !== '' ? formatCurrency(formData.startingPrice) : ''}
                   onChange={handleInputChange}
+                  placeholder="0"
                   InputProps={{
-                    startAdornment: <InputAdornment position="start" sx={{ fontSize: '13px' }}>Rp</InputAdornment>,
+                    startAdornment: <InputAdornment position="start" sx={{ fontSize: '13px', fontWeight: 600 }}>Rp</InputAdornment>,
                   }}
                   error={!!errors.startingPrice}
                   helperText={errors.startingPrice}
                   size="small"
+                  sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
                 />
               </Grid>
 
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
-                  label="Harga Saat Ini"
-                  name="reservePrice"
-                  type="text"
-                  value={formData.reservePrice !== '' ? formatCurrency(formData.reservePrice) : ''}
-                  onChange={handleInputChange}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start" sx={{ fontSize: '13px' }}>Rp</InputAdornment>,
-                  }}
-                  error={!!errors.reservePrice}
-                  helperText={errors.reservePrice}
-                  size="small"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  label="Kelipatan Penawaran"
+                  label="Bid Increment"
                   name="bidIncrement"
                   type="text"
                   value={formData.bidIncrement !== '' ? formatCurrency(formData.bidIncrement) : ''}
                   onChange={handleInputChange}
+                  placeholder="0"
                   InputProps={{
-                    startAdornment: <InputAdornment position="start" sx={{ fontSize: '13px' }}>Rp</InputAdornment>,
+                    startAdornment: <InputAdornment position="start" sx={{ fontSize: '13px', fontWeight: 600 }}>Rp</InputAdornment>,
                   }}
                   error={!!errors.bidIncrement}
                   helperText={errors.bidIncrement}
                   size="small"
+                  sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
                 />
-                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5, fontSize: '11px' }}>
-                  Minimal: Rp {formData.reservePrice !== '' ? formatCurrency(formData.reservePrice) : '0'} • Kelipatan: Rp {formData.bidIncrement !== '' ? formatCurrency(formData.bidIncrement) : '0'}
-                </Typography>
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <Box sx={{ bgcolor: 'white', p: 1.5, borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', fontSize: '11px', fontWeight: 600, mb: 0.75 }}>
+                    📊 Bid Information
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <Box>
+                      <Typography variant="caption" sx={{ display: 'block', fontSize: '10px', color: '#6b7280', fontWeight: 500 }}>
+                        Minimum Bid:
+                      </Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#667eea', fontSize: '12px' }}>
+                        Rp {formData.startingPrice !== '' ? formatCurrency(formData.startingPrice) : '0'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ display: 'block', fontSize: '10px', color: '#6b7280', fontWeight: 500 }}>
+                        Increment:
+                      </Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#f97316', fontSize: '12px' }}>
+                        Rp {formData.bidIncrement !== '' ? formatCurrency(formData.bidIncrement) : '0'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
               </Grid>
             </Grid>
           </Box>
 
-          {/* Section 6: Jadwal Lelang */}
+          {/* Section 5: Auction Schedule */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, color: '#1f2937', fontSize: '13px' }}>
-              📅 Jadwal Lelang
+              Auction Schedule
             </Typography>
 
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 6 }}>
                 <TextField
                   fullWidth
-                  label="Tanggal Mulai"
+                  label="Start Date"
                   name="startDate"
                   type="date"
                   value={formData.startDate}
@@ -661,7 +616,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
               <Grid size={{ xs: 6 }}>
                 <TextField
                   fullWidth
-                  label="Jam Mulai"
+                  label="Start Time"
                   name="startTime"
                   type="time"
                   value={formData.startTime}
@@ -676,7 +631,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
               <Grid size={{ xs: 6 }}>
                 <TextField
                   fullWidth
-                  label="Tanggal Berakhir"
+                  label="End Date"
                   name="endDate"
                   type="date"
                   value={formData.endDate}
@@ -691,7 +646,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
               <Grid size={{ xs: 6 }}>
                 <TextField
                   fullWidth
-                  label="Jam Berakhir"
+                  label="End Time"
                   name="endTime"
                   type="time"
                   value={formData.endTime}

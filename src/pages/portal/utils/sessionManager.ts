@@ -1,10 +1,10 @@
 // Session Management Utility
 
 export interface UserSession {
-  namaLengkap: string;
-  idNip: string;
-  direktorat: string;
-  organisasiCode: string;
+  fullName: string;
+  corporateIdNip: string;
+  directorate: string;
+  organizationCode: string;
   timestamp: number;
 }
 

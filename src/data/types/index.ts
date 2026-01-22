@@ -37,6 +37,25 @@ export interface PortalAuction {
   images?: string[]; // Array of image URLs
 }
 
+// Winner Bid Types
+export interface WinnerBid {
+  id: string;
+  auctionId: string;
+  auctionTitle: string;
+  serialNumber: string; // Serial Number of the auctioned item
+  category: string;
+  fullName: string;
+  corporateIdNip: string;
+  directorate: string;
+  organizationCode: string;
+  winningBid: number;
+  totalParticipants: number;
+  auctionEndTime: Date;
+  status: 'PAYMENT_PENDING' | 'PAID' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED';
+  paymentDueDate: Date;
+  notes?: string;
+}
+
 // Statistics Types
 export interface DashboardStats {
   totalAuctions: number;

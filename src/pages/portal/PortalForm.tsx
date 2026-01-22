@@ -5,26 +5,26 @@ import { saveUserSession } from './utils/sessionManager';
 import './styles/portal.css';
 
 interface FormData {
-  namaLengkap: string;
-  idNip: string;
-  direktorat: string;
-  organisasiCode: string;
+  fullName: string;
+  corporateIdNip: string;
+  directorate: string;
+  organizationCode: string;
 }
 
 interface FormErrors {
-  namaLengkap?: string;
-  idNip?: string;
-  direktorat?: string;
-  organisasiCode?: string;
+  fullName?: string;
+  corporateIdNip?: string;
+  directorate?: string;
+  organizationCode?: string;
 }
 
 export default function PortalForm() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState<FormData>({
-    namaLengkap: '',
-    idNip: '',
-    direktorat: '',
-    organisasiCode: '',
+    fullName: '',
+    corporateIdNip: '',
+    directorate: '',
+    organizationCode: '',
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -48,20 +48,20 @@ export default function PortalForm() {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!formData.namaLengkap.trim()) {
-      newErrors.namaLengkap = 'Nama lengkap harus diisi';
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = 'Full name is required';
     }
 
-    if (!formData.idNip.trim()) {
-      newErrors.idNip = 'ID/NIP harus diisi';
+    if (!formData.corporateIdNip.trim()) {
+      newErrors.corporateIdNip = 'Corporate ID / NIP is required';
     }
 
-    if (!formData.direktorat.trim()) {
-      newErrors.direktorat = 'Direktorat harus diisi';
+    if (!formData.directorate.trim()) {
+      newErrors.directorate = 'Directorate is required';
     }
 
-    if (!formData.organisasiCode.trim()) {
-      newErrors.organisasiCode = 'Organisasi Code harus diisi';
+    if (!formData.organizationCode.trim()) {
+      newErrors.organizationCode = 'Organization code is required';
     }
 
     setErrors(newErrors);
@@ -83,10 +83,10 @@ export default function PortalForm() {
 
       // Save session data
       saveUserSession({
-        namaLengkap: formData.namaLengkap,
-        idNip: formData.idNip,
-        direktorat: formData.direktorat,
-        organisasiCode: formData.organisasiCode,
+        fullName: formData.fullName,
+        corporateIdNip: formData.corporateIdNip,
+        directorate: formData.directorate,
+        organizationCode: formData.organizationCode,
         timestamp: Date.now(),
       });
 
@@ -105,99 +105,99 @@ export default function PortalForm() {
         <div className="icon-container">
           <span className="icon">🏛️</span>
         </div>
-        <h1 className="portal-title">Portal Lelang</h1>
-        <p className="portal-subtitle">Masukkan data Anda untuk mulai mengikuti lelang</p>
+        <h1 className="portal-title">Auction Portal</h1>
+        <p className="portal-subtitle">Enter your information to start participating in auctions</p>
 
         <form className="form" onSubmit={handleSubmit}>
-          {/* Nama Lengkap */}
+          {/* Full Name */}
           <div className="form-group">
             <label className="form-label">
               <span className="label-icon">👤</span>
-              Nama Lengkap
+              Full Name
             </label>
             <input
               type="text"
               className="form-input"
-              name="namaLengkap"
-              value={formData.namaLengkap}
+              name="fullName"
+              value={formData.fullName}
               onChange={handleChange}
-              placeholder="Masukkan nama lengkap Anda"
+              placeholder="Enter your full name"
               disabled={isSubmitting}
             />
-            {errors.namaLengkap && (
+            {errors.fullName && (
               <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
-                {errors.namaLengkap}
+                {errors.fullName}
               </span>
             )}
           </div>
 
-          {/* ID/NIP */}
+          {/* ID */}
           <div className="form-group">
             <label className="form-label">
               <span className="label-icon">🆔</span>
-              ID/NIP
+              Corporate ID / NIP
             </label>
             <input
               type="text"
               className="form-input"
-              name="idNip"
-              value={formData.idNip}
+              name="corporateIdNip"
+              value={formData.corporateIdNip}
               onChange={handleChange}
-              placeholder="Masukkan ID atau NIP Anda"
+              placeholder="Enter your corporate ID or NIP"
               disabled={isSubmitting}
             />
-            {errors.idNip && (
+            {errors.corporateIdNip && (
               <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
-                {errors.idNip}
+                {errors.corporateIdNip}
               </span>
             )}
           </div>
 
-          {/* Direktorat */}
+          {/* Directorate */}
           <div className="form-group">
             <label className="form-label">
               <span className="label-icon">🏢</span>
-              Direktorat
+              Directorate
             </label>
             <select
               className="form-select"
-              name="direktorat"
-              value={formData.direktorat}
+              name="directorate"
+              value={formData.directorate}
               onChange={handleChange}
               disabled={isSubmitting}
             >
-              <option value="">-- Pilih Direktorat --</option>
-              <option value="IT">Direktorat IT</option>
-              <option value="HR">Direktorat HR</option>
-              <option value="Finance">Direktorat Finance</option>
-              <option value="Operations">Direktorat Operations</option>
-              <option value="Sales">Direktorat Sales</option>
+              <option value="">-- Select Directorate --</option>
+              <option value="IT">IT Directorate</option>
+              <option value="HR">HR Directorate</option>
+              <option value="Finance">Finance Directorate</option>
+              <option value="Operations">Operations Directorate</option>
+              <option value="Sales">Sales Directorate</option>
             </select>
-            {errors.direktorat && (
+            {errors.directorate && (
               <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
-                {errors.direktorat}
+                {errors.directorate}
               </span>
             )}
           </div>
 
-          {/* Organisasi Code */}
+          {/* Organization Code */}
           <div className="form-group">
             <label className="form-label">
               <span className="label-icon">📋</span>
-              Organisasi Code
+              Organization Code
             </label>
             <input
               type="text"
               className="form-input"
-              name="organisasiCode"
-              value={formData.organisasiCode}
+              name="organizationCode"
+              value={formData.organizationCode}
               onChange={handleChange}
               placeholder="e.g., ORG-001"
               disabled={isSubmitting}
             />
-            {errors.organisasiCode && (
+            {errors.organizationCode && (
               <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
-                {errors.organisasiCode}
+                {errors.organizationCode}
               </span>
             )}
           </div>
@@ -217,12 +217,12 @@ export default function PortalForm() {
             {isSubmitting ? (
               <>
                 <span className="loader"></span>
-                Memproses...
+                Processing...
               </>
             ) : (
               <>
                 <span>✓</span>
-                Masuk Ke Lelang
+                Enter Auction
               </>
             )}
           </button>
@@ -239,8 +239,8 @@ export default function PortalForm() {
             lineHeight: '1.6',
           }}
         >
-          <p>Data Anda akan disimpan dalam sesi browser untuk keamanan.</p>
-          <p>Sesi akan kadaluarsa setelah 30 menit tidak ada aktivitas.</p>
+          <p>Your data will be stored in browser session for security.</p>
+          <p>Session will expire after 30 minutes of inactivity.</p>
         </div>
       </div>
     </div>

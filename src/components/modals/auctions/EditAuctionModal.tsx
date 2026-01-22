@@ -19,7 +19,7 @@ import {
   CloudUpload as CloudUploadIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { Card, CardContent, Grid } from '@mui/material';
+import { Grid } from '@mui/material';
 import type { Auction } from '../../../data/types';
 
 interface FormData {
@@ -413,70 +413,78 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
               📦 ITEM DETAILS
             </Typography>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small" error={!!errors.category}>
-                  <Select name="category" value={formData.category} onChange={handleSelectChange} displayEmpty>
-                    <MenuItem value="" disabled>
-                      Category
-                    </MenuItem>
-                    {CATEGORIES.map((cat) => (
-                      <MenuItem key={cat} value={cat}>
-                        {cat}
+            <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '8px' }}>
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                    Category
+                  </Typography>
+                  <FormControl fullWidth size="small" error={!!errors.category}>
+                    <Select name="category" value={formData.category} onChange={handleSelectChange} displayEmpty>
+                      <MenuItem value="" disabled>
+                        Select category
                       </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small" error={!!errors.condition}>
-                  <Select name="condition" value={formData.condition} onChange={handleSelectChange} displayEmpty>
-                    <MenuItem value="" disabled>
-                      Condition
-                    </MenuItem>
-                    {CONDITIONS.map((cond) => (
-                      <MenuItem key={cond} value={cond}>
-                        {cond}
+                      {CATEGORIES.map((cat) => (
+                        <MenuItem key={cat} value={cat}>
+                          {cat}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                    Condition
+                  </Typography>
+                  <FormControl fullWidth size="small" error={!!errors.condition}>
+                    <Select name="condition" value={formData.condition} onChange={handleSelectChange} displayEmpty>
+                      <MenuItem value="" disabled>
+                        Select condition
                       </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                      {CONDITIONS.map((cond) => (
+                        <MenuItem key={cond} value={cond}>
+                          {cond}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <TextField
+                    fullWidth
+                    label="Serial Number (SN)"
+                    name="serialNumber"
+                    value={formData.serialNumber}
+                    onChange={handleInputChange}
+                    size="small"
+                    placeholder="e.g., ASU-ROG-2024-001"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Item Location"
+                    name="itemLocation"
+                    value={formData.itemLocation}
+                    onChange={handleInputChange}
+                    size="small"
+                    placeholder="e.g., Jakarta"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Purchase Year"
+                    name="purchaseYear"
+                    type="number"
+                    value={formData.purchaseYear}
+                    onChange={handleInputChange}
+                    size="small"
+                    inputProps={{ min: 1900, max: new Date().getFullYear() }}
+                  />
+                </Grid>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Serial Number"
-                  name="serialNumber"
-                  value={formData.serialNumber}
-                  onChange={handleInputChange}
-                  size="small"
-                  placeholder="e.g., ASU-ROG-2024-001"
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Item Location"
-                  name="itemLocation"
-                  value={formData.itemLocation}
-                  onChange={handleInputChange}
-                  size="small"
-                  placeholder="e.g., Jakarta"
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Purchase Year"
-                  name="purchaseYear"
-                  type="number"
-                  value={formData.purchaseYear}
-                  onChange={handleInputChange}
-                  size="small"
-                  inputProps={{ min: 1900, max: new Date().getFullYear() }}
-                />
-              </Grid>
-            </Grid>
+            </Box>
           </Box>
 
           {/* PRICING SECTION */}
@@ -484,71 +492,62 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
               💰 PRICING
             </Typography>
-            <Grid container spacing={1.5}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Card sx={{ bgcolor: '#fafbfc', border: '1px solid #e5e7eb', height: '100%' }}>
-                  <CardContent sx={{ pb: '12px !important' }}>
-                    <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: '500' }}>
-                      Starting Price
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      value={formatCurrency(formData.startingPrice)}
-                      onChange={handleInputChange}
-                      error={!!errors.startingPrice}
-                      helperText={errors.startingPrice}
-                      name="startingPrice"
-                      size="small"
-                      InputProps={{
-                        startAdornment: <InputAdornment position="start">Rp</InputAdornment>,
-                      }}
-                    />
-                  </CardContent>
-                </Card>
+            <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '8px' }}>
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                    Starting Price
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    value={formatCurrency(formData.startingPrice)}
+                    onChange={handleInputChange}
+                    error={!!errors.startingPrice}
+                    helperText={errors.startingPrice}
+                    name="startingPrice"
+                    size="small"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">Rp</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                    Reserve Price
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    value={formatCurrency(formData.reservePrice)}
+                    onChange={handleInputChange}
+                    error={!!errors.reservePrice}
+                    helperText={errors.reservePrice}
+                    name="reservePrice"
+                    size="small"
+                    disabled={auction?.status !== 'DRAFT'}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">Rp</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                    Bid Increment
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    value={formatCurrency(formData.bidIncrement)}
+                    onChange={handleInputChange}
+                    error={!!errors.bidIncrement}
+                    helperText={errors.bidIncrement}
+                    name="bidIncrement"
+                    size="small"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">Rp</InputAdornment>,
+                    }}
+                  />
+                </Grid>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Card sx={{ bgcolor: '#fafbfc', border: '1px solid #e5e7eb', height: '100%' }}>
-                  <CardContent sx={{ pb: '12px !important' }}>
-                    <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: '500' }}>
-                      Reserve Price
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      value={formatCurrency(formData.reservePrice)}
-                      onChange={handleInputChange}
-                      error={!!errors.reservePrice}
-                      helperText={errors.reservePrice}
-                      name="reservePrice"
-                      size="small"
-                      InputProps={{
-                        startAdornment: <InputAdornment position="start">Rp</InputAdornment>,
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Card sx={{ bgcolor: '#fafbfc', border: '1px solid #e5e7eb', height: '100%' }}>
-                  <CardContent sx={{ pb: '12px !important' }}>
-                    <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: '500' }}>
-                      Bid Increment
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      value={formatCurrency(formData.bidIncrement)}
-                      onChange={handleInputChange}
-                      error={!!errors.bidIncrement}
-                      helperText={errors.bidIncrement}
-                      name="bidIncrement"
-                      size="small"
-                      InputProps={{
-                        startAdornment: <InputAdornment position="start">Rp</InputAdornment>,
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
+            </Box>
           </Box>
 
           {/* TIME & DURATION SECTION */}

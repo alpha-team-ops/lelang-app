@@ -149,7 +149,7 @@ export default function AuctionList() {
         </div>
         <div className="user-info">
           <div className="user-badge">
-            👤 {userSession?.namaLengkap || 'User'}
+            👤 {userSession?.fullName || 'User'}
           </div>
           <div
             className="user-badge"
