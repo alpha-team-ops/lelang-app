@@ -25,7 +25,6 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   Settings as SettingsIcon,
-  Business as BusinessIcon,
   Schedule as ScheduleIcon,
   Notifications as NotificationsIcon,
   Lock as LockIcon,
@@ -107,7 +106,6 @@ export default function SettingsPage() {
       <Card sx={{ mb: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: '12px' }}>
         <Tabs value={tabValue} onChange={handleTabChange} sx={{ borderBottom: '1px solid #e5e7eb', px: 2 }}>
           <Tab icon={<SettingsIcon sx={{ mr: 1 }} />} label="Profile" />
-          <Tab icon={<BusinessIcon sx={{ mr: 1 }} />} label="Organization" />
           <Tab icon={<ScheduleIcon sx={{ mr: 1 }} />} label="Timezone & Locale" />
           <Tab icon={<NotificationsIcon sx={{ mr: 1 }} />} label="Notifications" />
           <Tab icon={<LockIcon sx={{ mr: 1 }} />} label="Security" />
@@ -196,158 +194,8 @@ export default function SettingsPage() {
           </Box>
         </TabPanel>
 
-        {/* TAB 2: ORGANIZATION */}
+        {/* TAB 2: TIMEZONE & LOCALE */}
         <TabPanel value={tabValue} index={1}>
-          <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                Organization Information
-              </Typography>
-              <Button
-                size="small"
-                startIcon={isEditing ? <CancelIcon /> : <EditIcon />}
-                onClick={() => setIsEditing(!isEditing)}
-              >
-                {isEditing ? 'Cancel' : 'Edit'}
-              </Button>
-            </Box>
-
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Organization Name"
-                  value={orgFormData.name}
-                  disabled={!isEditing}
-                  onChange={(e) => setOrgFormData({ ...orgFormData, name: e.target.value })}
-                  size="small"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Website"
-                  value={orgFormData.website}
-                  disabled={!isEditing}
-                  onChange={(e) => setOrgFormData({ ...orgFormData, website: e.target.value })}
-                  size="small"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Stack spacing={1}>
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: 'rgba(0, 0, 0, 0.6)' }}>
-                    Organization Code
-                  </Typography>
-                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                    <TextField
-                      fullWidth
-                      value={orgFormData.organizationCode}
-                      disabled
-                      size="small"
-                      variant="outlined"
-                    />
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => {
-                        navigator.clipboard.writeText(orgFormData.organizationCode);
-                        alert('Organization code copied to clipboard!');
-                      }}
-                      sx={{ whiteSpace: 'nowrap' }}
-                    >
-                      Copy
-                    </Button>
-                  </Stack>
-                </Stack>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Email"
-                  value={orgFormData.email}
-                  disabled={!isEditing}
-                  onChange={(e) => setOrgFormData({ ...orgFormData, email: e.target.value })}
-                  size="small"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Phone"
-                  value={orgFormData.phone}
-                  disabled={!isEditing}
-                  onChange={(e) => setOrgFormData({ ...orgFormData, phone: e.target.value })}
-                  size="small"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  label="Description"
-                  multiline
-                  rows={3}
-                  value={orgFormData.description}
-                  disabled={!isEditing}
-                  onChange={(e) => setOrgFormData({ ...orgFormData, description: e.target.value })}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Address"
-                  value={orgFormData.address}
-                  disabled={!isEditing}
-                  onChange={(e) => setOrgFormData({ ...orgFormData, address: e.target.value })}
-                  size="small"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="City"
-                  value={orgFormData.city}
-                  disabled={!isEditing}
-                  onChange={(e) => setOrgFormData({ ...orgFormData, city: e.target.value })}
-                  size="small"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Country"
-                  value={orgFormData.country}
-                  disabled={!isEditing}
-                  onChange={(e) => setOrgFormData({ ...orgFormData, country: e.target.value })}
-                  size="small"
-                />
-              </Grid>
-
-              {isEditing && (
-                <Grid size={{ xs: 12 }}>
-                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
-                    <Button onClick={() => setIsEditing(false)} variant="outlined">
-                      Cancel
-                    </Button>
-                    <Button onClick={() => setIsEditing(false)} variant="contained" startIcon={<SaveIcon />}>
-                      Save Changes
-                    </Button>
-                  </Box>
-                </Grid>
-              )}
-            </Grid>
-          </Box>
-        </TabPanel>
-
-        {/* TAB 3: TIMEZONE & LOCALE */}
-        <TabPanel value={tabValue} index={2}>
           <Box sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -430,8 +278,8 @@ export default function SettingsPage() {
           </Box>
         </TabPanel>
 
-        {/* TAB 4: NOTIFICATIONS */}
-        <TabPanel value={tabValue} index={3}>
+        {/* TAB 2: NOTIFICATIONS */}
+        <TabPanel value={tabValue} index={2}>
           <Box sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -527,8 +375,8 @@ export default function SettingsPage() {
           </Box>
         </TabPanel>
 
-        {/* TAB 5: SECURITY */}
-        <TabPanel value={tabValue} index={4}>
+        {/* TAB 3: SECURITY */}
+        <TabPanel value={tabValue} index={3}>
           <Box sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 700 }}>

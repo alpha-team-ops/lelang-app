@@ -46,6 +46,13 @@ export interface SuccessRateData {
   totalAuctions: number;
 }
 
+export interface DraftBidData {
+  auctionTitle: string;
+  draftCount: number;
+  pendingReview: number;
+  awaitingApproval: number;
+}
+
 export interface AnalyticsData {
   bidTrend: BidTrendData[];
   auctionPerformance: AuctionPerformanceData[];
@@ -53,6 +60,7 @@ export interface AnalyticsData {
   priceComparison: PriceComparison[];
   topBidders: TopBidder[];
   successRate: SuccessRateData;
+  draftBids: DraftBidData[];
 }
 
 // Import mock data from centralized mock folder
@@ -63,6 +71,7 @@ import {
   mockPriceComparison,
   mockTopBidders,
   mockSuccessRate,
+  mockDraftBids,
 } from '../mock/analytics';
 
 export const analyticsService = {
@@ -74,6 +83,7 @@ export const analyticsService = {
       priceComparison: mockPriceComparison,
       topBidders: mockTopBidders,
       successRate: mockSuccessRate,
+      draftBids: mockDraftBids,
     };
 
     // Nanti tinggal ganti ke:

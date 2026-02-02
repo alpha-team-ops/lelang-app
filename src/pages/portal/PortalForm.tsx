@@ -1,34 +1,48 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { saveUserSession } from './utils/sessionManager';
+import { authService } from '../../data/services';
 import './styles/portal.css';
 
 interface FormData {
   fullName: string;
   corporateIdNip: string;
   directorate: string;
-  organizationCode: string;
+  invitationCode: string;
 }
 
 interface FormErrors {
   fullName?: string;
   corporateIdNip?: string;
   directorate?: string;
-  organizationCode?: string;
+  invitationCode?: string;
 }
 
 export default function PortalForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
     corporateIdNip: '',
     directorate: '',
-    organizationCode: '',
+    invitationCode: '',
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<string>('');
+
+  // Auto-fill invitation code from URL parameter
+  useEffect(() => {
+    const invitationCodeFromUrl = searchParams.get('invitationCode');
+    if (invitationCodeFromUrl) {
+      setFormData((prev) => ({
+        ...prev,
+        invitationCode: invitationCodeFromUrl,
+      }));
+    }
+  }, [searchParams]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -60,8 +74,8 @@ export default function PortalForm() {
       newErrors.directorate = 'Directorate is required';
     }
 
-    if (!formData.organizationCode.trim()) {
-      newErrors.organizationCode = 'Organization code is required';
+    if (!formData.invitationCode.trim()) {
+      newErrors.invitationCode = 'Invitation code is required';
     }
 
     setErrors(newErrors);
@@ -76,24 +90,34 @@ export default function PortalForm() {
     }
 
     setIsSubmitting(true);
+    setApiError('');
 
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Call portal login API
+      const response = await authService.portalLogin({
+        fullName: formData.fullName,
+        corporateIdNip: formData.corporateIdNip,
+        directorate: formData.directorate,
+        invitationCode: formData.invitationCode,
+      });
 
-      // Save session data
+      // Save session data with token info
       saveUserSession({
         fullName: formData.fullName,
         corporateIdNip: formData.corporateIdNip,
         directorate: formData.directorate,
-        organizationCode: formData.organizationCode,
+        invitationCode: formData.invitationCode,
         timestamp: Date.now(),
+        portalToken: response.portalToken,
+        userId: response.userId,
       });
 
       // Navigate to auction list
       navigate('/portal/auctions');
     } catch (error) {
-      console.error('Login error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.';
+      setApiError(errorMessage);
+      console.error('Portal login error:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -107,6 +131,12 @@ export default function PortalForm() {
         </div>
         <h1 className="portal-title">Auction Portal</h1>
         <p className="portal-subtitle">Enter your information to start participating in auctions</p>
+
+        {apiError && (
+          <div style={{ background: '#fee2e2', color: '#991b1b', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', fontWeight: '500', textAlign: 'center' }}>
+            ❌ {apiError}
+          </div>
+        )}
 
         <form className="form" onSubmit={handleSubmit}>
           {/* Full Name */}
@@ -180,24 +210,24 @@ export default function PortalForm() {
             )}
           </div>
 
-          {/* Organization Code */}
+          {/* Invitation Code */}
           <div className="form-group">
             <label className="form-label">
-              <span className="label-icon">📋</span>
-              Organization Code
+              <span className="label-icon">🔐</span>
+              Invitation Code
             </label>
             <input
               type="text"
               className="form-input"
-              name="organizationCode"
-              value={formData.organizationCode}
+              name="invitationCode"
+              value={formData.invitationCode}
               onChange={handleChange}
-              placeholder="e.g., ORG-001"
+              placeholder="Enter your invitation code"
               disabled={isSubmitting}
             />
-            {errors.organizationCode && (
+            {errors.invitationCode && (
               <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
-                {errors.organizationCode}
+                {errors.invitationCode}
               </span>
             )}
           </div>

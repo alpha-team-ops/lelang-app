@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import jsPDF from 'jspdf';
 import 'jspdf/dist/jspdf.umd.min.js';
 import {
@@ -24,6 +24,8 @@ import {
   Tabs,
   Tab,
   Tooltip,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -39,12 +41,13 @@ import { winnerBidsMock } from '../../../data/mock/auctions';
 import AuctionDetailModal from '../../../components/modals/auctions/AuctionDetailModal';
 import CreateAuctionModal from '../../../components/modals/auctions/CreateAuctionModal';
 import EditAuctionModal from '../../../components/modals/auctions/EditAuctionModal';
-import { auctionService } from '../../../data/services';
+import { useAuction } from '../../../config/AuctionContext';
+import { useRealtimeAuction } from '../../../hooks/useRealtimeAuction';
 import type { Auction, WinnerBid } from '../../../data/types';
 
 const TablePage: React.FC = () => {
+  const { auctions, loading, error, fetchAuctions, deleteAuction } = useAuction();
   const [currentTab, setCurrentTab] = useState(0);
-  const [auctions, setAuctions] = useState<Auction[]>([]);
   const [searchText, setSearchText] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -53,6 +56,8 @@ const TablePage: React.FC = () => {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [liveAuctions, setLiveAuctions] = useState<Record<string, Auction>>({});
 
   // Winner Bid states
   const [winnerBidSearchText, setWinnerBidSearchText] = useState('');
@@ -61,23 +66,61 @@ const TablePage: React.FC = () => {
   const [selectedWinner, setSelectedWinner] = useState<WinnerBid | null>(null);
   const [winnerBidDetailDialogOpen, setWinnerBidDetailDialogOpen] = useState(false);
 
-  // Load auctions from service
+  // Load auctions on mount
   useEffect(() => {
-    const loadAuctions = async () => {
-      const data = await auctionService.getAllAdminAuctions();
-      setAuctions(data);
-    };
-    loadAuctions();
+    fetchAuctions(1, 100);
+  }, [fetchAuctions]);
+
+  // Real-time listener component for each auction
+  const TableAuctionRealtimeListener = React.memo(({ auction, onUpdate }: { auction: Auction; onUpdate: (auctionId: string, data: Partial<Auction>) => void }) => {
+    const handleBidPlaced = useCallback((bidData: any) => {
+      console.log('💰 Bid placed for auction in table:', auction.id, bidData);
+      onUpdate(auction.id, {
+        currentBid: bidData.currentBid || bidData.bidAmount,
+        participantCount: (bidData.participantCount || 1),
+        totalBids: (bidData.totalBids || 1),
+      });
+    }, [auction.id, onUpdate]);
+
+    const handleAuctionUpdated = useCallback((auctionData: any) => {
+      console.log('📊 Auction updated in table:', auction.id);
+      onUpdate(auction.id, auctionData);
+    }, [auction.id, onUpdate]);
+
+    useRealtimeAuction({
+      auctionId: auction.id,
+      enabled: true,
+      onBidPlaced: handleBidPlaced,
+      onAuctionUpdated: handleAuctionUpdated,
+    });
+
+    return null;
+  });
+
+  // Handle live updates
+  const handleAuctionUpdate = useCallback((auctionId: string, data: Partial<Auction>) => {
+    setLiveAuctions((prev) => ({
+      ...prev,
+      [auctionId]: {
+        ...prev[auctionId],
+        ...data,
+      } as Auction,
+    }));
   }, []);
 
   // Filter dan search
   const filteredAuctions = useMemo(() => {
-    return auctions.filter((auction) => {
-      const matchSearch =
-        auction.title.toLowerCase().includes(searchText.toLowerCase()) ||
-        auction.category.toLowerCase().includes(searchText.toLowerCase());
-      return matchSearch;
-    });
+    return auctions
+      .map((auction) => ({
+        ...auction,
+        ...liveAuctions[auction.id], // Merge live data
+      }))
+      .filter((auction) => {
+        const matchSearch =
+          auction.title.toLowerCase().includes(searchText.toLowerCase()) ||
+          auction.category.toLowerCase().includes(searchText.toLowerCase());
+        return matchSearch;
+      });
   }, [auctions, searchText]);
 
   // Pagination
@@ -99,11 +142,18 @@ const TablePage: React.FC = () => {
     setDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (selectedAuction) {
-      setAuctions(auctions.filter((a) => a.id !== selectedAuction.id));
-      setDeleteDialogOpen(false);
-      setSelectedAuction(null);
+      setDeleting(true);
+      try {
+        await deleteAuction(selectedAuction.id);
+        setDeleteDialogOpen(false);
+        setSelectedAuction(null);
+      } catch (err: any) {
+        alert(err.message || 'Failed to delete auction');
+      } finally {
+        setDeleting(false);
+      }
     }
   };
 
@@ -115,8 +165,6 @@ const TablePage: React.FC = () => {
         return 'info';
       case 'LIVE':
         return 'success';
-      case 'ENDING':
-        return 'warning';
       case 'ENDED':
         return 'default';
       case 'CANCELLED':
@@ -1026,7 +1074,7 @@ const TablePage: React.FC = () => {
           </p>
         </Box>
         {currentTab === 0 && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateModalOpen(true)}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateModalOpen(true)} disabled={loading}>
             Create Auction
           </Button>
         )}
@@ -1037,51 +1085,76 @@ const TablePage: React.FC = () => {
         )}
       </Box>
 
-      {/* Tabs */}
-      <Box sx={{ borderBottom: '1px solid #e5e7eb', mb: 3 }}>
-        <Tabs
-          value={currentTab}
-          onChange={(_, newValue) => setCurrentTab(newValue)}
-          sx={{
-            '& .MuiTab-root': {
-              textTransform: 'none',
-              fontSize: '15px',
-              fontWeight: 500,
-              color: '#6b7280',
-              px: 3,
-              py: 1.5,
-              '&:hover': {
-                color: '#667eea',
-              },
-            },
-            '& .Mui-selected': {
-              color: '#667eea',
-              fontWeight: 700,
-            },
-            '& .MuiTabs-indicator': {
-              backgroundColor: '#667eea',
-              height: '3px',
-            },
-          }}
-        >
-          <Tab label="Auctions" />
-          <Tab label="Winner Bids" />
-        </Tabs>
-      </Box>
+      {/* Error Alert */}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {/* Tab Content */}
-      {currentTab === 0 ? renderAuctionsTab() : renderWinnerBidsTab()}
+      {/* Real-time listeners for all LIVE auctions */}
+      {auctions
+        .filter((a) => a.status === 'LIVE')
+        .map((auction) => (
+          <TableAuctionRealtimeListener
+            key={auction.id}
+            auction={auction}
+            onUpdate={handleAuctionUpdate}
+          />
+        ))}
 
+      {/* Loading State */}
+      {loading && currentTab === 0 ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 10 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
+          {/* Tabs */}
+          <Box sx={{ borderBottom: '1px solid #e5e7eb', mb: 3 }}>
+            <Tabs
+              value={currentTab}
+              onChange={(_, newValue) => setCurrentTab(newValue)}
+              sx={{
+                '& .MuiTab-root': {
+                  textTransform: 'none',
+                  fontSize: '15px',
+                  fontWeight: 500,
+                  color: '#6b7280',
+                  px: 3,
+                  py: 1.5,
+                  '&:hover': {
+                    color: '#667eea',
+                  },
+                },
+                '& .Mui-selected': {
+                  color: '#667eea',
+                  fontWeight: 700,
+                },
+                '& .MuiTabs-indicator': {
+                  backgroundColor: '#667eea',
+                  height: '3px',
+                },
+              }}
+            >
+              <Tab label="Auctions" />
+              <Tab label="Winner Bids" />
+            </Tabs>
+          </Box>
+
+          {/* Tab Content */}
+          {currentTab === 0 ? renderAuctionsTab() : renderWinnerBidsTab()}
+        </>
+      )}
+
+      {/* Dialogs and Modals */}
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+      <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           Are you sure want to delete "{selectedAuction?.title}"?
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleConfirmDelete} color="error" variant="contained">
-            Delete
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>Cancel</Button>
+          <Button onClick={handleConfirmDelete} color="error" variant="contained" disabled={deleting}>
+            {deleting ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1105,9 +1178,9 @@ const TablePage: React.FC = () => {
       <CreateAuctionModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        onSubmit={(data: any) => {
-          console.log('New auction created:', data);
+        onSuccess={() => {
           setCreateModalOpen(false);
+          fetchAuctions(1, 100);
         }}
       />
 
@@ -1119,10 +1192,10 @@ const TablePage: React.FC = () => {
           setEditModalOpen(false);
           setSelectedAuction(null);
         }}
-        onSubmit={(data: any) => {
-          console.log('Auction updated:', data);
+        onSuccess={() => {
           setEditModalOpen(false);
           setSelectedAuction(null);
+          fetchAuctions(1, 100);
         }}
       />
     </Box>

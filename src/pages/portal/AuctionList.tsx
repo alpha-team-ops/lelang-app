@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserSession, clearUserSession, getSessionRemainingTime, formatRemainingTime } from './utils/sessionManager';
 import { auctionService } from '../../data/services';
@@ -8,9 +8,10 @@ import AuctionModal from './AuctionModal';
 import './styles/portal.css';
 
 // Helper to calculate time remaining from endTime
-const calculateTimeRemaining = (endTime: Date): string => {
+const calculateTimeRemaining = (endTime: Date | string): string => {
   const now = new Date();
-  const diff = endTime.getTime() - now.getTime();
+  const endTimeDate = typeof endTime === 'string' ? new Date(endTime) : endTime;
+  const diff = endTimeDate.getTime() - now.getTime();
 
   if (diff <= 0) return 'Sudah Berakhir';
 
@@ -31,6 +32,8 @@ export default function AuctionList() {
   const [auctions, setAuctions] = useState<PortalAuction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const userSession = getUserSession();
 
@@ -40,8 +43,10 @@ export default function AuctionList() {
       try {
         setLoading(true);
         setError(null);
-        const data = await auctionService.getAllPortalAuctions();
-        setAuctions(data);
+        // Call API endpoint with pagination
+        const response = await auctionService.getAllPortalAuctions(page, 10);
+        setAuctions(response.auctions);
+        setTotalPages(response.pagination?.totalPages || 1);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to load auctions';
         setError(errorMsg);
@@ -54,7 +59,29 @@ export default function AuctionList() {
     };
 
     loadAuctions();
-  }, []);
+  }, [page]);
+
+  // Real-time polling for auctions - update all auctions every 2 seconds
+  // (not 500ms to avoid overwhelming backend and race conditions)
+  useEffect(() => {
+    let isPolling = false; // Prevent overlapping requests
+    const pollingInterval = setInterval(async () => {
+      if (isPolling) return; // Skip if previous poll still running
+      
+      isPolling = true;
+      try {
+        const response = await auctionService.getAllPortalAuctions(page, 10);
+        setAuctions(response.auctions);
+      } catch (err) {
+        // Silently ignore polling errors to avoid noise
+        // console.error('Error polling auctions:', err);
+      } finally {
+        isPolling = false;
+      }
+    }, 2000); // Poll every 2 seconds - more reasonable for backend response time
+
+    return () => clearInterval(pollingInterval);
+  }, [page]);
 
   // Session timer
   useEffect(() => {
@@ -84,7 +111,7 @@ export default function AuctionList() {
     navigate('/portal');
   };
 
-  const handleBidSuccess = (auctionId: string, newPrice: number) => {
+  const handleBidSuccess = useCallback((auctionId: string, newPrice: number) => {
     setAuctions((prev) =>
       prev.map((auction) =>
         auction.id === auctionId
@@ -97,7 +124,21 @@ export default function AuctionList() {
       )
     );
     setSelectedAuction(null);
-  };
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedAuction(null);
+  }, []);
+
+  // Handler for bid success - use functional state update to avoid selectedAuction dependency
+  const handleOnBidSuccess = useCallback((newPrice: number) => {
+    setSelectedAuction(prev => {
+      if (prev) {
+        handleBidSuccess(prev.id, newPrice);
+      }
+      return null; // Close modal after bid success
+    });
+  }, [handleBidSuccess]);
 
   // Loading state
   if (loading) {
@@ -237,12 +278,64 @@ export default function AuctionList() {
         </div>
       )}
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '32px', marginBottom: '32px' }}>
+          <button
+            onClick={() => setPage(Math.max(1, page - 1))}
+            disabled={page === 1}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #e0e0e0',
+              borderRadius: '4px',
+              cursor: page === 1 ? 'not-allowed' : 'pointer',
+              opacity: page === 1 ? 0.5 : 1,
+              backgroundColor: '#fff',
+            }}
+          >
+            ← Prev
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              style={{
+                padding: '8px 12px',
+                border: p === page ? '2px solid #667eea' : '1px solid #e0e0e0',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: p === page ? '#667eea' : '#fff',
+                color: p === page ? '#fff' : '#000',
+                fontWeight: p === page ? 'bold' : 'normal',
+              }}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
+            disabled={page === totalPages}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #e0e0e0',
+              borderRadius: '4px',
+              cursor: page === totalPages ? 'not-allowed' : 'pointer',
+              opacity: page === totalPages ? 0.5 : 1,
+              backgroundColor: '#fff',
+            }}
+          >
+            Next →
+          </button>
+        </div>
+      )}
+
       {/* Auction Modal */}
       {selectedAuction && (
         <AuctionModal
+          key={selectedAuction.id} // Use ID as key to prevent re-mounts on data changes
           auction={selectedAuction}
-          onClose={() => setSelectedAuction(null)}
-          onBidSuccess={(newPrice: number) => handleBidSuccess(selectedAuction.id, newPrice)}
+          onClose={handleCloseModal}
+          onBidSuccess={handleOnBidSuccess}
         />
       )}
     </div>

@@ -15,6 +15,7 @@ import ActivityPage from '../pages/admin/auctions/ActivityPage';
 import UserManagementPage from '../pages/admin/managements/UserManagementPage';
 import RolesPage from '../pages/admin/managements/RolesPage';
 import SettingsPage from '../pages/admin/settings/SettingsPage';
+import OrganizationSettingsPage from '../pages/admin/settings/OrganizationSettingsPage';
 
 // Portal pages
 import PortalForm from '../pages/portal/PortalForm';
@@ -54,9 +55,9 @@ export const menuCategories: MenuCategory[] = [
     ]
   },
   {
-    category: 'User Management',
+    category: 'Staff Management',
     items: [
-      { text: 'Users', icon: <PersonIcon />, path: '/admin/users' },
+      { text: 'Staff', icon: <PersonIcon />, path: '/admin/staff' },
       { text: 'Roles', icon: <SettingsIcon />, path: '/admin/roles' },
     ]
   },
@@ -64,6 +65,7 @@ export const menuCategories: MenuCategory[] = [
     category: 'Settings',
     items: [
       { text: 'System Settings', icon: <SettingsIcon />, path: '/admin/settings' },
+      { text: 'Organization', icon: <SettingsIcon />, path: '/admin/organization-settings' },
     ]
   }
 ];
@@ -91,7 +93,7 @@ export const protectedRoutes: ProtectedRoute[] = [
     element: <ActivityPage />,
   },
   {
-    path: '/admin/users',
+    path: '/admin/staff',
     element: <UserManagementPage />,
   },
   {
@@ -101,6 +103,10 @@ export const protectedRoutes: ProtectedRoute[] = [
   {
     path: '/admin/settings',
     element: <SettingsPage />,
+  },
+  {
+    path: '/admin/organization-settings',
+    element: <OrganizationSettingsPage />,
   },
 ];
 

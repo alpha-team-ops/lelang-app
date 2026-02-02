@@ -600,6 +600,14 @@ body.modal-open {
   border-radius: 10px;
   background: white;
   overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.bid-input-group:focus-within {
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15), 0 4px 12px rgba(102, 126, 234, 0.2);
+  transform: translateY(-2px);
 }
 
 .bid-input {
@@ -609,13 +617,20 @@ body.modal-open {
   border-radius: 0;
   font-size: 16px;
   font-weight: 600;
-  font-family: inherit;
+  font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background: white;
+  color: #1f2937;
+  caret-color: #667eea;
 }
 
 .bid-input:focus {
   outline: none;
-  background: #f8f9ff;
+  background: white;
+}
+
+.bid-input::selection {
+  background: rgba(102, 126, 234, 0.2);
+  color: #1f2937;
 }
 
 .bid-prefix {
@@ -627,6 +642,9 @@ body.modal-open {
   font-weight: 700;
   color: white;
   font-size: 18px;
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 .bid-submit {

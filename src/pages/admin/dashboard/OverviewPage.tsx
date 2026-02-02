@@ -21,8 +21,9 @@ import {
   HourglassEmpty as HourglassIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
-import { statsService, auctionService } from '../../../data/services';
-import type { DashboardStats, Auction } from '../../../data/types';
+import { statsService } from '../../../data/services';
+import { useAuction } from '../../../config/AuctionContext';
+import type { DashboardStats } from '../../../data/types';
 
 interface StatCardProps {
   title: string;
@@ -154,21 +155,18 @@ const StatCard: React.FC<StatCardProps> = ({
 );
 
 export default function OverviewPage() {
+  const { auctions, fetchAuctions } = useAuction();
   const [revenueFilter, setRevenueFilter] = useState('today');
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const [statsData, auctionsData] = await Promise.all([
-          statsService.getDashboardStats(),
-          auctionService.getAllAdminAuctions(),
-        ]);
+        const statsData = await statsService.getDashboardStats();
         setStats(statsData);
-        setAuctions(auctionsData);
+        await fetchAuctions(1, 100);
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
@@ -177,7 +175,7 @@ export default function OverviewPage() {
     };
 
     loadData();
-  }, []);
+  }, [fetchAuctions]);
 
   // Calculate derived metrics
   const activeAuctions = auctions.filter(a => a.status === 'LIVE' || a.status === 'ENDING').length;

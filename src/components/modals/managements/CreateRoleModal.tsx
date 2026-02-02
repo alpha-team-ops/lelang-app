@@ -1,220 +1,317 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Box,
   Button,
-  Chip,
-  Stack,
-  Typography,
-  Checkbox,
+  Box,
+  Alert,
+  CircularProgress,
+  FormGroup,
   FormControlLabel,
-  Paper,
+  Checkbox,
+  Typography,
 } from '@mui/material';
-import { Add as AddIcon, Close as CloseIcon } from '@mui/icons-material';
-import type { Role } from '../../../data/mock/roles';
-
-const AVAILABLE_PERMISSIONS = [
-  'manage_users',
-  'manage_roles',
-  'manage_auctions',
-  'manage_disputes',
-  'view_analytics',
-  'manage_settings',
-  'manage_payments',
-  'view_reports',
-  'send_notifications',
-];
+import { useRole } from '../../../config/RoleContext';
+import { usePermission } from '../../../hooks/usePermission';
+import type { CreateRoleRequest, Permission } from '../../../data/services/roleService';
 
 interface CreateRoleModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (role: Omit<Role, 'id'>) => void;
+  onSuccess?: () => void;
 }
 
-const CreateRoleModal: React.FC<CreateRoleModalProps> = ({ open, onClose, onSave }) => {
-  const [formData, setFormData] = useState({
+const CreateRoleModal: React.FC<CreateRoleModalProps> = ({ open, onClose, onSuccess }) => {
+  const { createRole, permissions, error: contextError, clearError } = useRole();
+  const { has } = usePermission();
+  
+  // Check permission
+  const canCreateRole = has('manage_roles');
+  
+  const [formData, setFormData] = useState<CreateRoleRequest>({
     name: '',
     description: '',
-    status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
-    permissions: [] as string[],
+    permissions: [],
   });
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [loading, setLoading] = useState(false);
 
-  const handlePermissionToggle = (permission: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      permissions: prev.permissions.includes(permission)
-        ? prev.permissions.filter((p) => p !== permission)
-        : [...prev.permissions, permission],
-    }));
-  };
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!open) {
+      setFormData({
+        name: '',
+        description: '',
+        permissions: [],
+      });
+      setErrors({});
+      setLoading(false);
+      clearError();
+    }
+  }, [open, clearError]);
 
-  const handleSave = () => {
+  const validateForm = (): boolean => {
+    const newErrors: { [key: string]: string } = {};
+
     if (!formData.name.trim()) {
-      alert('Role name is required');
-      return;
+      newErrors.name = 'Role name is required';
+    } else if (formData.name.length > 50) {
+      newErrors.name = 'Role name must be 50 characters or less';
     }
 
-    const newRole: Omit<Role, 'id'> = {
-      name: formData.name,
-      description: formData.description,
-      status: formData.status,
-      permissions: formData.permissions,
-      usersCount: 0,
-      createdDate: new Date().toISOString().split('T')[0],
-      lastModified: new Date().toISOString().split('T')[0],
-    };
+    if (!formData.description.trim()) {
+      newErrors.description = 'Description is required';
+    }
 
-    onSave(newRole);
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    setErrors({});
+    clearError();
+
+    if (!validateForm()) return;
+
+    setLoading(true);
+    try {
+      await createRole(formData);
+      setFormData({
+        name: '',
+        description: '',
+        permissions: [],
+      });
+      onSuccess?.();
+      onClose();
+    } catch (err: any) {
+      setErrors({ submit: err.message || 'Failed to create role' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
     setFormData({
       name: '',
       description: '',
-      status: 'ACTIVE',
       permissions: [],
     });
+    setErrors({});
+    clearError();
     onClose();
   };
 
+  const handlePermissionToggle = (permissionId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      permissions: prev.permissions.includes(permissionId)
+        ? prev.permissions.filter((id) => id !== permissionId)
+        : [...prev.permissions, permissionId],
+    }));
+  };
+
+  // Group permissions by resource
+  const permissionsByResource = permissions.reduce(
+    (acc, perm) => {
+      if (!acc[perm.resource]) {
+        acc[perm.resource] = [];
+      }
+      acc[perm.resource].push(perm);
+      return acc;
+    },
+    {} as Record<string, Permission[]>
+  );
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        Create New Role
-        <Button
-          onClick={onClose}
-          sx={{ minWidth: 'auto', p: 0.5, color: '#6b7280' }}
-        >
-          <CloseIcon />
-        </Button>
-      </DialogTitle>
+    <Dialog 
+      open={open} 
+      onClose={() => {
+        // Force close and reset on any close event (including Escape)
+        setLoading(false);
+        setFormData({
+          name: '',
+          description: '',
+          permissions: [],
+        });
+        setErrors({});
+        clearError();
+        onClose();
+      }} 
+      maxWidth="sm" 
+      fullWidth
+    >
+      <DialogTitle sx={{ fontWeight: 700, fontSize: '1.25rem' }}>Create New Role</DialogTitle>
       <DialogContent>
-        <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Role Name */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 2 }}>
+          {errors.submit && <Alert severity="error">{errors.submit}</Alert>}
+          {contextError && <Alert severity="error">{contextError}</Alert>}
+
           <TextField
             fullWidth
             label="Role Name"
-            placeholder="e.g., Content Manager"
+            placeholder="e.g. Editor, Reviewer"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            error={!formData.name.trim() && formData.name !== ''}
+            error={!!errors.name}
+            helperText={errors.name}
+            disabled={loading}
           />
 
-          {/* Description */}
           <TextField
             fullWidth
             label="Description"
-            placeholder="Describe what this role can do..."
-            multiline
-            rows={3}
+            placeholder="Describe the purpose of this role"
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            error={!!errors.description}
+            helperText={errors.description}
+            multiline
+            rows={3}
+            disabled={loading}
           />
 
-          {/* Status */}
-          <FormControl fullWidth>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={formData.status}
-              label="Status"
-              onChange={(e) =>
-                setFormData({ ...formData, status: e.target.value as 'ACTIVE' | 'INACTIVE' })
-              }
+          <Box sx={{ mt: 1 }}>
+            {/* Info Alert */}
+            <Alert 
+              severity="info" 
+              sx={{ 
+                mb: 3,
+                backgroundColor: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                '& .MuiAlert-icon': { color: '#3b82f6' }
+              }}
             >
-              <MenuItem value="ACTIVE">Active</MenuItem>
-              <MenuItem value="INACTIVE">Inactive</MenuItem>
-            </Select>
-          </FormControl>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e40af' }}>
+                Selected {formData.permissions.length} permission(s)
+              </Typography>
+            </Alert>
 
-          {/* Permissions */}
-          <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-              Assign Permissions ({formData.permissions.length})
+            {/* Quick Action Buttons */}
+            <Box sx={{ mb: 3, display: 'flex', gap: 1 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => {
+                  const allPermIds = Object.values(permissionsByResource)
+                    .flat()
+                    .map((p) => p.id);
+                  setFormData((prev) => ({ ...prev, permissions: allPermIds }));
+                }}
+                disabled={loading}
+                sx={{ fontWeight: 600 }}
+              >
+                ✓ Select All
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, permissions: [] }));
+                }}
+                disabled={loading}
+                sx={{ fontWeight: 600 }}
+              >
+                ✕ Clear All
+              </Button>
+            </Box>
+
+            {/* Permissions Sections */}
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: '#1f2937' }}>
+              Choose Permissions
             </Typography>
-            <Paper sx={{ p: 2, bgcolor: '#f9fafb', border: '1px solid #e5e7eb', maxHeight: '250px', overflowY: 'auto' }}>
-              <Stack spacing={1.5}>
-                {/* Select All */}
-                <Box sx={{ pb: 1.5, borderBottom: '1px solid #e5e7eb', mb: 1 }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        indeterminate={
-                          formData.permissions.length > 0 &&
-                          formData.permissions.length < AVAILABLE_PERMISSIONS.length
-                        }
-                        checked={formData.permissions.length === AVAILABLE_PERMISSIONS.length}
-                        onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            permissions: e.target.checked ? [...AVAILABLE_PERMISSIONS] : [],
-                          });
-                        }}
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#1f2937' }}>
-                        Select All Permissions
-                      </Typography>
-                    }
-                  />
+
+            {Object.entries(permissionsByResource).map(([resource, perms]) => (
+              <Box key={resource} sx={{ mb: 2.5 }}>
+                {/* Resource Header */}
+                <Box sx={{ mb: 1.5, pb: 1, borderBottom: '2px solid #f0f0f0' }}>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      fontWeight: 700, 
+                      color: '#3b82f6',
+                      textTransform: 'uppercase',
+                      fontSize: '0.75rem',
+                      letterSpacing: '0.5px'
+                    }}
+                  >
+                    {resource.replace(/_/g, ' ')}
+                  </Typography>
                 </Box>
 
-                {/* Individual Permissions */}
-                {AVAILABLE_PERMISSIONS.map((permission) => (
-                  <FormControlLabel
-                    key={permission}
-                    control={
-                      <Checkbox
-                        checked={formData.permissions.includes(permission)}
-                        onChange={() => handlePermissionToggle(permission)}
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
-                        {permission.replace(/_/g, ' ')}
-                      </Typography>
-                    }
-                  />
-                ))}
-              </Stack>
-            </Paper>
-          </Box>
-
-          {/* Selected Permissions Preview */}
-          {formData.permissions.length > 0 && (
-            <Box>
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#6b7280' }}>
-                Selected Permissions:
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {formData.permissions.map((perm) => (
-                  <Chip
-                    key={perm}
-                    label={perm.replace(/_/g, ' ')}
-                    size="small"
-                    sx={{ fontWeight: 500 }}
-                  />
-                ))}
+                {/* Permissions in this resource */}
+                <FormGroup sx={{ pl: 1 }}>
+                  {perms.map((perm) => (
+                    <FormControlLabel
+                      key={perm.id}
+                      control={
+                        <Checkbox
+                          checked={formData.permissions.includes(perm.id)}
+                          onChange={() => handlePermissionToggle(perm.id)}
+                          disabled={loading}
+                          size="small"
+                        />
+                      }
+                      label={
+                        <Box sx={{ width: '100%' }}>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              fontWeight: 600, 
+                              color: '#1f2937',
+                              mb: 0.25
+                            }}
+                          >
+                            {perm.name.replace(/_/g, ' ')}
+                          </Typography>
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              color: '#6b7280',
+                              display: 'block',
+                              lineHeight: 1.4
+                            }}
+                          >
+                            {perm.description}
+                          </Typography>
+                        </Box>
+                      }
+                      sx={{ 
+                        alignItems: 'flex-start',
+                        mb: 1.25,
+                        '&:last-child': { mb: 0 }
+                      }}
+                    />
+                  ))}
+                </FormGroup>
               </Box>
-            </Box>
-          )}
+            ))}
+          </Box>
         </Box>
       </DialogContent>
-      <DialogActions sx={{ p: 2, gap: 1 }}>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button
-          onClick={handleSave}
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-        >
-          Create Role
-        </Button>
+      <DialogActions sx={{ p: 2, gap: 1, flexDirection: 'column', alignItems: 'stretch' }}>
+        {!canCreateRole && (
+          <Alert severity="error">
+            You do not have permission to create roles
+          </Alert>
+        )}
+        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+          <Button onClick={handleClose} disabled={loading} sx={{ textTransform: 'none', fontSize: '0.95rem' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            color="primary"
+            disabled={loading || !canCreateRole}
+            sx={{ textTransform: 'none', fontSize: '0.95rem' }}
+          >
+            {loading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+            {loading ? 'Creating...' : 'Create Role'}
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );

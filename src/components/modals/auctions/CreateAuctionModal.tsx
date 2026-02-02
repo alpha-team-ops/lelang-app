@@ -14,12 +14,15 @@ import {
   InputAdornment,
   Typography,
   IconButton,
+  Alert,
 } from '@mui/material';
 import {
   Close as CloseIcon,
   CloudUpload as CloudUploadIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
+import { auctionService } from '../../../data/services';
+import { usePermission } from '../../../hooks/usePermission';
 
 
 interface FormData {
@@ -31,7 +34,6 @@ interface FormData {
   itemLocation: string;
   purchaseYear: number | '';
   startingPrice: number | '';
-  reservePrice: number | '';
   bidIncrement: number | '';
   startDate: string;
   startTime: string;
@@ -49,7 +51,6 @@ interface FormErrors {
   itemLocation?: string;
   purchaseYear?: string;
   startingPrice?: string;
-  reservePrice?: string;
   bidIncrement?: string;
   startDate?: string;
   startTime?: string;
@@ -60,7 +61,7 @@ interface FormErrors {
 interface CreateAuctionModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: FormData) => void;
+  onSuccess?: () => void;
 }
 
 const CATEGORIES = [
@@ -88,7 +89,12 @@ const formatCurrency = (value: number | string): string => {
   return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 };
 
-const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, onSubmit }) => {
+const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, onSuccess }) => {
+  const { has } = usePermission();
+  
+  // Check permission
+  const canCreateAuction = has('manage_auctions');
+  
   const [formData, setFormData] = useState<FormData>({
     title: '',
     description: '',
@@ -98,7 +104,6 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
     itemLocation: '',
     purchaseYear: '',
     startingPrice: '',
-    reservePrice: '',
     bidIncrement: '',
     startDate: '',
     startTime: '',
@@ -109,6 +114,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [submitError, setSubmitError] = useState<string>('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -192,51 +198,113 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
+    // Required fields
     if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.category) newErrors.category = 'Category is required';
-    if (!formData.condition) newErrors.condition = 'Condition is required';
     if (formData.startingPrice === '' || formData.startingPrice <= 0)
       newErrors.startingPrice = 'Starting price must be greater than 0';
-    if (formData.reservePrice !== '' && formData.reservePrice <= 0)
-      newErrors.reservePrice = 'Reserve price must be greater than 0';
     if (formData.bidIncrement === '' || formData.bidIncrement <= 0)
       newErrors.bidIncrement = 'Bid increment must be greater than 0';
-    if (!formData.startDate) newErrors.startDate = 'Start date is required';
-    if (!formData.startTime) newErrors.startTime = 'Start time is required';
-    if (!formData.endDate) newErrors.endDate = 'End date is required';
-    if (!formData.endTime) newErrors.endTime = 'End time is required';
+
+    // Optional fields - only validate if filled
+    if (formData.description && !formData.description.trim()) 
+      newErrors.description = 'Description cannot be empty';
+
+    // Date/Time validation: optional but must follow rules if provided
+    // Rule 1: if start_time provided, must be in the future
+    if (formData.startDate && formData.startTime) {
+      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
+      const now = new Date();
+      if (startDateTime <= now) {
+        newErrors.startDate = 'Start time must be in the future';
+      }
+    }
+
+    // Rule 2: if end_time provided, must be after start_time
+    if (formData.endDate && formData.endTime) {
+      if (!formData.startDate || !formData.startTime) {
+        newErrors.endDate = 'Start time is required when end time is provided';
+      } else {
+        const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
+        const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`);
+        if (endDateTime <= startDateTime) {
+          newErrors.endDate = 'End time must be after start time';
+        }
+      }
+    }
+
+    // If start_time is provided but end_time is not, that's OK (optional)
+    // If end_time is provided but start_time is not, error (validation above)
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handlePublish = () => {
-    if (validateForm()) {
-      setIsSubmitting(true);
-      setTimeout(() => {
-        onSubmit(formData);
-        // Reset form
-        setFormData({
-          title: '',
-          description: '',
-          category: '',
-          condition: '',
-          serialNumber: '',
-          itemLocation: '',
-          purchaseYear: '',
-          startingPrice: '',
-          reservePrice: '',
-          bidIncrement: '',
-          startDate: '',
-          startTime: '',
-          endDate: '',
-          endTime: '',
-        });
-        setErrors({});
-        setIsSubmitting(false);
-        onClose();
-      }, 500);
+  const handlePublish = async () => {
+    const isValid = validateForm();
+    
+    if (!isValid) {
+      setSubmitError('Please fill in all required fields and fix validation errors');
+      return;
+    }
+
+    setSubmitError('');
+    setIsSubmitting(true);
+    try {
+      // Build payload matching CreateAuctionRequest interface (camelCase)
+      // auctionService will convert to snake_case for backend
+      const payload: any = {
+        title: formData.title,
+        startingPrice: Number(formData.startingPrice),
+        bidIncrement: Number(formData.bidIncrement),
+      };
+
+      // Add optional fields only if they have values
+      if (formData.description?.trim()) payload.description = formData.description.trim();
+      if (formData.category) payload.category = formData.category;
+      if (formData.condition) payload.condition = formData.condition;
+      if (formData.serialNumber?.trim()) payload.serialNumber = formData.serialNumber.trim();
+      if (formData.itemLocation?.trim()) payload.itemLocation = formData.itemLocation.trim();
+      if (formData.purchaseYear) payload.purchaseYear = Number(formData.purchaseYear);
+      if (formData.images && formData.images.length > 0) payload.images = formData.images;
+
+      // Add date/time only if provided (auctionService will convert to snake_case)
+      // Only add if BOTH date and time are provided
+      if (formData.startDate?.trim() && formData.startTime?.trim()) {
+        payload.startTime = `${formData.startDate} ${formData.startTime}:00`;
+      }
+      if (formData.endDate?.trim() && formData.endTime?.trim()) {
+        payload.endTime = `${formData.endDate} ${formData.endTime}:00`;
+      }
+
+      await auctionService.createAuction(payload);
+
+      setSubmitError('');
+      onSuccess?.();
+      // Reset form
+      setFormData({
+        title: '',
+        description: '',
+        category: '',
+        condition: '',
+        serialNumber: '',
+        itemLocation: '',
+        purchaseYear: '',
+        startingPrice: '',
+        bidIncrement: '',
+        startDate: '',
+        startTime: '',
+        endDate: '',
+        endTime: '',
+      });
+      setErrors({});
+      setImagePreviews([]);
+      onClose();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create auction';
+      setSubmitError(errorMessage);
+      setErrors({ title: errorMessage });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -279,6 +347,13 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
 
       <DialogContent sx={{ pb: 3, px: 3, maxHeight: '80vh', overflowY: 'auto', '&.MuiDialogContent-root': { pt: 3 } }}>
         <Stack spacing={4}>
+          {/* Error Alert */}
+          {submitError && (
+            <Alert severity="error" onClose={() => setSubmitError('')}>
+              {submitError}
+            </Alert>
+          )}
+
           {/* Section 0: Gambar Barang */}
           <Box sx={{ mb: 3 }}>
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
@@ -398,7 +473,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
             {/* Description */}
             <Box>
               <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5, fontSize: '12px' }}>
-                Description
+                Description <Typography component="span" sx={{ color: '#999', fontSize: '11px' }}>(Optional)</Typography>
               </Typography>
               <TextField
                 fullWidth
@@ -425,7 +500,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                  Category
+                  Category <Typography component="span" sx={{ color: '#999', fontSize: '11px' }}>(Optional)</Typography>
                 </Typography>
                 <FormControl fullWidth error={!!errors.category} size="small">
                   <Select
@@ -433,6 +508,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                     value={formData.category}
                     onChange={handleSelectChange}
                   >
+                    <MenuItem value="">-- Select Category --</MenuItem>
                     {CATEGORIES.map((cat) => (
                       <MenuItem key={cat} value={cat}>
                         {cat}
@@ -444,7 +520,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
 
               <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                  Condition
+                  Condition <Typography component="span" sx={{ color: '#999', fontSize: '11px' }}>(Optional)</Typography>
                 </Typography>
                 <FormControl fullWidth error={!!errors.condition} size="small">
                   <Select
@@ -452,6 +528,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                     value={formData.condition}
                     onChange={handleSelectChange}
                   >
+                    <MenuItem value="">-- Select Condition --</MenuItem>
                     {CONDITIONS.map((cond) => (
                       <MenuItem key={cond} value={cond}>
                         {cond}
@@ -674,6 +751,11 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
           gap: '12px',
         }}
       >
+        {!canCreateAuction && (
+          <Alert severity="error">
+            You do not have permission to create auctions
+          </Alert>
+        )}
         <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end' }}>
           <Button
             variant="outlined"
@@ -686,7 +768,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
           <Button
             variant="contained"
             onClick={handlePublish}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !canCreateAuction}
             sx={{
               bgcolor: '#667eea',
               textTransform: 'none',

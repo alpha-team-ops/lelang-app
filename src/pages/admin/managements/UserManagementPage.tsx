@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -26,6 +26,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -35,36 +37,39 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import CreateStaffModal from '../../../components/modals/managements/CreateStaffModal';
-import type { CreateStaffData } from '../../../components/modals/managements/CreateStaffModal';
-import { mockStaff } from '../../../data/mock/staff';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'ADMIN' | 'MODERATOR';
-  status: 'ACTIVE' | 'INACTIVE';
-  joinDate: string;
-  lastActivity: string;
-}
+import EditStaffModal from '../../../components/modals/managements/EditStaffModal';
+import { useStaff } from '../../../config/StaffContext';
+import { usePermission } from '../../../hooks/usePermission';
+import type { Staff } from '../../../data/services/staffService';
 
 const UserManagementPage: React.FC = () => {
-  const [users, setUsers] = useState<User[]>(mockStaff);
+  const { staff, loading, error, fetchStaff, deleteStaff } = useStaff();
+  const { has } = usePermission();
+  
+  // Check permissions
+  const canViewStaff = has('view_staff');
+  const canManageStaff = has('manage_staff');
+  
   const [searchText, setSearchText] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<Staff | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'ADMIN' | 'MODERATOR'>('ALL');
-  const [editFormData, setEditFormData] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Load staff on mount
+  useEffect(() => {
+    fetchStaff();
+  }, [fetchStaff]);
 
   // Filter dan search
   const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
+    return staff.filter((user) => {
       const matchSearch =
         user.name.toLowerCase().includes(searchText.toLowerCase()) ||
         user.email.toLowerCase().includes(searchText.toLowerCase());
@@ -72,7 +77,7 @@ const UserManagementPage: React.FC = () => {
       const matchRole = roleFilter === 'ALL' || user.role === roleFilter;
       return matchSearch && matchStatus && matchRole;
     });
-  }, [users, searchText, statusFilter, roleFilter]);
+  }, [staff, searchText, statusFilter, roleFilter]);
 
   // Pagination
   const paginatedUsers = useMemo(() => {
@@ -88,46 +93,34 @@ const UserManagementPage: React.FC = () => {
     setPage(0);
   };
 
-  const handleDeleteClick = (user: User) => {
+  const handleDeleteClick = (user: Staff) => {
     setSelectedUser(user);
     setDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (selectedUser) {
-      setUsers(users.filter((u) => u.id !== selectedUser.id));
-      setDeleteDialogOpen(false);
-      setSelectedUser(null);
+      setDeleting(true);
+      try {
+        await deleteStaff(selectedUser.id);
+        setDeleteDialogOpen(false);
+        setSelectedUser(null);
+      } catch (err) {
+        // Error is handled in context
+      } finally {
+        setDeleting(false);
+      }
     }
   };
 
-  const handleViewDetails = (user: User) => {
+  const handleViewDetails = (user: Staff) => {
     setSelectedUser(user);
     setDetailDialogOpen(true);
   };
 
-  const handleEditClick = (user: User) => {
-    setEditFormData(user);
-    setEditDialogOpen(true);
-  };
-
-  const handleEditSave = () => {
-    if (editFormData) {
-      setUsers(users.map((u) => (u.id === editFormData.id ? editFormData : u)));
-      setEditDialogOpen(false);
-      setEditFormData(null);
-    }
-  };
-
-  const handleCreateStaff = (data: CreateStaffData) => {
-    const newUser: User = {
-      id: (users.length + 1).toString(),
-      ...data,
-      joinDate: new Date().toISOString().split('T')[0],
-      lastActivity: new Date().toISOString().split('T')[0],
-    };
-    setUsers([...users, newUser]);
-    setCreateModalOpen(false);
+  const handleEditClick = (user: Staff) => {
+    setSelectedUser(user);
+    setEditModalOpen(true);
   };
 
   const getStatusColor = (status: string): 'default' | 'success' | 'error' | 'warning' => {
@@ -147,8 +140,6 @@ const UserManagementPage: React.FC = () => {
         return 'error';
       case 'MODERATOR':
         return 'warning';
-      case 'USER':
-        return 'info';
       default:
         return 'default';
     }
@@ -157,25 +148,25 @@ const UserManagementPage: React.FC = () => {
   const stats = [
     {
       title: 'Total Staff',
-      value: users.length,
+      value: staff.length,
       color: '#3b82f6',
       bgColor: '#dbeafe',
     },
     {
       title: 'Active Staff',
-      value: users.filter((u) => u.status === 'ACTIVE').length,
+      value: staff.filter((u) => u.status === 'ACTIVE').length,
       color: '#10b981',
       bgColor: '#d1fae5',
     },
     {
       title: 'Admins',
-      value: users.filter((u) => u.role === 'ADMIN').length,
+      value: staff.filter((u) => u.role === 'ADMIN').length,
       color: '#8b5cf6',
       bgColor: '#ede9fe',
     },
     {
       title: 'Moderators',
-      value: users.filter((u) => u.role === 'MODERATOR').length,
+      value: staff.filter((u) => u.role === 'MODERATOR').length,
       color: '#f59e0b',
       bgColor: '#fef3c7',
     },
@@ -186,12 +177,18 @@ const UserManagementPage: React.FC = () => {
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-          Staff Management
+          Staff
         </Typography>
         <Typography variant="body2" sx={{ color: 'rgba(0, 0, 0, 0.6)' }}>
-          Manage admin and moderator staff accounts
+          Manage organization staff and administrator accounts
         </Typography>
       </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <Grid container spacing={2.5} sx={{ mb: 4 }}>
@@ -229,6 +226,7 @@ const UserManagementPage: React.FC = () => {
           size="small"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
+          disabled={loading}
           InputProps={{
             startAdornment: (
               <SearchIcon sx={{ mr: 1, color: 'action.active', fontSize: '1.25rem' }} />
@@ -236,7 +234,7 @@ const UserManagementPage: React.FC = () => {
           }}
           sx={{ flex: 1, minWidth: '250px' }}
         />
-        <FormControl size="small" sx={{ minWidth: '150px' }}>
+        <FormControl size="small" sx={{ minWidth: '150px' }} disabled={loading}>
           <InputLabel>Status</InputLabel>
           <Select
             value={statusFilter}
@@ -248,7 +246,7 @@ const UserManagementPage: React.FC = () => {
             <MenuItem value="INACTIVE">Inactive</MenuItem>
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ minWidth: '150px' }}>
+        <FormControl size="small" sx={{ minWidth: '150px' }} disabled={loading}>
           <InputLabel>Role</InputLabel>
           <Select
             value={roleFilter}
@@ -265,99 +263,123 @@ const UserManagementPage: React.FC = () => {
           startIcon={<AddIcon />} 
           sx={{ height: 40 }}
           onClick={() => setCreateModalOpen(true)}
+          disabled={loading || !canManageStaff}
+          title={!canManageStaff ? "You don't have permission to add staff" : ""}
         >
           Add Staff
         </Button>
       </Box>
 
+      {/* Permission Warning */}
+      {!canViewStaff && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          You do not have permission to view staff information
+        </Alert>
+      )}
+
       {/* Table */}
       <TableContainer component={Paper} sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: '12px' }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ bgcolor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Email</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Role</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Join Date</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Last Activity</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, color: '#1f2937' }}>
-                Actions
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {paginatedUsers.map((user) => (
-              <TableRow key={user.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                <TableCell sx={{ fontWeight: 500, color: '#1f2937' }}>{user.name}</TableCell>
-                <TableCell sx={{ color: '#6b7280' }}>{user.email}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={user.role}
-                    size="small"
-                    variant="outlined"
-                    color={getRoleColor(user.role)}
-                    sx={{ fontWeight: 600 }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={user.status}
-                    size="small"
-                    color={getStatusColor(user.status)}
-                    sx={{ fontWeight: 600, color: '#fff' }}
-                  />
-                </TableCell>
-                <TableCell sx={{ color: '#6b7280' }}>{user.joinDate}</TableCell>
-                <TableCell sx={{ color: '#6b7280' }}>{user.lastActivity}</TableCell>
-                <TableCell align="center">
-                  <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
-                    <Tooltip title="View Details">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleViewDetails(user)}
-                        sx={{ color: '#3b82f6' }}
-                      >
-                        <VisibilityIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEditClick(user)}
-                        sx={{ color: '#f59e0b' }}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteClick(user)}
-                        sx={{ color: '#ef4444' }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={filteredUsers.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          sx={{
-            borderTop: '1px solid #e5e7eb',
-            bgcolor: '#f9fafb',
-          }}
-        />
+        {loading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
+            <CircularProgress />
+          </Box>
+        )}
+        {!loading && (
+          <>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                  <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Name</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Email</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Role</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Join Date</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, color: '#1f2937' }}>
+                    Actions
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                      <Typography color="textSecondary">No staff members found</Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedUsers.map((user) => (
+                    <TableRow key={user.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                      <TableCell sx={{ fontWeight: 500, color: '#1f2937' }}>{user.name}</TableCell>
+                      <TableCell sx={{ color: '#6b7280' }}>{user.email}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.role}
+                          size="small"
+                          variant="outlined"
+                          color={getRoleColor(user.role)}
+                          sx={{ fontWeight: 600 }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.status}
+                          size="small"
+                          color={getStatusColor(user.status)}
+                          sx={{ fontWeight: 600, color: '#fff' }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ color: '#6b7280' }}>{new Date(user.joinDate).toLocaleDateString()}</TableCell>
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewDetails(user)}
+                              sx={{ color: '#3b82f6' }}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEditClick(user)}
+                              sx={{ color: '#f59e0b' }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteClick(user)}
+                              sx={{ color: '#ef4444' }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={filteredUsers.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{
+                borderTop: '1px solid #e5e7eb',
+                bgcolor: '#f9fafb',
+              }}
+            />
+          </>
+        )}
       </TableContainer>
 
       {/* Delete Dialog */}
@@ -369,9 +391,10 @@ const UserManagementPage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleConfirmDelete} variant="contained" color="error">
-            Delete
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>Cancel</Button>
+          <Button onClick={handleConfirmDelete} variant="contained" color="error" disabled={deleting}>
+            {deleting ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -380,7 +403,21 @@ const UserManagementPage: React.FC = () => {
       <CreateStaffModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        onSubmit={handleCreateStaff}
+        onSuccess={() => {
+          setCreateModalOpen(false);
+          fetchStaff();  // Refresh staff list
+        }}
+      />
+
+      {/* Edit Staff Modal */}
+      <EditStaffModal
+        open={editModalOpen}
+        staff={selectedUser}
+        onClose={() => setEditModalOpen(false)}
+        onSuccess={() => {
+          setEditModalOpen(false);
+          fetchStaff();  // Refresh staff list
+        }}
       />
 
       {/* Detail Dialog */}
@@ -415,77 +452,17 @@ const UserManagementPage: React.FC = () => {
                   <Chip label={selectedUser.status} color={getStatusColor(selectedUser.status)} sx={{ mt: 0.5, color: '#fff' }} />
                 </Box>
               </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <Box>
-                  <Typography variant="body2" sx={{ color: '#6b7280', fontWeight: 500 }}>
-                    Join Date
-                  </Typography>
-                  <Typography sx={{ fontWeight: 600 }}>{selectedUser.joinDate}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" sx={{ color: '#6b7280', fontWeight: 500 }}>
-                    Last Activity
-                  </Typography>
-                  <Typography sx={{ fontWeight: 600 }}>{selectedUser.lastActivity}</Typography>
-                </Box>
+              <Box>
+                <Typography variant="body2" sx={{ color: '#6b7280', fontWeight: 500 }}>
+                  Join Date
+                </Typography>
+                <Typography sx={{ fontWeight: 600 }}>{new Date(selectedUser.joinDate).toLocaleDateString()}</Typography>
               </Box>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDetailDialogOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Edit Staff</DialogTitle>
-        <DialogContent>
-          {editFormData && (
-            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                fullWidth
-                label="Name"
-                value={editFormData.name}
-                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-              />
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                value={editFormData.email}
-                onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
-              />
-              <FormControl fullWidth>
-                <InputLabel>Role</InputLabel>
-                <Select
-                  value={editFormData.role}
-                  label="Role"
-                  onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value as any })}
-                >
-                  <MenuItem value="ADMIN">Admin</MenuItem>
-                  <MenuItem value="MODERATOR">Moderator</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={editFormData.status}
-                  label="Status"
-                  onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as any })}
-                >
-                  <MenuItem value="ACTIVE">Active</MenuItem>
-                  <MenuItem value="INACTIVE">Inactive</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleEditSave} variant="contained" color="primary">
-            Save Changes
-          </Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -15,37 +15,103 @@ import {
   Chip,
   Alert,
   Pagination,
+  Skeleton,
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
-import type { BidActivity } from '../../../data/mock/bidActivity';
-import { mockBidActivity } from '../../../data/mock/bidActivity';
+import type { BidActivity } from '../../../data/types';
+import { bidService } from '../../../data/services';
+import { useRealtimeAuction } from '../../../hooks/useRealtimeAuction';
+import { useAuction } from '../../../config/AuctionContext';
+
+// Real-time subscription wrapper for each auction
+const AuctionRealtimeListener: React.FC<{
+  auctionId: string;
+  auctionTitle: string;
+  onBid: (bidData: BidActivity) => void;
+}> = ({ auctionId, auctionTitle, onBid }) => {
+  const handleBidPlaced = useCallback((bidData: any) => {
+    const newBidActivity: BidActivity = {
+      id: bidData.id || `bid-${Date.now()}`,
+      auctionId,
+      auctionTitle,
+      bidderName: bidData.bidderName || bidData.bidder || 'Unknown',
+      bidAmount: bidData.bidAmount || bidData.currentBid || 0,
+      timestamp: bidData.timestamp || new Date().toISOString(),
+      status: bidData.status || 'CURRENT',
+      bidderId: bidData.bidderId || '',
+    };
+    onBid(newBidActivity);
+  }, [auctionId, auctionTitle, onBid]);
+
+  useRealtimeAuction({
+    auctionId,
+    enabled: true,
+    onBidPlaced: handleBidPlaced,
+  });
+
+  return null; // This component doesn't render anything
+};
 
 const AuctionActivityPage: React.FC = () => {
   const [activities, setActivities] = useState<BidActivity[]>([]);
   const [filteredActivities, setFilteredActivities] = useState<BidActivity[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [rowsPerPage] = useState(10);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalPages, setTotalPages] = useState(1);
+  const { auctions } = useAuction();
 
-  // Load activities on mount
+  // Load activities from API
   useEffect(() => {
-    setActivities(mockBidActivity);
-    setFilteredActivities(mockBidActivity);
+    const fetchActivities = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const result = await bidService.getAllBidActivity(page, rowsPerPage);
+        setActivities(result.bids);
+        setFilteredActivities(result.bids);
+        if (result.pagination) {
+          setTotalPages(result.pagination.totalPages || 1);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to load bid activity';
+        setError(message);
+        setActivities([]);
+        setFilteredActivities([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchActivities();
+  }, [page, rowsPerPage]);
+
+  const handleNewBid = useCallback((bidActivity: BidActivity) => {
+    console.log('💰 New bid for', bidActivity.auctionTitle, bidActivity.bidAmount);
+    setActivities((prev) => [bidActivity, ...prev]);
   }, []);
 
   useEffect(() => {
-    const filtered = activities.filter((activity) =>
-      activity.auctionTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      activity.bidder.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      activity.bidAmount.toString().includes(searchTerm)
-    );
+    const filtered = activities.filter((activity) => {
+      const bidderName = activity.bidder || activity.bidderName || '';
+      const auctionTitle = activity.auctionTitle || '';
+      
+      return (
+        auctionTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        bidderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        activity.bidAmount.toString().includes(searchTerm)
+      );
+    });
     setFilteredActivities(filtered);
-    setPage(0); // Reset to first page when search changes
   }, [searchTerm, activities]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ACCEPTED':
+      case 'CURRENT':
+        return 'success';
+      case 'WINNING':
         return 'success';
       case 'OUTBID':
         return 'warning';
@@ -56,14 +122,36 @@ const AuctionActivityPage: React.FC = () => {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'ACCEPTED':
-        return '✓ Accepted';
+      case 'CURRENT':
+        return '✓ Current Bid';
+      case 'WINNING':
+        return '🏆 Winning';
       case 'OUTBID':
         return '⚠️ Outbid';
       default:
         return status;
     }
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <Box sx={{ py: { xs: 2, md: 3 }, px: { xs: 2, md: 3 } }}>
+        <Skeleton variant="text" width="30%" height={40} sx={{ mb: 2 }} />
+        <Skeleton variant="rectangular" height={200} sx={{ mb: 2 }} />
+        <Skeleton variant="rectangular" height={400} />
+      </Box>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Box sx={{ py: { xs: 2, md: 3 }, px: { xs: 2, md: 3 } }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ py: { xs: 2, md: 3 }, px: { xs: 2, md: 3 } }}>
@@ -92,10 +180,10 @@ const AuctionActivityPage: React.FC = () => {
         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: '14px', p: 2, border: '1px solid #f0f0f0' }}>
             <Typography variant="body2" color="textSecondary" sx={{ mb: 1, fontWeight: 500 }}>
-              Accepted
+              Current/Winning
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 700, color: '#22c55e' }}>
-              {activities.filter((a) => a.status === 'ACCEPTED').length}
+              {activities.filter((a) => a.status === 'CURRENT' || a.status === 'WINNING').length}
             </Typography>
           </Card>
         </Grid>
@@ -164,9 +252,9 @@ const AuctionActivityPage: React.FC = () => {
             </TableHead>
             <TableBody>
               {filteredActivities.length > 0 ? (
-                filteredActivities.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((activity, index) => (
+                filteredActivities.slice((page - 1) * rowsPerPage, page * rowsPerPage).map((activity, index) => (
                   <TableRow
-                    key={activity.id}
+                    key={activity.id || index}
                     sx={{
                       backgroundColor: index % 2 === 0 ? '#ffffff' : '#f9fafb',
                       borderBottom: '1px solid #e5e7eb',
@@ -178,12 +266,12 @@ const AuctionActivityPage: React.FC = () => {
                   >
                     <TableCell sx={{ py: 2.5 }}>
                       <Typography variant="body2" sx={{ fontWeight: '600', color: '#1f2937' }}>
-                        {activity.auctionTitle}
+                        {activity.auctionTitle || '-'}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ py: 2.5 }}>
                       <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                        {activity.bidder}
+                        {activity.bidder || activity.bidderName || 'Anonymous'}
                       </Typography>
                     </TableCell>
                     <TableCell align="right" sx={{ py: 2.5 }}>
@@ -202,7 +290,10 @@ const AuctionActivityPage: React.FC = () => {
                     </TableCell>
                     <TableCell sx={{ py: 2.5 }}>
                       <Typography variant="caption" sx={{ color: '#6b7280' }}>
-                        {activity.timestamp.toLocaleString('id-ID')}
+                        {typeof activity.timestamp === 'string' 
+                          ? new Date(activity.timestamp).toLocaleString('id-ID')
+                          : activity.timestamp.toLocaleString('id-ID')
+                        }
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -222,12 +313,12 @@ const AuctionActivityPage: React.FC = () => {
         {/* Pagination */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2.5, borderTop: '1px solid #e5e7eb' }}>
           <Typography variant="body2" sx={{ color: '#6b7280' }}>
-            Showing {page * rowsPerPage + 1}-{Math.min((page + 1) * rowsPerPage, filteredActivities.length)} of {filteredActivities.length} bids
+            Showing page {page} of {totalPages}
           </Typography>
           <Pagination
-            count={Math.ceil(filteredActivities.length / rowsPerPage)}
-            page={page + 1}
-            onChange={(_, newPage) => setPage(newPage - 1)}
+            count={totalPages}
+            page={page}
+            onChange={(_, newPage) => setPage(newPage)}
             color="primary"
             shape="rounded"
           />
@@ -240,6 +331,18 @@ const AuctionActivityPage: React.FC = () => {
           💡 The table displays a complete log of all bids received for each auction item, including bidder information, bid amounts, status, and timestamp.
         </Typography>
       </Alert>
+
+      {/* Real-time listeners for all LIVE auctions */}
+      {auctions
+        .filter((a) => a.status === 'LIVE')
+        .map((auction) => (
+          <AuctionRealtimeListener
+            key={auction.id}
+            auctionId={auction.id}
+            auctionTitle={auction.title}
+            onBid={handleNewBid}
+          />
+        ))}
     </Box>
   );
 };

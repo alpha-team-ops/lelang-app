@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -17,7 +17,9 @@ import {
   Add as AddIcon,
   Timer as TimerIcon,
 } from '@mui/icons-material';
-import { auctionService } from '../../../data/services';
+import { useAuction } from '../../../config/AuctionContext';
+import { usePermission } from '../../../hooks/usePermission';
+import { useRealtimeAuction, useAuctionPolling } from '../../../hooks/useRealtimeAuction';
 import type { Auction } from '../../../data/types';
 import AuctionDetailModal from '../../../components/modals/auctions/AuctionDetailModal';
 import CreateAuctionModal from '../../../components/modals/auctions/CreateAuctionModal';
@@ -46,13 +48,27 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 // Countdown Timer Component
-const CountdownTimer: React.FC<{ endTime: Date }> = ({ endTime }) => {
+const CountdownTimer: React.FC<{ endTime: Date | string | null }> = ({ endTime }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
 
   useEffect(() => {
+    // If endTime is null, auction is in draft status
+    if (!endTime) {
+      setTimeLeft('Draft');
+      return;
+    }
+
     const updateTimer = () => {
       const now = new Date();
-      const diff = endTime.getTime() - now.getTime();
+      const endDate = typeof endTime === 'string' ? new Date(endTime) : endTime;
+      
+      // Handle invalid date
+      if (isNaN(endDate.getTime())) {
+        setTimeLeft('Invalid');
+        return;
+      }
+
+      const diff = endDate.getTime() - now.getTime();
 
       if (diff <= 0) {
         setTimeLeft('Ended');
@@ -73,8 +89,8 @@ const CountdownTimer: React.FC<{ endTime: Date }> = ({ endTime }) => {
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <TimerIcon sx={{ fontSize: '18px', color: '#ef4444' }} />
-      <Typography variant="body2" sx={{ fontWeight: 600, color: '#ef4444' }}>
+      <TimerIcon sx={{ fontSize: '18px', color: timeLeft === 'Draft' ? '#888' : '#ef4444' }} />
+      <Typography variant="body2" sx={{ fontWeight: 600, color: timeLeft === 'Draft' ? '#888' : '#ef4444' }}>
         {timeLeft}
       </Typography>
     </Box>
@@ -83,47 +99,40 @@ const CountdownTimer: React.FC<{ endTime: Date }> = ({ endTime }) => {
 
 // Main GalleryPage Component
 const GalleryPage: React.FC = () => {
+  const { auctions, loading, error, fetchAuctions } = useAuction();
+  const { has } = usePermission();
+  
+  // Check permissions
+  const canViewAuctions = has('view_auctions');
+  const canManageAuctions = has('manage_auctions');
+  
   const [tabValue, setTabValue] = useState(0);
   const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [auctions, setAuctions] = useState<Auction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Load auctions from service
+  // Load auctions on mount
   useEffect(() => {
-    const loadAuctions = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await auctionService.getAllAdminAuctions();
-        setAuctions(data);
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to load auctions';
-        setError(errorMsg);
-        console.error('Error loading auctions:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    fetchAuctions(1, 100);
+  }, [fetchAuctions]);
 
-    loadAuctions();
+  // Load only on mount, don't continuous poll - WebSocket handles real-time updates
+  // Continuous polling causes unnecessary re-renders and redundant network calls
+  useEffect(() => {
+    // Removed polling to prevent render loops - WebSocket subscriptions in AuctionCard handle updates
   }, []);
 
   // Filter auctions based on tab
   const getFilteredAuctions = () => {
-    const tabs = ['All', 'Live', 'Ending Soon', 'Draft', 'Completed'];
+    const tabs = ['All', 'Draft', 'Live', 'Completed'];
     const tab = tabs[tabValue];
 
     switch (tab) {
-      case 'Live':
-        return auctions.filter((a) => a.status === 'LIVE');
-      case 'Ending Soon':
-        return auctions.filter((a) => a.status === 'ENDING');
       case 'Draft':
         return auctions.filter((a) => a.status === 'DRAFT' || a.status === 'SCHEDULED');
+      case 'Live':
+        return auctions.filter((a) => a.status === 'LIVE');
       case 'Completed':
         return auctions.filter((a) => a.status === 'ENDED');
       default:
@@ -197,10 +206,19 @@ const GalleryPage: React.FC = () => {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setCreateModalOpen(true)}
+          disabled={!canManageAuctions}
+          title={!canManageAuctions ? "You don't have permission to create auctions" : ""}
         >
           Create Auction
         </Button>
       </Box>
+
+      {/* Permission Warning */}
+      {!canViewAuctions && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          You do not have permission to view auctions
+        </Alert>
+      )}
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -212,19 +230,6 @@ const GalleryPage: React.FC = () => {
               </Typography>
               <Typography variant="h4" sx={{ fontWeight: 700, color: '#ef4444' }}>
                 {auctions.filter((a) => a.status === 'LIVE').length}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card sx={{ boxShadow: '0 4px 12px rgba(0,0,0,0.08)', borderRadius: '12px' }}>
-            <CardContent>
-              <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                Ending Soon
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#f97316' }}>
-                {auctions.filter((a) => a.status === 'ENDING').length}
               </Typography>
             </CardContent>
           </Card>
@@ -269,27 +274,23 @@ const GalleryPage: React.FC = () => {
           aria-label="auction tabs"
         >
           <Tab label="All" />
-          <Tab label="Live" />
-          <Tab label="Ending Soon" />
           <Tab label="Draft" />
+          <Tab label="Live" />
           <Tab label="Completed" />
         </Tabs>
 
         {/* Tab Content */}
         <TabPanel value={tabValue} index={0}>
-          <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} />
+          <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} onRefresh={() => fetchAuctions(1, 100)} />
         </TabPanel>
         <TabPanel value={tabValue} index={1}>
-          <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} />
+          <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} onRefresh={() => fetchAuctions(1, 100)} />
         </TabPanel>
         <TabPanel value={tabValue} index={2}>
-          <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} />
+          <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} onRefresh={() => fetchAuctions(1, 100)} />
         </TabPanel>
         <TabPanel value={tabValue} index={3}>
-          <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} />
-        </TabPanel>
-        <TabPanel value={tabValue} index={4}>
-          <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} />
+          <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} onRefresh={() => fetchAuctions(1, 100)} />
         </TabPanel>
       </Card>
 
@@ -309,9 +310,9 @@ const GalleryPage: React.FC = () => {
       <CreateAuctionModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        onSubmit={(data: any) => {
-          console.log('New auction created:', data);
+        onSuccess={() => {
           setCreateModalOpen(false);
+          fetchAuctions(1, 100);
         }}
       />
 
@@ -323,21 +324,232 @@ const GalleryPage: React.FC = () => {
           setEditModalOpen(false);
           setSelectedAuction(null);
         }}
-        onSubmit={(data: any) => {
-          console.log('Auction updated:', data);
+        onSuccess={() => {
           setEditModalOpen(false);
           setSelectedAuction(null);
+          fetchAuctions(1, 100);
         }}
       />
     </Box>
   );
 };
 
+// Auction Card Component with Real-time Updates - memoized to prevent unnecessary re-renders
+const AuctionCard: React.FC<{
+  auction: Auction;
+  onViewDetail: (auction: Auction) => void;
+  onEdit: (auction: Auction) => void;
+}> = React.memo(({ auction, onViewDetail, onEdit }) => {
+  const [liveData, setLiveData] = useState<Partial<Auction>>({});
+
+  // Memoize callbacks to prevent unnecessary re-subscriptions
+  const handleBidPlaced = useCallback((bidData: any) => {
+    setLiveData((prev) => ({
+      ...prev,
+      currentBid: bidData.currentBid || bidData.bidAmount || prev.currentBid,
+      participantCount: bidData.participantCount || (prev.participantCount || 0) + 1,
+      totalBids: (prev.totalBids || 0) + 1,
+    }));
+  }, []);
+
+  const handleAuctionUpdated = useCallback((auctionData: any) => {
+    setLiveData((prev) => ({
+      ...prev,
+      ...auctionData,
+    }));
+  }, []);
+
+  const handleAuctionEnded = useCallback(() => {
+    setLiveData((prev) => ({
+      ...prev,
+      status: 'ENDED',
+    }));
+  }, []);
+
+  // Subscribe to WebSocket updates for this specific auction
+  useRealtimeAuction({
+    auctionId: auction.id,
+    enabled: true,
+    onBidPlaced: handleBidPlaced,
+    onAuctionUpdated: handleAuctionUpdated,
+    onAuctionEnded: handleAuctionEnded,
+  });
+
+  // ADD POLLING FALLBACK - ensures updates even if WebSocket is slow or delayed
+  // Polls every 1 second to keep data fresh in admin dashboard
+  useAuctionPolling(
+    auction.id,
+    1000, // Poll every 1 second
+    true, // Always enabled for admin dashboard
+    (updatedAuction) => {
+      setLiveData((prev) => ({
+        ...prev,
+        currentBid: updatedAuction.currentBid,
+        participantCount: updatedAuction.participantCount,
+        totalBids: updatedAuction.totalBids,
+        status: updatedAuction.status,
+        endTime: updatedAuction.endTime,
+        viewCount: updatedAuction.viewCount,
+      }));
+    }
+  );
+
+  const displayAuction = { ...auction, ...liveData };
+  const isLive = Object.keys(liveData).length > 0;
+
+  return (
+    <Card
+      sx={{
+        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        borderRadius: '12px',
+        transition: 'all 0.3s ease',
+        border: isLive ? '2px solid #667eea' : '1px solid #e5e7eb',
+        '&:hover': {
+          boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
+          transform: 'translateY(-4px)',
+        },
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        position: 'relative',
+      }}
+    >
+      {/* Image Container */}
+      <Box
+        sx={{
+          aspectRatio: '4 / 3',
+          backgroundColor: '#f0f0f0',
+          borderRadius: '12px 12px 0 0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {displayAuction.images && displayAuction.images.length > 0 ? (
+          <Box
+            component="img"
+            src={displayAuction.images[0]}
+            alt={displayAuction.title}
+            sx={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+        ) : (
+          <Typography variant="caption" color="textSecondary">
+            [No Image]
+          </Typography>
+        )}
+      </Box>
+
+      {/* Card Content */}
+      <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* Title & Category */}
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, fontSize: '15px' }}>
+            {displayAuction.title} <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 400 }}>- {displayAuction.status}</span>
+          </Typography>
+          <Typography variant="caption" color="textSecondary">
+            {displayAuction.category}
+          </Typography>
+        </Box>
+
+        {/* Price Info - 4 Data Points */}
+        <Box sx={{ bgcolor: isLive ? '#f0f4ff' : '#f5f5f5', p: 1.5, borderRadius: '8px', border: isLive ? '1px solid #e0e7ff' : 'none' }}>
+          <Grid container spacing={1.5}>
+            {/* Current Price */}
+            <Grid size={{ xs: 6 }}>
+              <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
+                Current Price
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#0ea5e9' }}>
+                Rp {displayAuction.currentBid.toLocaleString('id-ID')}
+              </Typography>
+            </Grid>
+            {/* Starting Price */}
+            <Grid size={{ xs: 6 }}>
+              <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
+                Starting Price
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#0ea5e9' }}>
+                Rp {displayAuction.startingPrice.toLocaleString('id-ID')}
+              </Typography>
+            </Grid>
+            {/* Time Remaining */}
+            <Grid size={{ xs: 6 }}>
+              <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
+                Time Remaining
+              </Typography>
+              <CountdownTimer endTime={displayAuction.endTime} />
+            </Grid>
+            {/* Total Participants */}
+            <Grid size={{ xs: 6 }}>
+              <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
+                Total Participants
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#0ea5e9' }}>
+                {displayAuction.participantCount} people
+              </Typography>
+            </Grid>
+          </Grid>
+        </Box>
+
+        {/* View Count */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="caption" color="textSecondary">
+            👁️ {displayAuction.viewCount} views
+          </Typography>
+          <Typography variant="caption" color={isLive ? '#667eea' : 'textSecondary'} sx={{ fontWeight: isLive ? 700 : 400 }}>
+            💬 {displayAuction.totalBids} bids {isLive && '📡'}
+          </Typography>
+        </Box>
+
+        {/* Action Buttons */}
+        <Box sx={{ display: 'flex', gap: 1, mt: 'auto' }}>
+          <Button
+            fullWidth
+            size="small"
+            variant="contained"
+            startIcon={<EyeIcon />}
+            onClick={() => onViewDetail(displayAuction)}
+            sx={{ bgcolor: '#667eea', fontSize: '12px' }}
+          >
+            View
+          </Button>
+          {displayAuction.status !== 'ENDED' && displayAuction.status !== 'CANCELLED' && (
+            <Button
+              fullWidth
+              size="small"
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={() => onEdit(displayAuction)}
+              sx={{ fontSize: '12px' }}
+            >
+              Edit
+            </Button>
+          )}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if auction ID or certain properties change
+  // Ignore function prop changes
+  return (
+    prevProps.auction.id === nextProps.auction.id &&
+    prevProps.auction.status === nextProps.auction.status
+  );
+});
+
 // Auction List Table Component (Card Layout)
 const AuctionListTable: React.FC<{
   auctions: Auction[];
   onViewDetail: (auction: Auction) => void;
-}> = ({ auctions, onViewDetail }) => {
+  onRefresh?: () => void;
+}> = ({ auctions, onViewDetail, onRefresh }) => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
 
@@ -345,6 +557,7 @@ const AuctionListTable: React.FC<{
     setSelectedAuction(auction);
     setEditModalOpen(true);
   };
+
   if (auctions.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -359,160 +572,28 @@ const AuctionListTable: React.FC<{
     <>
       <Grid container spacing={2.5}>
         {auctions.map((auction) => (
-        <Grid size={{ xs: 12, sm: 6, md: 3 }} key={auction.id}>
-          <Card
-            sx={{
-              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-              borderRadius: '12px',
-              transition: 'all 0.3s ease',
-              border: '1px solid #e5e7eb',
-              '&:hover': {
-                boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
-                transform: 'translateY(-4px)',
-              },
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100%',
-            }}
-          >
-            {/* Image Container */}
-            <Box
-              sx={{
-                aspectRatio: '4 / 3',
-                backgroundColor: '#f0f0f0',
-                borderRadius: '12px 12px 0 0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
-                overflow: 'hidden',
-              }}
-            >
-              {auction.images && auction.images.length > 0 ? (
-                <Box
-                  component="img"
-                  src={auction.images[0]}
-                  alt={auction.title}
-                  sx={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                  }}
-                />
-              ) : (
-                <Typography variant="caption" color="textSecondary">
-                  [No Image]
-                </Typography>
-              )}
-            </Box>
-
-            {/* Card Content */}
-            <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {/* Title & Category */}
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, fontSize: '15px' }}>
-                  {auction.title} <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 400 }}>- {auction.status}</span>
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  {auction.category}
-                </Typography>
-              </Box>
-
-              {/* Price Info - 4 Data Points */}
-              <Box sx={{ bgcolor: '#f5f5f5', p: 1.5, borderRadius: '8px' }}>
-                <Grid container spacing={1.5}>
-                  {/* Current Price */}
-                  <Grid size={{ xs: 6 }}>
-                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
-                      Current Price
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#0ea5e9' }}>
-                      Rp {auction.currentBid.toLocaleString('id-ID')}
-                    </Typography>
-                  </Grid>
-                  {/* Starting Price */}
-                  <Grid size={{ xs: 6 }}>
-                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
-                      Starting Price
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#0ea5e9' }}>
-                      Rp {auction.startingPrice.toLocaleString('id-ID')}
-                    </Typography>
-                  </Grid>
-                  {/* Time Remaining */}
-                  <Grid size={{ xs: 6 }}>
-                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
-                      Time Remaining
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#f97316' }}>
-                      <CountdownTimer endTime={auction.endTime} />
-                    </Typography>
-                  </Grid>
-                  {/* Total Participants */}
-                  <Grid size={{ xs: 6 }}>
-                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
-                      Total Participants
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#0ea5e9' }}>
-                      {auction.participantCount} people
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </Box>
-
-              {/* View Count */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="caption" color="textSecondary">
-                  👁️ {auction.viewCount} views
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  💬 {auction.totalBids} bids
-                </Typography>
-              </Box>
-
-              {/* Action Buttons */}
-              <Box sx={{ display: 'flex', gap: 1, mt: 'auto' }}>
-                <Button
-                  fullWidth
-                  size="small"
-                  variant="contained"
-                  startIcon={<EyeIcon />}
-                  onClick={() => onViewDetail(auction)}
-                  sx={{ bgcolor: '#667eea', fontSize: '12px' }}
-                >
-                  View
-                </Button>
-                {auction.status !== 'ENDED' && auction.status !== 'CANCELLED' && (
-                  <Button
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    startIcon={<EditIcon />}
-                    onClick={() => handleEditClick(auction)}
-                    sx={{ fontSize: '12px' }}
-                  >
-                    Edit
-                  </Button>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      ))}
-    </Grid>
-    <EditAuctionModal
-      open={editModalOpen}
-      auction={selectedAuction}
-      onClose={() => {
-        setEditModalOpen(false);
-        setSelectedAuction(null);
-      }}
-      onSubmit={(data: any) => {
-        console.log('Auction updated:', data);
-        setEditModalOpen(false);
-        setSelectedAuction(null);
-      }}
-    />
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={auction.id}>
+            <AuctionCard
+              auction={auction}
+              onViewDetail={onViewDetail}
+              onEdit={handleEditClick}
+            />
+          </Grid>
+        ))}
+      </Grid>
+      <EditAuctionModal
+        open={editModalOpen}
+        auction={selectedAuction}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedAuction(null);
+        }}
+        onSuccess={() => {
+          setEditModalOpen(false);
+          setSelectedAuction(null);
+          onRefresh?.();
+        }}
+      />
     </>
   );
 };

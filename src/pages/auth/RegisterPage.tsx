@@ -28,9 +28,11 @@ import {
   HourglassEmptyOutlined,
   CheckCircle,
 } from '@mui/icons-material';
+import { useAuth } from '../../config/AuthContext';
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     username: '',
@@ -112,24 +114,23 @@ const RegisterPage: React.FC = () => {
     setLoading(true);
 
     try {
-      // TODO: Implement register API call
-      console.log('Register attempt:', formData);
+      await register(
+        formData.full_name,
+        formData.email,
+        formData.password
+      );
       setSuccess(true);
-      setTimeout(() => navigate('/login'), 3000);
+      setTimeout(() => navigate('/login', { replace: true }), 2000);
     } catch (err: any) {
       let errorMsg = 'Registration failed. Please try again.';
       
       // Better error parsing
-      if (err.response?.data?.detail) {
+      if (err.response?.data?.error) {
+        errorMsg = err.response.data.error;
+      } else if (err.response?.data?.detail) {
         errorMsg = err.response.data.detail;
-      } else if (err.response?.data?.error_message) {
-        errorMsg = err.response.data.error_message;
-      } else if (err.response?.status === 400 && err.response?.data) {
-        // Validation error from backend
-        const data = err.response.data;
-        if (typeof data === 'object') {
-          errorMsg = Object.values(data)[0] as string || 'Validation error. Please check your input.';
-        }
+      } else if (err.response?.status === 400) {
+        errorMsg = 'Invalid input. Please check your data and try again.';
       }
       
       setError(errorMsg);
@@ -181,7 +182,7 @@ const RegisterPage: React.FC = () => {
               Registration Successful!
             </Typography>
             <Typography variant="body2" color="text.secondary" mb={2}>
-              Your account has been created and is pending admin approval. You'll receive an email once approved.
+              Your account has been created successfully!
             </Typography>
             <Alert severity="info" sx={{ borderRadius: 2, mb: 3 }}>
               <Box display="flex" alignItems="center" gap={1}>

@@ -16,11 +16,13 @@ import {
   InputAdornment,
   IconButton,
 } from '@mui/material';
-import { Visibility, VisibilityOff, LockOutlined, PersonOutlined } from '@mui/icons-material';
+import { Visibility, VisibilityOff, LockOutlined, EmailOutlined } from '@mui/icons-material';
+import { useAuth } from '../../config/AuthContext';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
+  const { login } = useAuth();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -32,19 +34,18 @@ const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      // TODO: Implement login API call
-      console.log('Login attempt:', { username, password });
-      navigate('/');
+      await login(email, password);
+      navigate('/', { replace: true });
     } catch (err: any) {
       let errorMsg = 'Login failed. Please try again.';
       
       // Parse different error responses
-      if (err.response?.data?.detail) {
-        errorMsg = err.response.data.detail;
+      if (err.response?.data?.error) {
+        errorMsg = err.response.data.error;
       } else if (err.response?.status === 401) {
-        errorMsg = 'Incorrect username or password';
-      } else if (err.response?.status === 403) {
-        errorMsg = 'Account requires admin approval. Please wait for administrator approval.';
+        errorMsg = 'Invalid email or password';
+      } else if (err.response?.status === 400) {
+        errorMsg = 'Invalid email or password';
       }
       
       setError(errorMsg);
@@ -145,18 +146,19 @@ const LoginPage: React.FC = () => {
           <form onSubmit={handleSubmit}>
             <TextField
               fullWidth
-              label="Username"
+              label="Email"
+              type="email"
               variant="outlined"
               margin="normal"
-              value={username}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+              value={email}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               required
               autoFocus
               disabled={loading}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <PersonOutlined sx={{ color: '#667eea' }} />
+                    <EmailOutlined sx={{ color: '#667eea' }} />
                   </InputAdornment>
                 ),
               }}
@@ -217,7 +219,7 @@ const LoginPage: React.FC = () => {
               fullWidth
               variant="contained"
               size="large"
-              disabled={loading || !username || !password}
+              disabled={loading || !email || !password}
               sx={{
                 mt: 3,
                 mb: 2,

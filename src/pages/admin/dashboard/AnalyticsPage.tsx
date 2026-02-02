@@ -517,7 +517,46 @@ const AnalyticsPage: React.FC = () => {
         </ChartContainer>
       </Box>
 
-      {/* 3. Conversion Rate Funnel */}
+      {/* 3. Draft Bids Status Chart */}
+      <Box sx={{ mb: 4 }}>
+        <ChartContainer title="3. Draft Bids Status">
+          <Typography
+            variant="caption"
+            sx={{ color: 'rgba(0, 0, 0, 0.6)', mb: 2, display: 'block' }}
+          >
+            Auction breakdown of draft bids: pending review vs awaiting approval
+          </Typography>
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart
+              data={analyticsData.draftBids}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis
+                dataKey="auctionTitle"
+                angle={-45}
+                textAnchor="end"
+                height={100}
+              />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar
+                dataKey="pendingReview"
+                fill="#f59e0b"
+                name="Pending Review"
+                radius={[8, 8, 0, 0]}
+              />
+              <Bar
+                dataKey="awaitingApproval"
+                fill="#06b6d4"
+                name="Awaiting Approval"
+                radius={[8, 8, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+      </Box>
+
       <Box sx={{ mb: 4 }}>
         <FunnelCard data={analyticsData.conversionMetrics} />
       </Box>
@@ -532,7 +571,7 @@ const AnalyticsPage: React.FC = () => {
           }}
         >
           <CardHeader
-            title="4. Average Winning Price Comparison"
+            title="5. Average Winning Price Comparison"
             subheader="Starting Price vs Reserve vs Winning Price"
             sx={{
               backgroundColor: '#fafbfc',
@@ -619,7 +658,7 @@ const AnalyticsPage: React.FC = () => {
           }}
         >
           <CardHeader
-            title="5. Top Bidders"
+            title="6. Top Bidders"
             subheader="Whale users contributing most to platform value"
             sx={{
               backgroundColor: '#fafbfc',

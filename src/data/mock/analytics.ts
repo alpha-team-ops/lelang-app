@@ -46,6 +46,13 @@ export interface SuccessRateData {
   totalAuctions: number;
 }
 
+export interface DraftBidData {
+  auctionTitle: string;
+  draftCount: number;
+  pendingReview: number;
+  awaitingApproval: number;
+}
+
 // Mock Analytics Data
 export const mockBidTrend: BidTrendData[] = [
   { timeLabel: '00:00', bidCount: 12, avgBidValue: 450000 },
@@ -208,3 +215,36 @@ export const mockSuccessRate: SuccessRateData = {
   successRate: (152 / (152 + 18)) * 100,
   totalAuctions: 170,
 };
+
+export const mockDraftBids: DraftBidData[] = [
+  {
+    auctionTitle: 'Vintage Rolex Watch',
+    draftCount: 15,
+    pendingReview: 8,
+    awaitingApproval: 7,
+  },
+  {
+    auctionTitle: 'iPhone 15 Pro Bundle',
+    draftCount: 12,
+    pendingReview: 6,
+    awaitingApproval: 6,
+  },
+  {
+    auctionTitle: 'Gaming PC RTX 4090',
+    draftCount: 18,
+    pendingReview: 10,
+    awaitingApproval: 8,
+  },
+  {
+    auctionTitle: 'Canon Camera Setup',
+    draftCount: 9,
+    pendingReview: 4,
+    awaitingApproval: 5,
+  },
+  {
+    auctionTitle: 'Sony Headphones Gold Edition',
+    draftCount: 14,
+    pendingReview: 7,
+    awaitingApproval: 7,
+  },
+];

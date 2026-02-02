@@ -21,22 +21,22 @@ import {
 } from '@mui/icons-material';
 import { Grid } from '@mui/material';
 import type { Auction } from '../../../data/types';
+import { auctionService } from '../../../data/services';
 
 interface FormData {
   title: string;
-  description: string;
-  category: string;
-  condition: string;
-  serialNumber: string;
+  description?: string;
+  category?: string;
+  condition?: string;
+  serialNumber?: string;
   startingPrice: number | '';
-  reservePrice: number | '';
   bidIncrement: number | '';
   startDate: string;
   startTime: string;
   endDate: string;
   endTime: string;
-  itemLocation: string;
-  purchaseYear: number | '';
+  itemLocation?: string;
+  purchaseYear?: number | '';
 }
 
 interface FormErrors {
@@ -58,7 +58,7 @@ interface EditAuctionModalProps {
   open: boolean;
   auction: Auction | null;
   onClose: () => void;
-  onSubmit: (data: Auction) => void;
+  onSuccess?: () => void;
 }
 
 const CATEGORIES = [
@@ -81,12 +81,12 @@ const CONDITIONS = [
 ];
 
 // Format currency with thousand separator
-const formatCurrency = (value: number | string): string => {
-  if (value === '' || value === 0) return '';
+const formatCurrency = (value: number | string | undefined): string => {
+  if (value === '' || value === 0 || value === undefined) return '';
   return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 };
 
-const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onClose, onSubmit }) => {
+const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onClose, onSuccess }) => {
   const [formData, setFormData] = useState<FormData>({
     title: '',
     description: '',
@@ -94,7 +94,6 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
     condition: '',
     serialNumber: '',
     startingPrice: '',
-    reservePrice: '',
     bidIncrement: '',
     startDate: '',
     startTime: '',
@@ -111,21 +110,28 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
   // Initialize form with auction data
   useEffect(() => {
     if (auction && open) {
-      const startDate = new Date(auction.startTime);
-      const endDate = new Date(auction.endTime);
+      // Parse datetime properly to avoid timezone issues
+      const startDateTime = auction.startTime ? new Date(auction.startTime) : null;
+      const endDateTime = auction.endTime ? new Date(auction.endTime) : null;
+      
+      // Extract date and time in ISO format (YYYY-MM-DD and HH:mm)
+      const startDateStr = startDateTime ? startDateTime.toISOString().split('T')[0] : '';
+      const startTimeStr = startDateTime ? startDateTime.toISOString().split('T')[1].slice(0, 5) : '';
+      const endDateStr = endDateTime ? endDateTime.toISOString().split('T')[0] : '';
+      const endTimeStr = endDateTime ? endDateTime.toISOString().split('T')[1].slice(0, 5) : '';
+      
       setFormData({
-        title: auction.title,
-        description: auction.description,
-        category: auction.category,
-        condition: auction.condition,
+        title: auction.title || '',
+        description: auction.description || '',
+        category: auction.category || '',
+        condition: auction.condition || '',
         serialNumber: auction.serialNumber || '',
-        startingPrice: auction.startingPrice,
-        reservePrice: auction.reservePrice || '',
-        bidIncrement: auction.bidIncrement,
-        startDate: startDate.toISOString().split('T')[0],
-        startTime: startDate.toTimeString().slice(0, 5),
-        endDate: endDate.toISOString().split('T')[0],
-        endTime: endDate.toTimeString().slice(0, 5),
+        startingPrice: auction.startingPrice || '',
+        bidIncrement: auction.bidIncrement || '',
+        startDate: startDateStr,
+        startTime: startTimeStr,
+        endDate: endDateStr,
+        endTime: endTimeStr,
         itemLocation: auction.itemLocation || '',
         purchaseYear: auction.purchaseYear || '',
       });
@@ -204,13 +210,32 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
     const newErrors: FormErrors = {};
 
     if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.category) newErrors.category = 'Category is required';
-    if (!formData.condition) newErrors.condition = 'Condition is required';
-    if (!formData.endDate) newErrors.endDate = 'End date is required';
-    if (!formData.endTime) newErrors.endTime = 'End time is required';
-    if (formData.startingPrice === '' || formData.startingPrice <= 0) newErrors.startingPrice = 'Starting price must be greater than 0';
-    if (formData.bidIncrement === '' || formData.bidIncrement <= 0) newErrors.bidIncrement = 'Bid increment must be greater than 0';
+    if (formData.description && !formData.description.trim()) newErrors.description = 'Description cannot be empty';
+    if (!formData.startingPrice || formData.startingPrice <= 0) newErrors.startingPrice = 'Starting price must be greater than 0';
+    if (!formData.bidIncrement || formData.bidIncrement <= 0) newErrors.bidIncrement = 'Bid increment must be greater than 0';
+
+    // Date/time validation: optional but must follow rules if provided
+    // Rule 1: if start_time provided, must be in the future
+    if (formData.startDate && formData.startTime) {
+      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
+      const now = new Date();
+      if (startDateTime <= now) {
+        newErrors.startDate = 'Start time must be in the future';
+      }
+    }
+
+    // Rule 2: if end_time provided, must be after start_time
+    if (formData.endDate && formData.endTime) {
+      if (!formData.startDate || !formData.startTime) {
+        newErrors.endDate = 'Start time is required when end time is provided';
+      } else {
+        const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
+        const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`);
+        if (endDateTime <= startDateTime) {
+          newErrors.endDate = 'End time must be after start time';
+        }
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -220,28 +245,40 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
     if (!validateForm() || !auction) return;
 
     setIsSubmitting(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      const updatedAuction: Auction = {
-        ...auction,
+    try {
+      const updateData: any = {
         title: formData.title,
-        description: formData.description,
-        category: formData.category,
-        condition: formData.condition,
-        serialNumber: formData.serialNumber || auction.serialNumber,
-        startingPrice: formData.startingPrice as number,
-        bidIncrement: formData.bidIncrement as number,
-        endTime: new Date(`${formData.endDate}T${formData.endTime}`),
-        itemLocation: formData.itemLocation || auction.itemLocation,
-        purchaseYear: formData.purchaseYear ? (formData.purchaseYear as number) : auction.purchaseYear,
-        images: imagePreviews,
+        startingPrice: Number(formData.startingPrice),
+        bidIncrement: Number(formData.bidIncrement),
       };
 
-      onSubmit(updatedAuction);
-      setIsSubmitting(false);
+      // Add optional text fields if they have values
+      if (formData.description) updateData.description = formData.description;
+      if (formData.category) updateData.category = formData.category;
+      if (formData.condition) updateData.condition = formData.condition;
+      if (formData.serialNumber) updateData.serialNumber = formData.serialNumber;
+      if (formData.itemLocation) updateData.itemLocation = formData.itemLocation;
+      if (formData.purchaseYear) updateData.purchaseYear = Number(formData.purchaseYear);
+
+      // Add date/time fields only if BOTH date and time are provided
+      if (formData.startDate?.trim() && formData.startTime?.trim()) {
+        updateData.startTime = `${formData.startDate} ${formData.startTime}:00`;
+      }
+      if (formData.endDate?.trim() && formData.endTime?.trim()) {
+        updateData.endTime = `${formData.endDate} ${formData.endTime}:00`;
+      }
+
+      console.log('Edit auction payload:', JSON.stringify(updateData, null, 2));
+      await auctionService.updateAuction(auction.id, updateData);
+
+      onSuccess?.();
       onClose();
-    }, 500);
+    } catch (error: any) {
+      console.error('Edit auction error:', error.response?.data || error.message);
+      setErrors({ title: error instanceof Error ? error.message : 'Failed to update auction' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -513,24 +550,6 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                    Reserve Price
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    value={formatCurrency(formData.reservePrice)}
-                    onChange={handleInputChange}
-                    error={!!errors.reservePrice}
-                    helperText={errors.reservePrice}
-                    name="reservePrice"
-                    size="small"
-                    disabled={auction?.status !== 'DRAFT'}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">Rp</InputAdornment>,
-                    }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
                     Bid Increment
                   </Typography>
                   <TextField
@@ -549,8 +568,6 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
               </Grid>
             </Box>
           </Box>
-
-          {/* TIME & DURATION SECTION */}
           <Box sx={{ mb: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
               ⏰ TIME & DURATION

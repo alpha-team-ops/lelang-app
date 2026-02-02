@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -22,48 +22,35 @@ import {
   Card,
   Grid,
   Tooltip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Checkbox,
-  FormControlLabel,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
-  Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as VisibilityIcon,
   Add as AddIcon,
   Search as SearchIcon,
-  Close as CloseIcon,
 } from '@mui/icons-material';
-import { mockRoles } from '../../../data/mock/roles';
-import type { Role } from '../../../data/mock/roles';
 import CreateRoleModal from '../../../components/modals/managements/CreateRoleModal';
-
-const AVAILABLE_PERMISSIONS = [
-  'manage_users',
-  'manage_roles',
-  'manage_auctions',
-  'manage_disputes',
-  'view_analytics',
-  'manage_settings',
-  'manage_payments',
-  'view_reports',
-  'send_notifications',
-];
+import { useRole } from '../../../config/RoleContext';
+import type { Role } from '../../../data/services/roleService';
 
 const RolesPage: React.FC = () => {
-  const [roles, setRoles] = useState<Role[]>(mockRoles);
+  const { roles, loading, error, fetchRoles, fetchPermissions, deleteRole } = useRole();
   const [searchText, setSearchText] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [editFormData, setEditFormData] = useState<Role | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Load roles and permissions on mount
+  useEffect(() => {
+    fetchRoles();
+    fetchPermissions();
+  }, [fetchRoles, fetchPermissions]);
 
   // Filter dan search
   const filteredRoles = useMemo(() => {
@@ -94,50 +81,24 @@ const RolesPage: React.FC = () => {
     setDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (selectedRole) {
-      setRoles(roles.filter((r) => r.id !== selectedRole.id));
-      setDeleteDialogOpen(false);
-      setSelectedRole(null);
+      setDeleting(true);
+      try {
+        await deleteRole(selectedRole.id);
+        setDeleteDialogOpen(false);
+        setSelectedRole(null);
+      } catch (err) {
+        // Error handled in context
+      } finally {
+        setDeleting(false);
+      }
     }
   };
 
   const handleViewDetails = (role: Role) => {
     setSelectedRole(role);
     setDetailDialogOpen(true);
-  };
-
-  const handleEditClick = (role: Role) => {
-    setEditFormData(role);
-    setEditDialogOpen(true);
-  };
-
-  const handleEditSave = () => {
-    if (editFormData) {
-      setRoles(roles.map((r) => (r.id === editFormData.id ? editFormData : r)));
-      setEditDialogOpen(false);
-      setEditFormData(null);
-    }
-  };
-
-  const handleCreateRole = (newRoleData: Omit<Role, 'id'>) => {
-    const newRole: Role = {
-      id: String(Math.max(...roles.map((r) => parseInt(r.id)), 0) + 1),
-      ...newRoleData,
-    };
-    setRoles([...roles, newRole]);
-    setCreateModalOpen(false);
-  };
-
-  const getStatusColor = (status: string): 'default' | 'success' | 'error' | 'warning' => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'success';
-      case 'INACTIVE':
-        return 'warning';
-      default:
-        return 'default';
-    }
   };
 
   const stats = [
@@ -149,21 +110,9 @@ const RolesPage: React.FC = () => {
     },
     {
       title: 'Active Roles',
-      value: roles.filter((r) => r.status === 'ACTIVE').length,
+      value: roles.filter((r) => r.isActive).length,
       color: '#10b981',
       bgColor: '#d1fae5',
-    },
-    {
-      title: 'Total Users',
-      value: roles.reduce((sum, r) => sum + r.usersCount, 0),
-      color: '#f59e0b',
-      bgColor: '#fef3c7',
-    },
-    {
-      title: 'Inactive Roles',
-      value: roles.filter((r) => r.status === 'INACTIVE').length,
-      color: '#ef4444',
-      bgColor: '#fee2e2',
     },
   ];
 
@@ -172,17 +121,23 @@ const RolesPage: React.FC = () => {
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-          Role Management
+          Roles
         </Typography>
         <Typography variant="body2" sx={{ color: 'rgba(0, 0, 0, 0.6)' }}>
-          Define roles, permissions, and manage role assignments
+          Manage roles and permissions for staff members
         </Typography>
       </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <Grid container spacing={2.5} sx={{ mb: 4 }}>
         {stats.map((stat, index) => (
-          <Grid key={index} size={{ xs: 12, sm: 6, md: 3, lg: 2.7 }}>
+          <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
             <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: '14px', p: 2, border: '1px solid #f0f0f0' }}>
               <Typography variant="body2" color="textSecondary" sx={{ mb: 1, fontWeight: 500 }}>
                 {stat.title}
@@ -211,10 +166,11 @@ const RolesPage: React.FC = () => {
       {/* Filters and Search */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField
-          placeholder="Search by role name or description..."
+          placeholder="Search roles by name or description..."
           size="small"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
+          disabled={loading}
           InputProps={{
             startAdornment: (
               <SearchIcon sx={{ mr: 1, color: 'action.active', fontSize: '1.25rem' }} />
@@ -222,104 +178,118 @@ const RolesPage: React.FC = () => {
           }}
           sx={{ flex: 1, minWidth: '250px' }}
         />
-        <Button variant="contained" startIcon={<AddIcon />} sx={{ height: 40 }} onClick={() => setCreateModalOpen(true)}>
+        <Button 
+          variant="contained" 
+          startIcon={<AddIcon />} 
+          sx={{ height: 40 }}
+          onClick={() => setCreateModalOpen(true)}
+          disabled={loading}
+        >
           Create Role
         </Button>
       </Box>
 
       {/* Table */}
       <TableContainer component={Paper} sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: '12px' }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ bgcolor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Role Name</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Description</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Permissions</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937', textAlign: 'center' }}>Users</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Last Modified</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, color: '#1f2937' }}>
-                Actions
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {paginatedRoles.map((role) => (
-              <TableRow key={role.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                <TableCell sx={{ fontWeight: 500, color: '#1f2937' }}>{role.name}</TableCell>
-                <TableCell sx={{ color: '#6b7280', maxWidth: '250px' }}>
-                  <Typography variant="body2" noWrap>
-                    {role.description}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={`${role.permissions.length} permissions`}
-                    size="small"
-                    variant="outlined"
-                    sx={{ fontWeight: 600 }}
-                  />
-                </TableCell>
-                <TableCell sx={{ color: '#6b7280', textAlign: 'center', fontWeight: 600 }}>
-                  {role.usersCount}
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={role.status}
-                    size="small"
-                    color={getStatusColor(role.status)}
-                    sx={{ fontWeight: 600, color: '#fff' }}
-                  />
-                </TableCell>
-                <TableCell sx={{ color: '#6b7280' }}>{role.lastModified}</TableCell>
-                <TableCell align="center">
-                  <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
-                    <Tooltip title="View Details">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleViewDetails(role)}
-                        sx={{ color: '#3b82f6' }}
-                      >
-                        <VisibilityIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEditClick(role)}
-                        sx={{ color: '#f59e0b' }}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteClick(role)}
-                        sx={{ color: '#ef4444' }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={filteredRoles.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          sx={{
-            borderTop: '1px solid #e5e7eb',
-            bgcolor: '#f9fafb',
-          }}
-        />
+        {loading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
+            <CircularProgress />
+          </Box>
+        )}
+        {!loading && (
+          <>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                  <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Name</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Description</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Permissions</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: '#1f2937' }}>Status</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, color: '#1f2937' }}>
+                    Actions
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedRoles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                      <Typography color="textSecondary">No roles found</Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedRoles.map((role) => (
+                    <TableRow key={role.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                      <TableCell sx={{ fontWeight: 500, color: '#1f2937' }}>{role.name}</TableCell>
+                      <TableCell sx={{ color: '#6b7280', maxWidth: '300px' }}>{role.description}</TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          {role.permissions.length > 0 ? (
+                            <>
+                              {role.permissions.slice(0, 2).map((_, idx) => (
+                                <Chip key={idx} label={`P${idx + 1}`} size="small" variant="outlined" />
+                              ))}
+                              {role.permissions.length > 2 && (
+                                <Chip label={`+${role.permissions.length - 2}`} size="small" variant="outlined" />
+                              )}
+                            </>
+                          ) : (
+                            <Typography variant="body2" sx={{ color: '#9ca3af' }}>
+                              None
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={role.isActive ? 'Active' : 'Inactive'}
+                          size="small"
+                          color={role.isActive ? 'success' : 'default'}
+                          sx={{ fontWeight: 600 }}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewDetails(role)}
+                              sx={{ color: '#3b82f6' }}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteClick(role)}
+                              sx={{ color: '#ef4444' }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={filteredRoles.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{
+                borderTop: '1px solid #e5e7eb',
+                bgcolor: '#f9fafb',
+              }}
+            />
+          </>
+        )}
       </TableContainer>
 
       {/* Delete Dialog */}
@@ -331,12 +301,22 @@ const RolesPage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleConfirmDelete} variant="contained" color="error">
-            Delete
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmDelete} variant="contained" color="error" disabled={deleting}>
+            {deleting ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Create Role Modal */}
+      <CreateRoleModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSuccess={() => setCreateModalOpen(false)}
+      />
 
       {/* Detail Dialog */}
       <Dialog open={detailDialogOpen} onClose={() => setDetailDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -346,7 +326,7 @@ const RolesPage: React.FC = () => {
             <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Box>
                 <Typography variant="body2" sx={{ color: '#6b7280', fontWeight: 500 }}>
-                  Role Name
+                  Name
                 </Typography>
                 <Typography sx={{ fontWeight: 600 }}>{selectedRole.name}</Typography>
               </Box>
@@ -356,49 +336,23 @@ const RolesPage: React.FC = () => {
                 </Typography>
                 <Typography sx={{ fontWeight: 600 }}>{selectedRole.description}</Typography>
               </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <Box>
-                  <Typography variant="body2" sx={{ color: '#6b7280', fontWeight: 500 }}>
-                    Status
-                  </Typography>
-                  <Chip label={selectedRole.status} color={getStatusColor(selectedRole.status)} sx={{ mt: 0.5, color: '#fff' }} />
-                </Box>
-                <Box>
-                  <Typography variant="body2" sx={{ color: '#6b7280', fontWeight: 500 }}>
-                    Assigned Users
-                  </Typography>
-                  <Typography sx={{ fontWeight: 600 }}>{selectedRole.usersCount} users</Typography>
-                </Box>
-              </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <Box>
-                  <Typography variant="body2" sx={{ color: '#6b7280', fontWeight: 500 }}>
-                    Created Date
-                  </Typography>
-                  <Typography sx={{ fontWeight: 600 }}>{selectedRole.createdDate}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2" sx={{ color: '#6b7280', fontWeight: 500 }}>
-                    Last Modified
-                  </Typography>
-                  <Typography sx={{ fontWeight: 600 }}>{selectedRole.lastModified}</Typography>
-                </Box>
+              <Box>
+                <Typography variant="body2" sx={{ color: '#6b7280', fontWeight: 500, mb: 1 }}>
+                  Status
+                </Typography>
+                <Chip
+                  label={selectedRole.isActive ? 'Active' : 'Inactive'}
+                  color={selectedRole.isActive ? 'success' : 'default'}
+                  sx={{ fontWeight: 600 }}
+                />
               </Box>
               <Box>
                 <Typography variant="body2" sx={{ color: '#6b7280', fontWeight: 500, mb: 1 }}>
                   Permissions ({selectedRole.permissions.length})
                 </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {selectedRole.permissions.map((perm) => (
-                    <Chip
-                      key={perm}
-                      label={perm}
-                      size="small"
-                      variant="outlined"
-                      sx={{ fontWeight: 500 }}
-                    />
-                  ))}
-                </Box>
+                <Typography variant="caption" sx={{ color: '#9ca3af' }}>
+                  Permission IDs: {selectedRole.permissions.join(', ') || 'None'}
+                </Typography>
               </Box>
             </Box>
           )}
@@ -407,149 +361,8 @@ const RolesPage: React.FC = () => {
           <Button onClick={() => setDetailDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-
-      {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Edit Role
-          <Button
-            onClick={() => setEditDialogOpen(false)}
-            sx={{ minWidth: 'auto', p: 0.5, color: '#6b7280' }}
-          >
-            <CloseIcon />
-          </Button>
-        </DialogTitle>
-        <DialogContent>
-          {editFormData && (
-            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                fullWidth
-                label="Role Name"
-                value={editFormData.name}
-                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-              />
-              <TextField
-                fullWidth
-                label="Description"
-                multiline
-                rows={3}
-                value={editFormData.description}
-                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-              />
-
-              {/* Status */}
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={editFormData.status}
-                  label="Status"
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, status: e.target.value as 'ACTIVE' | 'INACTIVE' })
-                  }
-                >
-                  <MenuItem value="ACTIVE">Active</MenuItem>
-                  <MenuItem value="INACTIVE">Inactive</MenuItem>
-                </Select>
-              </FormControl>
-
-              {/* Permissions */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-                  Assign Permissions ({editFormData.permissions.length})
-                </Typography>
-                <Paper sx={{ p: 2, bgcolor: '#f9fafb', border: '1px solid #e5e7eb', maxHeight: '250px', overflowY: 'auto' }}>
-                  <Stack spacing={1.5}>
-                    {/* Select All */}
-                    <Box sx={{ pb: 1.5, borderBottom: '1px solid #e5e7eb', mb: 1 }}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            indeterminate={
-                              editFormData.permissions.length > 0 &&
-                              editFormData.permissions.length < AVAILABLE_PERMISSIONS.length
-                            }
-                            checked={editFormData.permissions.length === AVAILABLE_PERMISSIONS.length}
-                            onChange={(e) => {
-                              setEditFormData({
-                                ...editFormData,
-                                permissions: e.target.checked ? [...AVAILABLE_PERMISSIONS] : [],
-                              });
-                            }}
-                          />
-                        }
-                        label={
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#1f2937' }}>
-                            Select All Permissions
-                          </Typography>
-                        }
-                      />
-                    </Box>
-
-                    {/* Individual Permissions */}
-                    {AVAILABLE_PERMISSIONS.map((permission) => (
-                      <FormControlLabel
-                        key={permission}
-                        control={
-                          <Checkbox
-                            checked={editFormData.permissions.includes(permission)}
-                            onChange={(e) => {
-                              setEditFormData({
-                                ...editFormData,
-                                permissions: e.target.checked
-                                  ? [...editFormData.permissions, permission]
-                                  : editFormData.permissions.filter((p) => p !== permission),
-                              });
-                            }}
-                          />
-                        }
-                        label={
-                          <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
-                            {permission.replace(/_/g, ' ')}
-                          </Typography>
-                        }
-                      />
-                    ))}
-                  </Stack>
-                </Paper>
-              </Box>
-
-              {/* Selected Permissions Preview */}
-              {editFormData.permissions.length > 0 && (
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#6b7280' }}>
-                    Selected Permissions:
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {editFormData.permissions.map((perm) => (
-                      <Chip
-                        key={perm}
-                        label={perm.replace(/_/g, ' ')}
-                        size="small"
-                        sx={{ fontWeight: 500 }}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleEditSave} variant="contained" color="primary">
-            Save Changes
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Create Role Modal */}
-      <CreateRoleModal
-        open={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        onSave={handleCreateRole}
-      />
     </Box>
   );
-}
+};
 
 export default RolesPage;

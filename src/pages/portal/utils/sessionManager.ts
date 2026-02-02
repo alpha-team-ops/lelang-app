@@ -4,13 +4,23 @@ export interface UserSession {
   fullName: string;
   corporateIdNip: string;
   directorate: string;
-  organizationCode: string;
+  invitationCode: string;
   timestamp: number;
+  portalToken?: string;
+  userId?: string;
 }
 
 export const saveUserSession = (userData: UserSession) => {
   sessionStorage.setItem('userSession', JSON.stringify(userData));
   sessionStorage.setItem('authToken', `token-${Date.now()}`);
+  
+  // Also store portalToken and userId separately for API calls
+  if (userData.portalToken) {
+    sessionStorage.setItem('portalToken', userData.portalToken);
+  }
+  if (userData.userId) {
+    sessionStorage.setItem('userId', userData.userId);
+  }
 };
 
 export const getUserSession = (): UserSession | null => {
@@ -21,6 +31,8 @@ export const getUserSession = (): UserSession | null => {
 export const clearUserSession = () => {
   sessionStorage.removeItem('userSession');
   sessionStorage.removeItem('authToken');
+  sessionStorage.removeItem('portalToken');
+  sessionStorage.removeItem('userId');
 };
 
 export const isSessionActive = (): boolean => {

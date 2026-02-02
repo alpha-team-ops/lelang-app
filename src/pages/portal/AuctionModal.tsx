@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import type { PortalAuction } from '../../data/types';
+import { bidService, auctionService } from '../../data/services';
+import { useRealtimeAuction, useAuctionPolling } from '../../hooks/useRealtimeAuction';
 import './styles/portal.css';
 
 interface AuctionModalProps {
@@ -9,19 +11,69 @@ interface AuctionModalProps {
   onBidSuccess: (newPrice: number) => void;
 }
 
-const MIN_BID_INCREMENT = 50000;
-
 export default function AuctionModal({ auction, onClose, onBidSuccess }: AuctionModalProps) {
   const [bidAmount, setBidAmount] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bidSuccess, setBidSuccess] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [liveAuction, setLiveAuction] = useState<PortalAuction>(auction);
+  const bidInputRef = useRef<HTMLInputElement>(null);
+
+  // Memoize callbacks to prevent infinite subscribe/unsubscribe loops
+  const handleBidPlaced = useCallback((data: any) => {
+    // Update current bid and participant count
+    setLiveAuction(prev => {
+      const newBid = data.bidAmount || data.currentBid || prev.currentBid;
+      return {
+        ...prev,
+        currentBid: newBid,
+        participantCount: (prev.participantCount || 0) + 1,
+      };
+    });
+  }, []);  // Empty dependencies - use state callback instead
+
+  const handleAuctionUpdated = useCallback((data: any) => {
+    setLiveAuction(data);
+  }, []);
+
+  const handleAuctionEnded = useCallback(() => {
+    setLiveAuction(prev => ({
+      ...prev,
+      status: 'ENDED',
+    }));
+  }, []);
+
+  // Try WebSocket first, fallback to polling
+  const { isConnected } = useRealtimeAuction({
+    auctionId: auction.id,
+    enabled: true,
+    onBidPlaced: handleBidPlaced,
+    onAuctionUpdated: handleAuctionUpdated,
+    onAuctionEnded: handleAuctionEnded,
+  });
+
+  // Polling for specific auction in modal - ensures instant updates in modal view
+  // Parent AuctionList also polls all auctions for list updates
+  useAuctionPolling(
+    auction.id,
+    1000, // Poll every 1 second (not 500ms to reduce server load)
+    true, // ✅ ALWAYS enabled - modal needs real-time updates
+    (updatedAuction) => {
+      setLiveAuction(updatedAuction);
+    }
+  );
+
+  // Also sync with parent prop changes (from parent's polling)
+  useEffect(() => {
+    setLiveAuction(auction);
+  }, [auction]);
 
   // Calculate time remaining from endTime
-  const calculateTimeRemaining = (endTime: Date): string => {
+  const calculateTimeRemaining = (endTime: Date | string): string => {
+    const endTimeDate = typeof endTime === 'string' ? new Date(endTime) : endTime;
     const now = new Date();
-    const diff = endTime.getTime() - now.getTime();
+    const diff = endTimeDate.getTime() - now.getTime();
     
     if (diff <= 0) return 'Ended';
     
@@ -37,15 +89,60 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
   // Prevent body scroll when modal opens
   useEffect(() => {
     document.body.classList.add('modal-open');
+    // Track view when modal opens
+    if (auction?.id) {
+      auctionService.incrementViewCount(auction.id).catch((err) => {
+        console.log('View tracking:', err.message);
+      });
+    }
     return () => {
       document.body.classList.remove('modal-open');
     };
-  }, []);
+  }, [auction?.id]);
 
   const handleBidChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, ''); // Only numbers
-    setBidAmount(value);
+    const inputValue = e.target.value;
+    const cursorPos = e.target.selectionStart || 0;
+    
+    // Extract only digits
+    const digitsOnly = inputValue.replace(/\D/g, '');
+    setBidAmount(digitsOnly);
     setError('');
+
+    // Restore cursor position intelligently
+    setTimeout(() => {
+      if (bidInputRef.current) {
+        const formatted = formatCurrency(digitsOnly);
+        
+        // Count how many digits existed before cursor in input
+        let digitCount = 0;
+        for (let i = 0; i < cursorPos && i < inputValue.length; i++) {
+          if (/\d/.test(inputValue[i])) {
+            digitCount++;
+          }
+        }
+        
+        // Find position in formatted string that corresponds to the same digit count
+        let newCursorPos = 0;
+        let digitsSeen = 0;
+        for (let i = 0; i < formatted.length; i++) {
+          if (/\d/.test(formatted[i])) {
+            digitsSeen++;
+            if (digitsSeen === digitCount) {
+              newCursorPos = i + 1;
+              break;
+            }
+          }
+        }
+        
+        // If cursor was at end or beyond, place it at end
+        if (digitCount === 0 || newCursorPos === 0) {
+          newCursorPos = formatted.length;
+        }
+        
+        bidInputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
   };
 
   const formatCurrency = (value: string): string => {
@@ -54,22 +151,29 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
   };
 
   const validateBid = (): boolean => {
+    const currentAuction = liveAuction || auction;
+    
+    if (currentAuction.status !== 'LIVE') {
+      setError('This auction is not currently active.');
+      return false;
+    }
+
     if (!bidAmount) {
       setError('Please enter a bid amount');
       return false;
     }
 
     const bidValue = parseInt(bidAmount);
-    const minBid = auction.currentBid + MIN_BID_INCREMENT;
+    const minBid = currentAuction.currentBid + currentAuction.bidIncrement;
 
-    if (bidValue <= auction.currentBid) {
-      setError(`Bid must be higher than Rp ${auction.currentBid.toLocaleString('id-ID')}`);
+    if (bidValue <= currentAuction.currentBid) {
+      setError(`Bid must be higher than Rp ${currentAuction.currentBid.toLocaleString('id-ID')}`);
       return false;
     }
 
-    if ((bidValue - auction.currentBid) % MIN_BID_INCREMENT !== 0) {
+    if ((bidValue - currentAuction.currentBid) % currentAuction.bidIncrement !== 0) {
       setError(
-        `Bid must be multiple of Rp ${MIN_BID_INCREMENT.toLocaleString('id-ID')} from current price`
+        `Bid must be multiple of Rp ${currentAuction.bidIncrement.toLocaleString('id-ID')} from current price`
       );
       return false;
     }
@@ -92,14 +196,20 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
     }
 
     setIsSubmitting(true);
+    setError('');
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-
       const bidValue = parseInt(bidAmount);
-      console.log('Bid submitted:', {
-        auctionId: auction.id,
+      const currentAuction = liveAuction || auction;
+      
+      // Call bidService to place bid using API spec
+      await bidService.placeBid({
+        auctionId: currentAuction.id,
+        bidAmount: bidValue,
+      });
+
+      console.log('Bid submitted successfully:', {
+        auctionId: currentAuction.id,
         bidAmount: bidValue,
         timestamp: new Date().toISOString(),
       });
@@ -112,13 +222,15 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
         onClose();
       }, 1500);
     } catch (err) {
-      setError('Failed to submit bid. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit bid. Please try again.';
+      setError(errorMessage);
+      console.error('Bid error:', err);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const minBidAmount = auction.currentBid + MIN_BID_INCREMENT;
+  const minBidAmount = (liveAuction || auction).currentBid + (liveAuction || auction).bidIncrement;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -224,29 +336,45 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
         {/* Price Info */}
         <div className="modal-section">
           <div className="modal-section-title">💰 Price & Participants Info</div>
+          {/* Connection Status Badge */}
+          <div style={{ 
+            fontSize: '11px', 
+            color: isConnected ? '#059669' : '#ea580c',
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span style={{ fontSize: '12px' }}>
+              {isConnected ? '🟢' : '🟡'} 
+              {isConnected ? 'Real-time + Polling' : 'Polling updates'}
+            </span>
+          </div>
           <div className="price-box">
             <div className="price-item">
               <div className="price-label">Current Price</div>
               <div className="price-value">
-                Rp {auction.currentBid.toLocaleString('id-ID')}
+                Rp {(liveAuction || auction).currentBid.toLocaleString('id-ID')}
               </div>
             </div>
             <div className="price-item">
               <div className="price-label">Reserve Price</div>
               <div className="price-value">
-                Rp {auction.reservePrice.toLocaleString('id-ID')}
+                Rp {(liveAuction || auction).reservePrice.toLocaleString('id-ID')}
               </div>
             </div>
             <div className="price-item">
               <div className="price-label">Time Remaining</div>
-              <div className="price-value" style={{ color: '#f97316' }}>
-                {calculateTimeRemaining(auction.endTime)}
+              <div className="price-value" style={{ 
+                color: (liveAuction || auction).endTime && new Date((liveAuction || auction).endTime).getTime() - new Date().getTime() < 5 * 60 * 1000 ? '#dc2626' : '#f97316'
+              }}>
+                {calculateTimeRemaining((liveAuction || auction).endTime)}
               </div>
             </div>
             <div className="price-item">
               <div className="price-label">Total Participants</div>
               <div className="price-value" style={{ color: '#0ea5e9' }}>
-                {auction.participantCount} people
+                {(liveAuction || auction).participantCount} people
               </div>
             </div>
           </div>
@@ -260,7 +388,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
             </div>
             <ul style={{ marginLeft: '16px', listStyle: 'none' }}>
               <li>• Bid amount must be higher than current price</li>
-              <li>• Bid must be multiple of Rp 50,000</li>
+              <li>• Bid must be multiple of Rp {(liveAuction || auction).bidIncrement.toLocaleString('id-ID')}</li>
               <li>• Bids cannot be canceled after submission</li>
               <li>• Winner must pay within 24 hours</li>
             </ul>
@@ -282,7 +410,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
           >
             <div style={{ marginBottom: '6px', fontWeight: '600' }}>💡 Bid Info:</div>
             <div>• Minimum: Rp {minBidAmount.toLocaleString('id-ID')}</div>
-            <div>• Increment: Rp {MIN_BID_INCREMENT.toLocaleString('id-ID')}</div>
+            <div>• Increment: Rp {(liveAuction || auction).bidIncrement.toLocaleString('id-ID')}</div>
           </div>
         </div>
 
@@ -297,6 +425,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
               <div className="bid-input-group">
                 <div className="bid-prefix">Rp</div>
                 <input
+                  ref={bidInputRef}
                   type="text"
                   className="bid-input"
                   value={formatCurrency(bidAmount)}
@@ -304,11 +433,14 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
                   placeholder="Enter bid amount"
                   disabled={isSubmitting || bidSuccess}
                   inputMode="numeric"
+                  autoComplete="off"
+                  spellCheck="false"
                   style={{
                     textAlign: 'right',
                     fontWeight: '600',
                     fontSize: '16px',
-                    color: bidAmount ? '#1f2937' : '#d1d5db',
+                    color: bidAmount ? '#1f2937' : '#9ca3af',
+                    transition: 'color 0.2s ease',
                   }}
                 />
               </div>
@@ -324,7 +456,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
               <button
                 type="submit"
                 className="bid-submit"
-                disabled={isSubmitting || bidSuccess}
+                disabled={isSubmitting || bidSuccess || auction.status !== 'LIVE'}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

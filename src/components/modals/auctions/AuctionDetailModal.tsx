@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,8 @@ import {
   Timer as TimerIcon,
 } from '@mui/icons-material';
 import type { Auction } from '../../../data/types';
+import { auctionService } from '../../../data/services';
+import { useRealtimeAuction, useAuctionPolling } from '../../../hooks/useRealtimeAuction';
 
 // Status Badge
 const StatusBadge: React.FC<{ status: Auction['status'] }> = ({ status }) => {
@@ -40,13 +42,27 @@ const StatusBadge: React.FC<{ status: Auction['status'] }> = ({ status }) => {
 };
 
 // Countdown Timer Component
-const CountdownTimer: React.FC<{ endTime: Date }> = ({ endTime }) => {
+const CountdownTimer: React.FC<{ endTime: Date | string | null }> = ({ endTime }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
 
   useEffect(() => {
+    // If endTime is null, auction is in draft status
+    if (!endTime) {
+      setTimeLeft('Draft');
+      return;
+    }
+
     const updateTimer = () => {
       const now = new Date();
-      const diff = endTime.getTime() - now.getTime();
+      const endDate = typeof endTime === 'string' ? new Date(endTime) : endTime;
+      
+      // Handle invalid date
+      if (isNaN(endDate.getTime())) {
+        setTimeLeft('Invalid');
+        return;
+      }
+
+      const diff = endDate.getTime() - now.getTime();
 
       if (diff <= 0) {
         setTimeLeft('Ended');
@@ -67,12 +83,27 @@ const CountdownTimer: React.FC<{ endTime: Date }> = ({ endTime }) => {
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <TimerIcon sx={{ fontSize: '18px', color: '#ef4444' }} />
-      <Typography variant="body2" sx={{ fontWeight: 600, color: '#ef4444' }}>
+      <TimerIcon sx={{ fontSize: '18px', color: timeLeft === 'Draft' ? '#888' : '#ef4444' }} />
+      <Typography variant="body2" sx={{ fontWeight: 600, color: timeLeft === 'Draft' ? '#888' : '#ef4444' }}>
         {timeLeft}
       </Typography>
     </Box>
   );
+};
+
+// Helper function to detect if bidder is UUID (for backend that sends ID instead of name)
+const isUUIDFormat = (str: string | undefined): boolean => {
+  if (!str) return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
+
+// Helper function to get bidder display name
+const getBidderDisplayName = (bidder: string | undefined): string => {
+  if (!bidder) return 'Anonymous';
+  // If bidder is UUID format, show Anonymous instead
+  if (isUUIDFormat(bidder)) return 'Anonymous';
+  return bidder;
 };
 
 // Auction Detail Modal Component
@@ -87,11 +118,55 @@ interface AuctionDetailModalProps {
 const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, onClose, onEdit }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState(0);
+  const [liveAuction, setLiveAuction] = useState<Auction | null>(auction);
 
   useEffect(() => {
     setSelectedImageIndex(0);
     setActiveTab(0);
   }, [auction?.id]);
+
+  // Memoize WebSocket callbacks
+  const handleBidPlaced = useCallback(() => {
+    // Bid placed - data will be updated via polling
+  }, []);
+
+  const handleAuctionUpdated = useCallback((data: Auction) => {
+    setLiveAuction(data);
+  }, []);
+
+  const handleAuctionEnded = useCallback(() => {
+    setLiveAuction(prev => prev ? { ...prev, status: 'ENDED' } : null);
+  }, []);
+
+  // WebSocket connection
+  useRealtimeAuction({
+    auctionId: auction?.id || '',
+    enabled: open && !!auction?.id,
+    onBidPlaced: handleBidPlaced,
+    onAuctionUpdated: handleAuctionUpdated,
+    onAuctionEnded: handleAuctionEnded,
+  });
+
+  // Polling for real-time updates
+  useAuctionPolling(
+    auction?.id || '',
+    1000, // Poll every 1 second
+    open && !!auction?.id, // Only poll when modal is open
+    (updatedAuction) => {
+      setLiveAuction(updatedAuction);
+    }
+  );
+
+  // Track view when modal opens
+  useEffect(() => {
+    if (open && auction?.id) {
+      // Call API to increment view count
+      auctionService.incrementViewCount(auction.id).catch((err) => {
+        // Silently fail - view tracking is not critical
+        console.log('View tracking:', err.message);
+      });
+    }
+  }, [open, auction?.id]);
 
   useEffect(() => {
     if (open) {
@@ -104,9 +179,9 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
     };
   }, [open]);
 
-  if (!auction || !open) return null;
+  if (!liveAuction || !open) return null;
 
-  const isEnded = auction.status === 'ENDED';
+  const isEnded = liveAuction.status === 'ENDED';
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('id-ID', {
@@ -144,9 +219,9 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <StatusBadge status={auction.status} />
+          <StatusBadge status={liveAuction.status} />
           <Typography sx={{ fontWeight: 700, fontSize: '20px', color: '#1f2937' }}>
-            {auction.title}
+            {liveAuction.title}
           </Typography>
         </Box>
         <Button
@@ -200,12 +275,12 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
         {activeTab === 0 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {/* Image Gallery */}
-            {auction.images && auction.images.length > 0 && (
+            {liveAuction.images && liveAuction.images.length > 0 && (
               <Box>
                 <Box
                   component="img"
-                  src={auction.images[selectedImageIndex]}
-                  alt={auction.title}
+                  src={liveAuction.images[selectedImageIndex]}
+                  alt={liveAuction.title}
                   sx={{
                     width: '100%',
                     aspectRatio: '4 / 3',
@@ -215,14 +290,14 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                     backgroundColor: '#f3f4f6',
                   }}
                 />
-                {auction.images.length > 1 && (
+                {liveAuction.images.length > 1 && (
                   <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 1 }}>
-                    {auction.images.map((img, idx) => (
+                    {liveAuction.images.map((img, idx) => (
                       <Box
                         key={idx}
                         component="img"
                         src={img}
-                        alt={`${auction.title} - ${idx + 1}`}
+                        alt={`${liveAuction.title} - ${idx + 1}`}
                         onClick={() => setSelectedImageIndex(idx)}
                         sx={{
                           width: '80px',
@@ -250,13 +325,13 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                 <Box sx={{ paddingLeft: 1.5, borderLeft: '3px solid #0ea5e9' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 0.75 }}>Category</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.category}
+                    {liveAuction.category}
                   </Typography>
                 </Box>
                 <Box sx={{ paddingLeft: 1.5, borderLeft: '3px solid #22c55e' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 0.75 }}>Condition</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937' }}>
-                    ✓ {auction.condition}
+                    ✓ {liveAuction.condition}
                   </Typography>
                 </Box>
               </Box>
@@ -268,7 +343,7 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                 📝 DESCRIPTION
               </Typography>
               <Typography sx={{ fontSize: '15px', color: '#4b5563', lineHeight: 1.7, backgroundColor: '#fafbfc', padding: 1.75, borderRadius: '8px' }}>
-                {auction.description}
+                {liveAuction.description}
               </Typography>
             </Box>
 
@@ -282,27 +357,33 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                   <Box>
                     <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 0.75 }}>Current Price</Typography>
                     <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#0ea5e9' }}>
-                      {formatCurrency(auction.currentBid)}
+                      {formatCurrency(liveAuction.currentBid)}
                     </Typography>
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 0.75 }}>Starting Price</Typography>
                     <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#764ba2' }}>
-                      {formatCurrency(auction.startingPrice)}
+                      {formatCurrency(liveAuction.startingPrice)}
                     </Typography>
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 0.75 }}>End Time</Typography>
                     <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#1f2937' }}>
-                      {auction.endTime.toLocaleDateString('id-ID')}
-                      <br />
-                      {auction.endTime.toLocaleTimeString('id-ID')}
+                      {liveAuction.endTime ? (
+                        <>
+                          {new Date(liveAuction.endTime).toLocaleDateString('id-ID')}
+                          <br />
+                          {new Date(liveAuction.endTime).toLocaleTimeString('id-ID')}
+                        </>
+                      ) : (
+                        <span style={{ color: '#9ca3af', fontWeight: 500 }}>Not set (Draft)</span>
+                      )}
                     </Typography>
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 0.75 }}>Total Participants</Typography>
                     <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#0ea5e9' }}>
-                      {auction.participantCount} orang
+                      {liveAuction.participantCount} orang
                     </Typography>
                   </Box>
                 </Box>
@@ -323,19 +404,19 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                 <Box sx={{ pb: 2, borderBottom: '1px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '13px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Title</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.title}
+                    {liveAuction.title}
                   </Typography>
                 </Box>
                 <Box sx={{ pb: 2, borderBottom: '1px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '13px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Serial Number</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937', fontFamily: 'monospace' }}>
-                    {auction.serialNumber || '-'}
+                    {liveAuction.serialNumber || '-'}
                   </Typography>
                 </Box>
                 <Box>
                   <Typography sx={{ fontSize: '13px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Description</Typography>
                   <Typography sx={{ fontSize: '15px', color: '#4b5563', lineHeight: 1.7 }}>
-                    {auction.description}
+                    {liveAuction.description}
                   </Typography>
                 </Box>
               </Box>
@@ -350,25 +431,25 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 0.75, fontWeight: 500 }}>Category</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.category}
+                    {liveAuction.category}
                   </Typography>
                 </Box>
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 0.75, fontWeight: 500 }}>Condition</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.condition}
+                    {liveAuction.condition}
                   </Typography>
                 </Box>
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 0.75, fontWeight: 500 }}>Item Location</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.itemLocation || '-'}
+                    {liveAuction.itemLocation || '-'}
                   </Typography>
                 </Box>
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 0.75, fontWeight: 500 }}>Purchase Year</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.purchaseYear || '-'}
+                    {liveAuction.purchaseYear || '-'}
                   </Typography>
                 </Box>
               </Box>
@@ -383,25 +464,25 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Starting Price</Typography>
                   <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#1f2937' }}>
-                    {formatCurrency(auction.startingPrice)}
+                    {formatCurrency(liveAuction.startingPrice)}
                   </Typography>
                 </Box>
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Reserve Price</Typography>
                   <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#1f2937' }}>
-                    {formatCurrency(auction.reservePrice)}
+                    {formatCurrency(liveAuction.reservePrice)}
                   </Typography>
                 </Box>
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Current Bid</Typography>
                   <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#1f2937' }}>
-                    {formatCurrency(auction.currentBid)}
+                    {formatCurrency(liveAuction.currentBid)}
                   </Typography>
                 </Box>
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Bid Increment</Typography>
                   <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#1f2937' }}>
-                    {formatCurrency(auction.bidIncrement)}
+                    {formatCurrency(liveAuction.bidIncrement)}
                   </Typography>
                 </Box>
               </Box>
@@ -416,19 +497,19 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Total Bids</Typography>
                   <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.totalBids}
+                    {liveAuction.totalBids}
                   </Typography>
                 </Box>
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Participants</Typography>
                   <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.participantCount}
+                    {liveAuction.participantCount}
                   </Typography>
                 </Box>
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>View Count</Typography>
                   <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.viewCount}
+                    {liveAuction.viewCount}
                   </Typography>
                 </Box>
               </Box>
@@ -443,25 +524,37 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                 <Box sx={{ pb: 2, borderBottom: '1px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '13px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Start Time</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.startTime.toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })} · {auction.startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                    {liveAuction.startTime ? (
+                      <>
+                        {new Date(liveAuction.startTime).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })} · {new Date(liveAuction.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                      </>
+                    ) : (
+                      <span style={{ color: '#9ca3af', fontWeight: 500 }}>Not set (Draft)</span>
+                    )}
                   </Typography>
                 </Box>
                 <Box sx={{ pb: 2, borderBottom: '1px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '13px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>End Time</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.endTime.toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })} · {auction.endTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                    {liveAuction.endTime ? (
+                      <>
+                        {new Date(liveAuction.endTime).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })} · {new Date(liveAuction.endTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                      </>
+                    ) : (
+                      <span style={{ color: '#9ca3af', fontWeight: 500 }}>Not set (Draft)</span>
+                    )}
                   </Typography>
                 </Box>
                 <Box sx={{ pb: 2, borderBottom: '1px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '13px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Seller</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937' }}>
-                    {auction.seller}
+                    {liveAuction.seller}
                   </Typography>
                 </Box>
                 <Box>
                   <Typography sx={{ fontSize: '13px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Item ID</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937', fontFamily: 'monospace' }}>
-                    {auction.id}
+                    {liveAuction.id}
                   </Typography>
                 </Box>
               </Box>
@@ -487,7 +580,7 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                   {formatCurrency(auction.currentBid)}
                 </Typography>
                 <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>
-                  by Bidder Anonymous
+                  by Bidder {getBidderDisplayName(auction.currentBidder)}
                 </Typography>
               </Box>
 

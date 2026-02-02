@@ -33,10 +33,25 @@ export interface PortalAuction {
   condition: string;
   currentBid: number;
   reservePrice: number;
-  endTime: Date;
+  bidIncrement: number;
+  endTime: Date | string;
   participantCount: number;
   images?: string[]; // Array of image URLs
+  status: 'DRAFT' | 'SCHEDULED' | 'LIVE' | 'ENDING' | 'ENDED' | 'CANCELLED';
   organizationCode: string;
+}
+
+// Bid Activity Types
+export interface BidActivity {
+  id?: string;
+  auctionId?: string;
+  auctionTitle?: string;
+  bidderId?: string;
+  bidder?: string;
+  bidderName?: string;
+  bidAmount: number;
+  timestamp: Date | string;
+  status: 'CURRENT' | 'OUTBID' | 'WINNING';
 }
 
 // Winner Bid Types
