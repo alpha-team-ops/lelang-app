@@ -157,7 +157,7 @@ export const useAuctionPolling = (
         
         // Use admin endpoint for DRAFT/SCHEDULED auctions, portal endpoint for LIVE/ENDED
         const isDraftAuction = auctionStatus === 'DRAFT' || auctionStatus === 'SCHEDULED'
-        const endpoint = isDraftAuction ? 'api/v1/auctions' : 'api/v1/auctions/portal'
+        const endpoint = isDraftAuction ? 'api/v1/admin/auctions' : 'api/v1/auctions'
         const url = `${apiUrl}/${endpoint}/${auctionId}`
         
         // Try portal token first, then admin token

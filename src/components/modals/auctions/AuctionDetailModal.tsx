@@ -210,9 +210,10 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
     if (open && auction?.id && isInitialLoading) {
       const fetchInitialData = async () => {
         try {
-          // Always use admin endpoint to get full auction data with all fields
-          // (startingPrice, startTime, etc.)
-          const endpoint = 'api/v1/auctions';
+          // For DRAFT/SCHEDULED auctions: use admin endpoint
+          // For LIVE/ENDED auctions: use portal endpoint
+          const isDraftAuction = auction?.status === 'DRAFT' || auction?.status === 'SCHEDULED';
+          const endpoint = isDraftAuction ? 'api/v1/admin/auctions' : 'api/v1/auctions';
           const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
           const url = `${apiUrl}/${endpoint}/${auction.id}`;
 

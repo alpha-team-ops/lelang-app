@@ -1,8 +1,17 @@
 import axios from 'axios';
 import type { Auction, PortalAuction } from '../types/index';
 
-// Create a specialized client for auctions API
+// Create a specialized client for auctions API (admin endpoints)
 const auctionClient = axios.create({
+  baseURL: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/${import.meta.env.VITE_API_VERSION || 'v1'}/admin/auctions`,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Create a specialized client for portal (public) auctions
+const portalClient = axios.create({
   baseURL: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/${import.meta.env.VITE_API_VERSION || 'v1'}/auctions`,
   timeout: 10000,
   headers: {
@@ -12,9 +21,20 @@ const auctionClient = axios.create({
 
 // Add token to requests if available
 auctionClient.interceptors.request.use((config) => {
+  // Try access token for admin
+  const accessToken = localStorage.getItem('accessToken');
+  
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return config;
+});
+
+// Add token to portal requests if available
+portalClient.interceptors.request.use((config) => {
   // Try portal token first (for portal users)
   const portalToken = sessionStorage.getItem('portalToken');
-  // Fallback to access token (for staff users)
+  // Fallback to access token (for staff users viewing as portal)
   const accessToken = localStorage.getItem('accessToken');
   const token = portalToken || accessToken;
   
@@ -202,7 +222,7 @@ export const auctionService = {
     }
   },
 
-  // Portal Auctions (User-facing) - Only LIVE auctions
+  // Portal Auctions (User-facing) - LIVE and ENDED auctions
   getAllPortalAuctions: async (
     page: number = 1,
     limit: number = 10,
@@ -215,7 +235,8 @@ export const auctionService = {
         ...(filters?.category && { category: filters.category }),
       });
 
-      const response = await auctionClient.get(`/portal/list?${params}`);
+      // GET /api/v1/auctions - List all LIVE auctions (no path suffix needed)
+      const response = await portalClient.get(`?${params}`);
 
       return {
         auctions: response.data.data || [],
@@ -229,7 +250,8 @@ export const auctionService = {
 
   getPortalAuctionById: async (id: string): Promise<PortalAuction | null> => {
     try {
-      const response = await auctionClient.get(`/portal/${id}`);
+      // GET /api/v1/auctions/{id} - Show LIVE + ENDED auctions
+      const response = await portalClient.get(`/${id}`);
       return response.data.data;
     } catch (error: any) {
       return null;
@@ -245,7 +267,8 @@ export const auctionService = {
         ...(category && { category }),
       });
 
-      const response = await auctionClient.get(`/search?${params}`);
+      // GET /api/v1/auctions/search - Search LIVE auctions
+      const response = await portalClient.get(`/search?${params}`);
 
       return response.data.data || [];
     } catch (error: any) {
@@ -256,7 +279,8 @@ export const auctionService = {
 
   getAuctionsByCategory: async (category: string, page: number = 1, limit: number = 10): Promise<PortalAuction[]> => {
     try {
-      const response = await auctionClient.get(`/category/${category}`, {
+      // GET /api/v1/auctions/category/{category} - Filter LIVE by category
+      const response = await portalClient.get(`/category/${category}`, {
         params: { page, limit },
       });
 
@@ -270,7 +294,8 @@ export const auctionService = {
   // Increment view count when user views auction detail
   incrementViewCount: async (auctionId: string): Promise<void> => {
     try {
-      await auctionClient.post(`/${auctionId}/view`);
+      // POST /api/v1/auctions/{id}/view - Record view count
+      await portalClient.post(`/${auctionId}/view`);
     } catch (error: any) {
       const message = error.response?.data?.message || 'Failed to track view';
       throw new Error(message);
