@@ -178,26 +178,15 @@ export const useAuctionPolling = (
 
         const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
         
-        // Use admin endpoint for DRAFT/SCHEDULED auctions, portal endpoint for LIVE/ENDED
-        const isDraftAuction = auctionStatus === 'DRAFT' || auctionStatus === 'SCHEDULED'
-        const endpoint = isDraftAuction ? 'api/v1/admin/auctions' : 'api/v1/auctions'
-        let url = `${apiUrl}/${endpoint}/${auctionId}`
+        // ✅ ALWAYS use admin endpoint - both admin and portal pages use this hook
+        // Admin pages (GalleryPage, TablePage) use it for LIVE auctions
+        // Portal pages don't use polling (only WebSocket via useRealtimeAuction)
+        const endpoint = 'api/v1/admin/auctions'
+        const url = `${apiUrl}/${endpoint}/${auctionId}`
         
-        // Add invitation_code for portal endpoints
-        if (!isDraftAuction) {
-          const invitationCode = localStorage.getItem('invitationCode')
-          if (invitationCode) {
-            url += `?invitation_code=${encodeURIComponent(invitationCode)}`
-          }
-        }
-        
-        // Try portal token first, then admin token
-        let token = sessionStorage.getItem('portalToken') || sessionStorage.getItem('authToken')
-        
-        // Also try admin accessToken as fallback
-        if (!token) {
-          token = localStorage.getItem('accessToken')
-        }
+        // ✅ Use admin token (accessToken from localStorage)
+        // Admin pages always authenticate with Bearer token, never invitation_code
+        let token = localStorage.getItem('accessToken')
         
         if (!token) {
           if (failureCountRef.current === 0) {

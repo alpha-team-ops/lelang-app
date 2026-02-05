@@ -209,10 +209,9 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
     if (open && auction?.id && isInitialLoading) {
       const fetchInitialData = async () => {
         try {
-          // For DRAFT/SCHEDULED auctions: use admin endpoint
-          // For LIVE/ENDED auctions: use portal endpoint
-          const isDraftAuction = auction?.status === 'DRAFT' || auction?.status === 'SCHEDULED';
-          const endpoint = isDraftAuction ? 'api/v1/admin/auctions' : 'api/v1/auctions';
+          // ✅ ADMIN ALWAYS uses admin endpoint (regardless of auction status)
+          // This ensures consistency and proper authorization with Bearer token
+          const endpoint = 'api/v1/admin/auctions';
           const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
           const url = `${apiUrl}/${endpoint}/${auction.id}`;
 
