@@ -46,7 +46,7 @@ const AuctionRealtimeListener: React.FC<{
   useRealtimeAuction({
     auctionId,
     enabled: true, // Enabled for real-time bid activity tracking
-    onBidPlaced: handleBidPlaced,
+    onCurrentBidUpdate: handleBidPlaced,
   });
 
   return null; // This component doesn't render anything

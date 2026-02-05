@@ -25,15 +25,43 @@ export const initializeEcho = () => {
   }
 
   try {
+    // Suppress Pusher connection errors (Reverb not running is expected in dev)
+    const originalLog = console.log
+    const originalWarn = console.warn
+    const originalError = console.error
+    
+    // Filter for pusher-js noise during initialization
+    console.log = (...args: any[]) => {
+      const message = args[0]?.toString?.() || ''
+      if (!message.includes('WebSocket connection to')) {
+        originalLog(...args)
+      }
+    }
+    
+    console.warn = (...args: any[]) => {
+      const message = args[0]?.toString?.() || ''
+      if (!message.includes('WebSocket') && !message.includes('connection') && !message.includes('closed')) {
+        originalWarn(...args)
+      }
+    }
+    
+    console.error = (...args: any[]) => {
+      const message = args[0]?.toString?.() || ''
+      if (!message.includes('WebSocket') && !message.includes('connection') && !message.includes('failed')) {
+        originalError(...args)
+      }
+    }
+    
     const echoInstance = new Echo(config as any)
     
-    // 🚀 Check connection faster (500ms instead of 1000ms)
-    setTimeout(() => {
-      const socketId = echoInstance.connector.socketId()
-    }, 500)
+    // Restore console immediately after Echo init
+    console.log = originalLog
+    console.warn = originalWarn
+    console.error = originalError
     
     return echoInstance
   } catch (err) {
+    console.error('❌ Failed to initialize WebSocket:', err)
     throw err
   }
 }

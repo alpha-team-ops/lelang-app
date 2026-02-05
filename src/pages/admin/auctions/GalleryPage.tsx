@@ -20,7 +20,8 @@ import {
 import { useAuction } from '../../../config/AuctionContext';
 import { usePermission } from '../../../hooks/usePermission';
 import { useRealtimeAuction, useAuctionPolling } from '../../../hooks/useRealtimeAuction';
-import { getEcho } from '../../../config/echo';
+import { createEchoInstance } from '../../../lib/websocket';
+import authService from '../../../data/services/authService';
 import type { Auction } from '../../../data/types';
 import AuctionDetailModal from '../../../components/modals/auctions/AuctionDetailModal';
 import CreateAuctionModal from '../../../components/modals/auctions/CreateAuctionModal';
@@ -412,13 +413,15 @@ const AuctionCard: React.FC<{
 
   // 🚀 Listen to auction.updated event for viewCount & other updates
   useEffect(() => {
-    const echo = getEcho();
+    const token = authService.getStoredToken();
+    if (!token) return;
+    const echo = createEchoInstance(token);
     if (!echo) return;
 
     const channel = echo.channel(`auction.${auction.id}`);
     
     // Listen for view count updates via WebSocket (instant, no polling needed)
-    const listener = channel.listen('auction.updated', (data: any) => {
+    channel.listen('auction.updated', (data: any) => {
       // Check if viewCount is in the payload (not just undefined)
       if (typeof data.viewCount === 'number') {
         setLiveData((prev) => ({

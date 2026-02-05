@@ -33,7 +33,7 @@ export default function PortalForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string>('');
 
-  // Auto-fill invitation code from URL parameter
+  // Auto-fill invitation code from URL parameter if provided
   useEffect(() => {
     const invitationCodeFromUrl = searchParams.get('invitationCode');
     if (invitationCodeFromUrl) {
@@ -111,6 +111,9 @@ export default function PortalForm() {
         portalToken: response.portalToken,
         userId: response.userId,
       });
+
+      // Save invitation code to localStorage for API requests
+      localStorage.setItem('invitationCode', formData.invitationCode);
 
       // Navigate to auction list
       navigate('/portal/auctions');

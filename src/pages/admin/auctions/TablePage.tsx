@@ -57,12 +57,9 @@ const TablePage: React.FC = () => {
 
   // Real-time listener component for each auction
   const TableAuctionRealtimeListener = React.memo(({ auction, onUpdate }: { auction: Auction; onUpdate: (auctionId: string, data: Partial<Auction>) => void }) => {
-    const handleCurrentBidUpdate = useCallback((currentBid: number, bidderName?: string) => {
-      console.log('💰 Current bid updated for auction:', auction.id, `Rp ${currentBid}`);
+    const handleCurrentBidUpdate = useCallback((currentBid: number) => {
       onUpdate(auction.id, {
         currentBid: currentBid,
-        participantCount: (prev: any) => (prev?.participantCount || 1) + 1,
-        totalBids: (prev: any) => (prev?.totalBids || 1) + 1,
       });
     }, [auction.id, onUpdate]);
 

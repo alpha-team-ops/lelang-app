@@ -7,6 +7,7 @@ import {
   Chip,
   Typography,
   Box,
+  Alert,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -14,8 +15,10 @@ import {
   Timer as TimerIcon,
 } from '@mui/icons-material';
 import type { Auction } from '../../../data/types';
-import { auctionService } from '../../../data/services';
 import { useRealtimeAuction, useAuctionPolling } from '../../../hooks/useRealtimeAuction';
+import { createEchoInstance } from '../../../lib/websocket';
+import authService from '../../../data/services/authService';
+import Echo from 'laravel-echo';
 
 // Status Badge
 const StatusBadge: React.FC<{ status: Auction['status'] }> = ({ status }) => {
@@ -180,10 +183,6 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
   const [activeTab, setActiveTab] = useState(0);
   const [liveAuction, setLiveAuction] = useState<Auction | null>(auction);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  
-  // ✅ Use useRef to track which auctionId has already been incremented
-  // This prevents multiple increments even if component re-renders
-  const incrementedAuctionIdRef = useRef<string | null>(null);
 
   // ✅ Calculate actual status based on startTime/endTime timing
   const actualStatus = useMemo(() => {
@@ -282,28 +281,6 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
     auction?.status // Pass auction status to use correct endpoint
   );
 
-  // Track view when modal opens - only increment ONCE per unique auctionId
-  // Use useRef to track the last incremented ID, preventing re-increment on re-render
-  useEffect(() => {
-    if (open && auction?.id) {
-      // Only increment if this is a NEW auction (different from last time)
-      if (incrementedAuctionIdRef.current !== auction.id) {
-        auctionService.incrementViewCount(auction.id).catch((_err) => {
-          // Silently fail - view tracking is not critical
-        });
-        // Update ref to current auctionId
-        incrementedAuctionIdRef.current = auction.id;
-      }
-    }
-  }, [open, auction?.id]);
-
-  // Reset ref when modal closes
-  useEffect(() => {
-    if (!open) {
-      incrementedAuctionIdRef.current = null;
-    }
-  }, [open]);
-
   useEffect(() => {
     if (open) {
       document.body.classList.add('modal-open');
@@ -314,6 +291,85 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
       document.body.classList.remove('modal-open');
     };
   }, [open]);
+
+  // WebSocket setup for real-time updates (admin endpoint with Bearer token)
+  const echoRef = useRef<Echo<any> | null>(null);
+  const [bidNotification, setBidNotification] = useState<{
+    bidderName: string;
+    currentBid: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!open || !auction?.id) return;
+
+    const setupWebSocket = () => {
+      try {
+        const adminToken = authService.getStoredToken();
+        if (!adminToken) return;
+
+        // Create Echo instance with admin token
+        const echo = createEchoInstance(adminToken);
+        echoRef.current = echo;
+
+        const channel = echo.channel(`auction.${auction.id}`);
+
+        channel
+          .listen('auction.updated', (data: any) => {
+            // Update auction state with WebSocket data
+            setLiveAuction((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                currentBid: data.currentBid ?? prev.currentBid,
+                status: data.status ?? prev.status,
+                viewCount: data.viewCount ?? prev.viewCount,
+              };
+            });
+          })
+          .listen('auction.ended', (data: any) => {
+            // Handle auction end
+            setLiveAuction((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                status: 'ENDED' as const,
+                winner: data.winner || null,
+              };
+            });
+          })
+          .listen('bid.placed', (data: any) => {
+            // Show bid notification
+            setBidNotification({
+              bidderName: data.bidderName || 'Unknown',
+              currentBid: data.currentBid,
+            });
+
+            // Update current bid
+            setLiveAuction((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                currentBid: data.currentBid,
+              };
+            });
+
+            // Clear notification after 5 seconds
+            setTimeout(() => setBidNotification(null), 5000);
+          });
+      } catch (err) {
+        // WebSocket setup failed - polling fallback is in place
+      }
+    };
+
+    setupWebSocket();
+
+    // Cleanup
+    return () => {
+      if (echoRef.current) {
+        echoRef.current.leaveChannel(`auction.${auction.id}`);
+      }
+    };
+  }, [open, auction?.id]);
 
   if (!liveAuction || !open) return null;
 
@@ -408,6 +464,13 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
       </Box>
 
       <DialogContent sx={{ pb: 3, px: 3, maxHeight: '80vh', overflowY: 'auto', '&.MuiDialogContent-root': { pt: 3 } }}>
+        {/* WebSocket Bid Notification */}
+        {bidNotification && (
+          <Alert severity="info" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            ✓ New bid from <strong>{bidNotification.bidderName}</strong>: {formatCurrency(bidNotification.currentBid)}
+          </Alert>
+        )}
+
         {/* TAB 0: OVERVIEW */}
         {activeTab === 0 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -605,14 +668,8 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                   </Typography>
                 </Box>
                 <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
-                  <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Reserve Price</Typography>
-                  <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#1f2937' }}>
-                    {formatCurrency(liveAuction.reservePrice)}
-                  </Typography>
-                </Box>
-                <Box sx={{ backgroundColor: '#fafbfc', padding: 1.5, borderRadius: '8px', borderLeft: '2px solid #e5e7eb' }}>
                   <Typography sx={{ fontSize: '12px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Current Bid</Typography>
-                  <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#1f2937' }}>
+                  <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#0ea5e9' }}>
                     {formatCurrency(liveAuction.currentBid)}
                   </Typography>
                 </Box>

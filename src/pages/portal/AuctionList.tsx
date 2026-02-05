@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getUserSession, clearUserSession, getSessionRemainingTime, formatRemainingTime } from './utils/sessionManager';
 import { auctionService } from '../../data/services';
 import { portalAuctionsMock } from '../../data/mock/auctions';
@@ -8,41 +8,9 @@ import AuctionModal from './AuctionModal';
 import AuctionTimerDisplay from './components/AuctionTimerDisplay';
 import './styles/portal.css';
 
-// Helper to calculate time remaining from endTime
-const calculateTimeRemaining = (
-  endTime: Date | string | null | undefined,
-  status?: string
-): string => {
-  // Don't show timer for DRAFT or CANCELLED auctions
-  if (status === 'DRAFT' || status === 'CANCELLED') {
-    return 'N/A';
-  }
-
-  // Handle null/undefined endTime
-  if (!endTime) return 'N/A';
-
-  const now = new Date();
-  const endTimeDate = typeof endTime === 'string' ? new Date(endTime) : endTime;
-  
-  // Handle invalid date
-  if (isNaN(endTimeDate.getTime())) return 'N/A';
-  
-  const diff = endTimeDate.getTime() - now.getTime();
-
-  if (diff <= 0) return 'Sudah Berakhir';
-
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-  if (days > 0) {
-    return `${days}d ${hours}h ${minutes}m`;
-  }
-  return `${hours}h ${minutes}m`;
-};
-
 export default function AuctionList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedAuction, setSelectedAuction] = useState<PortalAuction | null>(null);
   const [sessionTime, setSessionTime] = useState<number>(0);
   const [auctions, setAuctions] = useState<PortalAuction[]>([]);
@@ -52,6 +20,24 @@ export default function AuctionList() {
   const [totalPages, setTotalPages] = useState(1);
 
   const userSession = getUserSession();
+  // Extract invitation code from URL query params or localStorage
+  const urlInvitationCode = searchParams.get('invitationCode');
+  const storedInvitationCode = localStorage.getItem('invitationCode');
+  const invitationCode = urlInvitationCode || storedInvitationCode || undefined;
+
+  // Protect route: redirect to /portal if no valid session
+  useEffect(() => {
+    if (!userSession) {
+      navigate('/portal');
+    }
+  }, [userSession, navigate]);
+
+  // Save invitation code to localStorage if from URL
+  useEffect(() => {
+    if (urlInvitationCode) {
+      localStorage.setItem('invitationCode', urlInvitationCode);
+    }
+  }, [urlInvitationCode]);
 
   // Load auctions from service
   useEffect(() => {
@@ -59,8 +45,10 @@ export default function AuctionList() {
       try {
         setLoading(true);
         setError(null);
-        // Call API endpoint with pagination
-        const response = await auctionService.getAllPortalAuctions(page, 10);
+        
+        // Call API endpoint with pagination and invitation code
+        // Note: invitation code will be added by portalClient interceptor from localStorage
+        const response = await auctionService.getAllPortalAuctions(page, 10, undefined, invitationCode || undefined);
         setAuctions(response.auctions);
         setTotalPages(response.pagination?.totalPages || 1);
       } catch (err) {
@@ -75,13 +63,13 @@ export default function AuctionList() {
     };
 
     loadAuctions();
-  }, [page]);
+  }, [page, invitationCode]);
 
   // Real-time polling for auctions - update all auctions every 2 seconds
   // (not 500ms to avoid overwhelming backend and race conditions)
   useEffect(() => {
     let isPolling = false; // Prevent overlapping requests
-    let pollingInterval: NodeJS.Timeout | null = null;
+    let pollingInterval: ReturnType<typeof setInterval> | null = null;
     
     const startPolling = () => {
       pollingInterval = setInterval(async () => {
@@ -98,7 +86,7 @@ export default function AuctionList() {
         
         isPolling = true;
         try {
-          const response = await auctionService.getAllPortalAuctions(page, 10);
+          const response = await auctionService.getAllPortalAuctions(page, 10, undefined, invitationCode || undefined);
           setAuctions(response.auctions);
         } catch (err) {
           // Silently ignore polling errors to avoid noise
@@ -116,7 +104,7 @@ export default function AuctionList() {
     return () => {
       if (pollingInterval) clearInterval(pollingInterval);
     };
-  }, [page]);
+  }, [page, invitationCode, userSession, navigate]);
 
   // Session timer
   useEffect(() => {
@@ -143,6 +131,7 @@ export default function AuctionList() {
 
   const handleLogout = () => {
     clearUserSession();
+    localStorage.removeItem('invitationCode');
     navigate('/portal');
   };
 

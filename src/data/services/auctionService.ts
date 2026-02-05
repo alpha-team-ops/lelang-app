@@ -30,7 +30,7 @@ auctionClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Add token to portal requests if available
+// Add token to portal requests if available, and add invitation_code from storage
 portalClient.interceptors.request.use((config) => {
   // Try portal token first (for portal users)
   const portalToken = sessionStorage.getItem('portalToken');
@@ -41,6 +41,21 @@ portalClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Initialize params if it doesn't exist
+  if (!config.params) {
+    config.params = {};
+  }
+
+  // Add invitation_code to query params if not already present
+  if (!config.params.invitation_code) {
+    // Try to get from localStorage (saved from URL or portal login)
+    const storedInvitationCode = localStorage.getItem('invitationCode');
+    if (storedInvitationCode) {
+      config.params.invitation_code = storedInvitationCode;
+    }
+  }
+
   return config;
 });
 
@@ -226,17 +241,23 @@ export const auctionService = {
   getAllPortalAuctions: async (
     page: number = 1,
     limit: number = 10,
-    filters?: { category?: string }
+    filters?: { category?: string },
+    invitationCode?: string
   ): Promise<{ auctions: PortalAuction[]; pagination: any }> => {
     try {
-      const params = new URLSearchParams({
+      const params: any = {
         page: page.toString(),
         limit: limit.toString(),
         ...(filters?.category && { category: filters.category }),
-      });
+      };
+
+      // Add invitation code if provided (required for unauthenticated access)
+      if (invitationCode) {
+        params.invitation_code = invitationCode;
+      }
 
       // GET /api/v1/auctions - List all LIVE auctions (no path suffix needed)
-      const response = await portalClient.get(`?${params}`);
+      const response = await portalClient.get('', { params });
 
       return {
         auctions: response.data.data || [],
@@ -248,27 +269,37 @@ export const auctionService = {
     }
   },
 
-  getPortalAuctionById: async (id: string): Promise<PortalAuction | null> => {
+  getPortalAuctionById: async (id: string, invitationCode?: string): Promise<PortalAuction | null> => {
     try {
+      const params: any = {};
+      if (invitationCode) {
+        params.invitation_code = invitationCode;
+      }
+
       // GET /api/v1/auctions/{id} - Show LIVE + ENDED auctions
-      const response = await portalClient.get(`/${id}`);
+      const response = await portalClient.get(`/${id}`, { params });
       return response.data.data;
     } catch (error: any) {
       return null;
     }
   },
 
-  searchAuctions: async (query: string, category?: string, page: number = 1, limit: number = 10): Promise<PortalAuction[]> => {
+  searchAuctions: async (query: string, category?: string, page: number = 1, limit: number = 10, invitationCode?: string): Promise<PortalAuction[]> => {
     try {
-      const params = new URLSearchParams({
+      const params: any = {
         query,
         page: page.toString(),
         limit: limit.toString(),
         ...(category && { category }),
-      });
+      };
+
+      // Add invitation code if provided
+      if (invitationCode) {
+        params.invitation_code = invitationCode;
+      }
 
       // GET /api/v1/auctions/search - Search LIVE auctions
-      const response = await portalClient.get(`/search?${params}`);
+      const response = await portalClient.get('/search', { params });
 
       return response.data.data || [];
     } catch (error: any) {
@@ -277,12 +308,20 @@ export const auctionService = {
     }
   },
 
-  getAuctionsByCategory: async (category: string, page: number = 1, limit: number = 10): Promise<PortalAuction[]> => {
+  getAuctionsByCategory: async (category: string, page: number = 1, limit: number = 10, invitationCode?: string): Promise<PortalAuction[]> => {
     try {
+      const params: any = { 
+        page: page.toString(), 
+        limit: limit.toString() 
+      };
+
+      // Add invitation code if provided
+      if (invitationCode) {
+        params.invitation_code = invitationCode;
+      }
+
       // GET /api/v1/auctions/category/{category} - Filter LIVE by category
-      const response = await portalClient.get(`/category/${category}`, {
-        params: { page, limit },
-      });
+      const response = await portalClient.get(`/category/${category}`, { params });
 
       return response.data.data || [];
     } catch (error: any) {

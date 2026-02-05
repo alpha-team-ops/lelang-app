@@ -32,15 +32,16 @@ export interface PortalAuction {
   category: string;
   condition: string;
   currentBid: number;
-  reservePrice: number;
   bidIncrement: number;
-  startingPrice?: number; // Starting price of the auction
+  startingPrice: number; // Starting price of the auction
   startTime?: Date | string; // Start time of the auction
   endTime: Date | string;
   participantCount: number;
+  viewCount?: number; // Number of views
   images?: string[]; // Array of image URLs
   status: 'DRAFT' | 'SCHEDULED' | 'LIVE' | 'ENDING' | 'ENDED' | 'CANCELLED';
   organizationCode: string;
+  winner?: { fullName?: string; winningBid?: number; status?: string };
 }
 
 // Bid Activity Types

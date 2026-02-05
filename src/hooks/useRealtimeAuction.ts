@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { getEcho } from '../config/echo'
+import { createEchoInstance } from '../lib/websocket'
+import authService from '../data/services/authService'
 import type { Auction } from '../data/types'
 
 interface UseRealtimeAuctionOptions {
@@ -7,6 +8,8 @@ interface UseRealtimeAuctionOptions {
   status?: string // 'DRAFT' | 'LIVE' | 'ENDED' | 'SCHEDULED'
   enabled?: boolean
   onCurrentBidUpdate?: (currentBid: number, bidderName?: string) => void
+  onAuctionUpdate?: (data: any) => void
+  onAuctionEnded?: (data: any) => void
 }
 
 /**
@@ -22,14 +25,24 @@ export const useRealtimeAuction = ({
   status,
   enabled = true,
   onCurrentBidUpdate,
+  onAuctionUpdate,
+  onAuctionEnded,
 }: UseRealtimeAuctionOptions) => {
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
-  // Memoize callback to prevent dependency changes
+  // Memoize callbacks to prevent dependency changes
   const memoizedOnCurrentBidUpdate = useCallback((currentBid: number, bidderName?: string) => {
     onCurrentBidUpdate?.(currentBid, bidderName)
   }, [onCurrentBidUpdate])
+
+  const memoizedOnAuctionUpdate = useCallback((data: any) => {
+    onAuctionUpdate?.(data)
+  }, [onAuctionUpdate])
+
+  const memoizedOnAuctionEnded = useCallback((data: any) => {
+    onAuctionEnded?.(data)
+  }, [onAuctionEnded])
 
   const subscribeToAuction = useCallback(() => {
     if (!enabled || !auctionId) return
@@ -42,20 +55,30 @@ export const useRealtimeAuction = ({
     }
 
     try {
-      const echo = getEcho()
-      
-      if (!echo) {
-        throw new Error('Echo instance is null')
-      }
+      // Get token for WebSocket authentication
+      const token = authService.getStoredToken() || sessionStorage.getItem('portalToken')
+      const echo = createEchoInstance(token)
 
       const channel = echo.channel(`auction.${auctionId}`)
 
-      // OPTIMIZED: Listen only for bid placed events with currentBid
-      // Payload: { auctionId, currentBid, bidderName, timestamp }
+      // Listen to auction.updated event (currentBid, status, viewCount changes)
+      channel.listen('auction.updated', (data: any) => {
+        memoizedOnAuctionUpdate(data)
+        if (data.currentBid !== undefined) {
+          memoizedOnCurrentBidUpdate(data.currentBid, data.bidderName)
+        }
+      })
+
+      // Listen to bid.placed event (new bid submitted)
       channel.listen('bid.placed', (data: any) => {
         if (data.currentBid !== undefined) {
           memoizedOnCurrentBidUpdate(data.currentBid, data.bidderName)
         }
+      })
+
+      // Listen to auction.ended event (auction finished, show winner info)
+      channel.listen('auction.ended', (data: any) => {
+        memoizedOnAuctionEnded(data)
       })
 
       setIsConnected(true)
@@ -63,10 +86,9 @@ export const useRealtimeAuction = ({
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to connect WebSocket'
       setError(message)
-      console.error('❌ WebSocket error:', message)
       setIsConnected(false)
     }
-  }, [auctionId, status, enabled, memoizedOnCurrentBidUpdate])
+  }, [auctionId, status, enabled, memoizedOnCurrentBidUpdate, memoizedOnAuctionUpdate, memoizedOnAuctionEnded])
 
   useEffect(() => {
     // Only subscribe if enabled
@@ -78,14 +100,15 @@ export const useRealtimeAuction = ({
       // Always cleanup when disabled or auctionId changes
       if (auctionId) {
         try {
-          const echo = getEcho()
+          const token = authService.getStoredToken() || sessionStorage.getItem('portalToken')
+          const echo = createEchoInstance(token)
           echo.leaveChannel(`auction.${auctionId}`)
         } catch (err) {
           // Silently fail cleanup
         }
       }
     }
-  }, [auctionId, status, enabled, subscribeToAuction])
+  }, [auctionId, status, enabled, subscribeToAuction, memoizedOnAuctionUpdate, memoizedOnAuctionEnded])
 
   return { isConnected, error }
 }
@@ -158,7 +181,15 @@ export const useAuctionPolling = (
         // Use admin endpoint for DRAFT/SCHEDULED auctions, portal endpoint for LIVE/ENDED
         const isDraftAuction = auctionStatus === 'DRAFT' || auctionStatus === 'SCHEDULED'
         const endpoint = isDraftAuction ? 'api/v1/admin/auctions' : 'api/v1/auctions'
-        const url = `${apiUrl}/${endpoint}/${auctionId}`
+        let url = `${apiUrl}/${endpoint}/${auctionId}`
+        
+        // Add invitation_code for portal endpoints
+        if (!isDraftAuction) {
+          const invitationCode = localStorage.getItem('invitationCode')
+          if (invitationCode) {
+            url += `?invitation_code=${encodeURIComponent(invitationCode)}`
+          }
+        }
         
         // Try portal token first, then admin token
         let token = sessionStorage.getItem('portalToken') || sessionStorage.getItem('authToken')

@@ -3,6 +3,8 @@ import type { ChangeEvent, FormEvent } from 'react';
 import type { PortalAuction } from '../../data/types';
 import { bidService, auctionService } from '../../data/services';
 import { useRealtimeAuction, useAuctionPolling } from '../../hooks/useRealtimeAuction';
+import { createEchoInstance } from '../../lib/websocket';
+import Echo from 'laravel-echo';
 import './styles/portal.css';
 
 interface AuctionModalProps {
@@ -19,15 +21,16 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [liveAuction, setLiveAuction] = useState<PortalAuction>(auction);
   const [displayTimeRemaining, setDisplayTimeRemaining] = useState<string>('N/A');
+  const [bidNotification, setBidNotification] = useState<{ bidderName: string; currentBid: number } | null>(null);
   const bidInputRef = useRef<HTMLInputElement>(null);
   const incrementedAuctionIdRef = useRef<string | null>(null);
+  const echoRef = useRef<Echo<any> | null>(null);
 
   // Memoize callback - only update currentBid for bandwidth optimization
-  const handleCurrentBidUpdate = useCallback((currentBid: number, bidderName?: string) => {
+  const handleCurrentBidUpdate = useCallback((currentBid: number) => {
     setLiveAuction(prev => ({
       ...prev,
       currentBid: currentBid,
-      participantCount: (prev.participantCount || 0) + 1,
     }));
   }, []);
 
@@ -118,6 +121,70 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
     
     return () => {
       document.body.classList.remove('modal-open');
+    };
+  }, [auction?.id]);
+
+  // WebSocket setup for portal auction real-time updates
+  useEffect(() => {
+    if (!auction?.id) return;
+
+    const setupWebSocket = () => {
+      try {
+        // Get portal token or invitation code for WebSocket auth
+        const userToken = sessionStorage.getItem('portalToken');
+        
+        // Create Echo instance with portal token
+        const echo = createEchoInstance(userToken);
+        echoRef.current = echo;
+
+        const channel = echo.channel(`auction.${auction.id}`);
+
+        channel
+          .listen('auction.updated', (data: any) => {
+            // Update auction state with WebSocket data
+            setLiveAuction((prev) => ({
+              ...prev,
+              currentBid: data.currentBid ?? prev.currentBid,
+              status: data.status ?? prev.status,
+              participantCount: data.participantCount ?? prev.participantCount,
+            }));
+          })
+          .listen('auction.ended', (data: any) => {
+            // Handle auction end
+            setLiveAuction((prev) => ({
+              ...prev,
+              status: 'ENDED' as const,
+              winner: data.winner || null,
+            }));
+          })
+          .listen('bid.placed', (data: any) => {
+            // Show bid notification
+            setBidNotification({
+              bidderName: data.bidderName || 'Unknown',
+              currentBid: data.currentBid,
+            });
+
+            // Update current bid
+            setLiveAuction((prev) => ({
+              ...prev,
+              currentBid: data.currentBid,
+            }));
+
+            // Clear notification after 5 seconds
+            setTimeout(() => setBidNotification(null), 5000);
+          });
+      } catch (err) {
+        // WebSocket setup failed - polling fallback is in place
+      }
+    };
+
+    setupWebSocket();
+
+    // Cleanup
+    return () => {
+      if (echoRef.current) {
+        echoRef.current.leaveChannel(`auction.${auction.id}`);
+      }
     };
   }, [auction?.id]);
 
@@ -275,6 +342,25 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
             </div>
           )}
 
+          {/* WebSocket Bid Notification */}
+          {bidNotification && (
+            <div
+              style={{
+                background: '#dbeafe',
+                color: '#1e40af',
+                padding: '12px',
+                borderRadius: '8px',
+                marginBottom: '16px',
+                fontSize: '14px',
+                fontWeight: '600',
+                textAlign: 'center',
+              }}
+            >
+              💰 New bid from <strong>{bidNotification.bidderName}</strong>: Rp{' '}
+              {bidNotification.currentBid.toLocaleString('id-ID')}
+            </div>
+          )}
+
           {/* Auction Title */}
           <div className="modal-title">{auction.title}</div>
         </div>
@@ -373,9 +459,9 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
               </div>
             </div>
             <div className="price-item">
-              <div className="price-label">Reserve Price</div>
+              <div className="price-label">Starting Price</div>
               <div className="price-value">
-                Rp {(liveAuction || auction).reservePrice.toLocaleString('id-ID')}
+                Rp {(liveAuction || auction).startingPrice ? (liveAuction || auction).startingPrice!.toLocaleString('id-ID') : '-'}
               </div>
             </div>
             <div className="price-item">
