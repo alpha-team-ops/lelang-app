@@ -20,6 +20,7 @@ import {
 import { useAuction } from '../../../config/AuctionContext';
 import { usePermission } from '../../../hooks/usePermission';
 import { useRealtimeAuction, useAuctionPolling } from '../../../hooks/useRealtimeAuction';
+import { getEcho } from '../../../config/echo';
 import type { Auction } from '../../../data/types';
 import AuctionDetailModal from '../../../components/modals/auctions/AuctionDetailModal';
 import CreateAuctionModal from '../../../components/modals/auctions/CreateAuctionModal';
@@ -48,44 +49,93 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 // Countdown Timer Component
-const CountdownTimer: React.FC<{ endTime: Date | string | null }> = ({ endTime }) => {
+const CountdownTimer: React.FC<{ auction: Auction | null }> = ({ auction }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
 
   useEffect(() => {
-    // If endTime is null, auction is in draft status
-    if (!endTime) {
+    if (!auction) {
       setTimeLeft('Draft');
       return;
     }
 
-    const updateTimer = () => {
-      const now = new Date();
-      const endDate = typeof endTime === 'string' ? new Date(endTime) : endTime;
-      
-      // Handle invalid date
-      if (isNaN(endDate.getTime())) {
-        setTimeLeft('Invalid');
+    // ✅ Check status first - only show countdown for LIVE auctions
+    if (auction.status === 'DRAFT' || auction.status === 'SCHEDULED') {
+      // For SCHEDULED, show when it will start
+      if (auction.status === 'SCHEDULED' && auction.startTime) {
+        const now = new Date();
+        const startDate = typeof auction.startTime === 'string' ? new Date(auction.startTime) : auction.startTime;
+        if (!isNaN(startDate.getTime()) && startDate > now) {
+          // Show countdown to start time for SCHEDULED
+          const diff = startDate.getTime() - now.getTime();
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+          setTimeLeft(`Starts in ${hours}h ${minutes}m ${seconds}s`);
+          
+          const interval = setInterval(() => {
+            const now = new Date();
+            const diff = startDate.getTime() - now.getTime();
+            if (diff <= 0) {
+              setTimeLeft('Starting...');
+              clearInterval(interval);
+              return;
+            }
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            setTimeLeft(`Starts in ${hours}h ${minutes}m ${seconds}s`);
+          }, 1000);
+          return () => clearInterval(interval);
+        }
+      }
+      setTimeLeft('Draft');
+      return;
+    }
+
+    // For LIVE auctions, countdown from now to endTime
+    if (auction.status === 'LIVE' || auction.status === 'ENDING') {
+      if (!auction.endTime) {
+        setTimeLeft('Live');
         return;
       }
 
-      const diff = endDate.getTime() - now.getTime();
+      const updateTimer = () => {
+        const now = new Date();
+        const endDate = typeof auction.endTime === 'string' ? new Date(auction.endTime) : auction.endTime;
+        
+        // Handle invalid date
+        if (isNaN(endDate.getTime())) {
+          setTimeLeft('Live');
+          return;
+        }
 
-      if (diff <= 0) {
-        setTimeLeft('Ended');
-        return;
-      }
+        const diff = endDate.getTime() - now.getTime();
 
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        if (diff <= 0) {
+          setTimeLeft('Ended');
+          return;
+        }
 
-      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
-    };
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [endTime]);
+        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+      };
+
+      updateTimer();
+      const interval = setInterval(updateTimer, 1000);
+      return () => clearInterval(interval);
+    }
+
+    // For ENDED auctions
+    if (auction.status === 'ENDED' || auction.status === 'CANCELLED') {
+      setTimeLeft('Ended');
+      return;
+    }
+
+    setTimeLeft('Draft');
+  }, [auction?.id, auction?.status, auction?.startTime, auction?.endTime]);
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -342,45 +392,55 @@ const AuctionCard: React.FC<{
 }> = React.memo(({ auction, onViewDetail, onEdit }) => {
   const [liveData, setLiveData] = useState<Partial<Auction>>({});
 
-  // Memoize callbacks to prevent unnecessary re-subscriptions
-  const handleBidPlaced = useCallback((bidData: any) => {
+  // Memoize callback - only update currentBid for bandwidth optimization
+  const handleCurrentBidUpdate = useCallback((currentBid: number, bidderName?: string) => {
     setLiveData((prev) => ({
       ...prev,
-      currentBid: bidData.currentBid || bidData.bidAmount || prev.currentBid,
-      participantCount: bidData.participantCount || (prev.participantCount || 0) + 1,
+      currentBid: currentBid,
+      participantCount: (prev.participantCount || 0) + (bidderName ? 1 : 0),
       totalBids: (prev.totalBids || 0) + 1,
-    }));
-  }, []);
-
-  const handleAuctionUpdated = useCallback((auctionData: any) => {
-    setLiveData((prev) => ({
-      ...prev,
-      ...auctionData,
-    }));
-  }, []);
-
-  const handleAuctionEnded = useCallback(() => {
-    setLiveData((prev) => ({
-      ...prev,
-      status: 'ENDED',
     }));
   }, []);
 
   // Subscribe to WebSocket updates for this specific auction
   useRealtimeAuction({
     auctionId: auction.id,
+    status: auction.status, // Use auction.status (displayAuction not yet defined)
     enabled: true,
-    onBidPlaced: handleBidPlaced,
-    onAuctionUpdated: handleAuctionUpdated,
-    onAuctionEnded: handleAuctionEnded,
+    onCurrentBidUpdate: handleCurrentBidUpdate,
   });
 
+  // 🚀 Listen to auction.updated event for viewCount & other updates
+  useEffect(() => {
+    const echo = getEcho();
+    if (!echo) return;
+
+    const channel = echo.channel(`auction.${auction.id}`);
+    
+    // Listen for view count updates via WebSocket (instant, no polling needed)
+    const listener = channel.listen('auction.updated', (data: any) => {
+      // Check if viewCount is in the payload (not just undefined)
+      if (typeof data.viewCount === 'number') {
+        setLiveData((prev) => ({
+          ...prev,
+          viewCount: data.viewCount,
+        }));
+      }
+    });
+
+    return () => {
+      // Cleanup listener when component unmounts
+      channel.stopListening('auction.updated');
+    };
+  }, [auction.id]);
+
   // ADD POLLING FALLBACK - ensures updates even if WebSocket is slow or delayed
-  // Polls every 1 second to keep data fresh in admin dashboard
+  // Poll for viewCount updates (fallback if auction.updated event not broadcast on place bid)
+  // ✅ Only poll LIVE auctions (DRAFT/ENDED don't need real-time updates)
   useAuctionPolling(
     auction.id,
-    1000, // Poll every 1 second
-    true, // Always enabled for admin dashboard
+    2000, // 🚀 Poll every 2s for viewCount (faster than 3s for near-realtime)
+    auction.status === 'LIVE', // Only poll LIVE auctions
     (updatedAuction) => {
       setLiveData((prev) => ({
         ...prev,
@@ -389,13 +449,13 @@ const AuctionCard: React.FC<{
         totalBids: updatedAuction.totalBids,
         status: updatedAuction.status,
         endTime: updatedAuction.endTime,
-        viewCount: updatedAuction.viewCount,
+        viewCount: updatedAuction.viewCount, // 🚀 Poll for viewCount as fallback
       }));
     }
   );
 
   const displayAuction = { ...auction, ...liveData };
-  const isLive = Object.keys(liveData).length > 0;
+  const isLive = displayAuction.status === 'LIVE';
 
   return (
     <Card
@@ -403,7 +463,6 @@ const AuctionCard: React.FC<{
         boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
         borderRadius: '12px',
         transition: 'all 0.3s ease',
-        border: isLive ? '2px solid #667eea' : '1px solid #e5e7eb',
         '&:hover': {
           boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
           transform: 'translateY(-4px)',
@@ -483,7 +542,7 @@ const AuctionCard: React.FC<{
               <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 0.5 }}>
                 Time Remaining
               </Typography>
-              <CountdownTimer endTime={displayAuction.endTime} />
+              <CountdownTimer auction={displayAuction} />
             </Grid>
             {/* Total Participants */}
             <Grid size={{ xs: 6 }}>
@@ -497,13 +556,13 @@ const AuctionCard: React.FC<{
           </Grid>
         </Box>
 
-        {/* View Count */}
+        {/* Bid Count & View Count */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="caption" color="textSecondary">
-            👁️ {displayAuction.viewCount} views
+            {displayAuction.viewCount} views
           </Typography>
           <Typography variant="caption" color={isLive ? '#667eea' : 'textSecondary'} sx={{ fontWeight: isLive ? 700 : 400 }}>
-            💬 {displayAuction.totalBids} bids {isLive && '📡'}
+            {displayAuction.totalBids} bids {isLive && '(Live)'}
           </Typography>
         </Box>
 

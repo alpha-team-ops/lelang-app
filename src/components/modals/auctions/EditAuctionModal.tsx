@@ -21,7 +21,61 @@ import {
 } from '@mui/icons-material';
 import { Grid } from '@mui/material';
 import type { Auction } from '../../../data/types';
-import { auctionService } from '../../../data/services';
+import { auctionService, imageService } from '../../../data/services';
+
+// Custom 24-hour Time Input Component
+const Time24Input: React.FC<{
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: boolean;
+  helperText?: string;
+  size?: 'small' | 'medium';
+}> = ({ label, value, onChange, error, helperText, size = 'small' }) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let input = e.target.value.replace(/[^\d:]/g, '');
+    
+    if (input.length >= 2 && !input.includes(':')) {
+      input = input.slice(0, 2) + ':' + input.slice(2);
+    }
+    
+    if (input.length > 5) {
+      input = input.slice(0, 5);
+    }
+    
+    // Validate format HH:mm
+    if (input.length === 5) {
+      const [hours, mins] = input.split(':');
+      const h = parseInt(hours, 10);
+      const m = parseInt(mins, 10);
+      
+      if (h > 23 || m > 59) {
+        return;
+      }
+    }
+    
+    onChange(input);
+  };
+
+  return (
+    <TextField
+      fullWidth
+      label={label}
+      value={value}
+      onChange={handleChange}
+      error={error}
+      helperText={error ? helperText : ''}
+      size={size}
+      inputProps={{
+        placeholder: 'hh:mm',
+        maxLength: 5,
+        pattern: '[0-9]{2}:[0-9]{2}',
+        inputMode: 'numeric',
+      }}
+      InputLabelProps={{ shrink: true }}
+    />
+  );
+};
 
 interface FormData {
   title: string;
@@ -93,8 +147,8 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
     category: '',
     condition: '',
     serialNumber: '',
-    startingPrice: '',
-    bidIncrement: '',
+    startingPrice: 0,
+    bidIncrement: 0,
     startDate: '',
     startTime: '',
     endDate: '',
@@ -106,32 +160,58 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+
+  // Map condition values from backend to available options
+  const normalizeCondition = (condition: string): string => {
+    const conditionMap: { [key: string]: string } = {
+      'Bekas - Sangat Baik': 'Sangat Baik',
+      'Bekas Sangat Baik': 'Sangat Baik',
+      'Baru': 'Baru (Seperti Baru)',
+      'New': 'Baru (Seperti Baru)',
+    };
+    return conditionMap[condition] || condition;
+  };
 
   // Initialize form with auction data
   useEffect(() => {
     if (auction && open) {
-      // Parse datetime properly to avoid timezone issues
-      const startDateTime = auction.startTime ? new Date(auction.startTime) : null;
-      const endDateTime = auction.endTime ? new Date(auction.endTime) : null;
+      // Parse datetime WITHOUT timezone conversion using native Date methods
+      const parseLocalDateTime = (dateTimeVal: Date | string | null | undefined) => {
+        if (!dateTimeVal) return { date: '', time: '' };
+        
+        const dt = new Date(dateTimeVal);
+        if (isNaN(dt.getTime())) return { date: '', time: '' };
+        
+        // Format as YYYY-MM-DD (using local time, not UTC)
+        const year = dt.getFullYear();
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        const date = `${year}-${month}-${day}`;
+        
+        // Format as HH:mm (24-hour format, using local time)
+        const hours = String(dt.getHours()).padStart(2, '0');
+        const minutes = String(dt.getMinutes()).padStart(2, '0');
+        const time = `${hours}:${minutes}`;
+        
+        return { date, time };
+      };
       
-      // Extract date and time in ISO format (YYYY-MM-DD and HH:mm)
-      const startDateStr = startDateTime ? startDateTime.toISOString().split('T')[0] : '';
-      const startTimeStr = startDateTime ? startDateTime.toISOString().split('T')[1].slice(0, 5) : '';
-      const endDateStr = endDateTime ? endDateTime.toISOString().split('T')[0] : '';
-      const endTimeStr = endDateTime ? endDateTime.toISOString().split('T')[1].slice(0, 5) : '';
+      const startDT = parseLocalDateTime(auction.startTime);
+      const endDT = parseLocalDateTime(auction.endTime);
       
       setFormData({
         title: auction.title || '',
         description: auction.description || '',
         category: auction.category || '',
-        condition: auction.condition || '',
+        condition: normalizeCondition(auction.condition || ''),
         serialNumber: auction.serialNumber || '',
         startingPrice: auction.startingPrice || '',
         bidIncrement: auction.bidIncrement || '',
-        startDate: startDateStr,
-        startTime: startTimeStr,
-        endDate: endDateStr,
-        endTime: endTimeStr,
+        startDate: startDT.date,
+        startTime: startDT.time,
+        endDate: endDT.date,
+        endTime: endDT.time,
         itemLocation: auction.itemLocation || '',
         purchaseYear: auction.purchaseYear || '',
       });
@@ -186,7 +266,13 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const newPreviews = Array.from(files).map((file) => {
+      const fileArray = Array.from(files);
+      
+      // Store the actual File objects for uploading later
+      setImageFiles((prev) => [...prev, ...fileArray]);
+      
+      // Create previews for display
+      const newPreviews = fileArray.map((file) => {
         return new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => {
@@ -204,6 +290,14 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
 
   const handleRemoveImage = (index: number) => {
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    
+    // If removing a newly added image (not from original auction images), remove from imageFiles
+    // Assuming imageFiles are added after original images in the preview
+    const numOriginalImages = auction?.images?.length || 0;
+    if (index >= numOriginalImages) {
+      const fileIndex = index - numOriginalImages;
+      setImageFiles((prev) => prev.filter((_, i) => i !== fileIndex));
+    }
   };
 
   const validateForm = (): boolean => {
@@ -211,18 +305,10 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
 
     if (!formData.title.trim()) newErrors.title = 'Title is required';
     if (formData.description && !formData.description.trim()) newErrors.description = 'Description cannot be empty';
-    if (!formData.startingPrice || formData.startingPrice <= 0) newErrors.startingPrice = 'Starting price must be greater than 0';
-    if (!formData.bidIncrement || formData.bidIncrement <= 0) newErrors.bidIncrement = 'Bid increment must be greater than 0';
+    // Starting price and bid increment default to 0, validation handled by backend
 
     // Date/time validation: optional but must follow rules if provided
-    // Rule 1: if start_time provided, must be in the future
-    if (formData.startDate && formData.startTime) {
-      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
-      const now = new Date();
-      if (startDateTime <= now) {
-        newErrors.startDate = 'Start time must be in the future';
-      }
-    }
+    // Rule 1: Start time is optional - can be in the past or future
 
     // Rule 2: if end_time provided, must be after start_time
     if (formData.endDate && formData.endTime) {
@@ -246,6 +332,26 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
 
     setIsSubmitting(true);
     try {
+      // Step 1: Upload new images if any were added
+      let imageUrls: string[] = [];
+      if (imageFiles && imageFiles.length > 0) {
+        try {
+          const uploadResponse = await imageService.uploadBulk(imageFiles);
+          if (uploadResponse.success && uploadResponse.data) {
+            // Handle backend response structure: data.images or data directly
+            let imageArray: any[] = Array.isArray(uploadResponse.data) 
+              ? uploadResponse.data 
+              : (uploadResponse.data as any).images || [];
+            imageUrls = imageArray.map((img: any) => img.url || img.path).filter(Boolean);
+          }
+        } catch (imageError: any) {
+          setErrors({ title: `Image upload failed: ${imageError.message}` });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Step 2: Build update payload
       const updateData: any = {
         title: formData.title,
         startingPrice: Number(formData.startingPrice),
@@ -260,6 +366,11 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
       if (formData.itemLocation) updateData.itemLocation = formData.itemLocation;
       if (formData.purchaseYear) updateData.purchaseYear = Number(formData.purchaseYear);
 
+      // Add newly uploaded image URLs if available
+      if (imageUrls.length > 0) {
+        updateData.images = imageUrls;
+      }
+
       // Add date/time fields only if BOTH date and time are provided
       if (formData.startDate?.trim() && formData.startTime?.trim()) {
         updateData.startTime = `${formData.startDate} ${formData.startTime}:00`;
@@ -268,13 +379,12 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
         updateData.endTime = `${formData.endDate} ${formData.endTime}:00`;
       }
 
-      console.log('Edit auction payload:', JSON.stringify(updateData, null, 2));
+      // Step 3: Update auction with new data (including uploaded image URLs)
       await auctionService.updateAuction(auction.id, updateData);
 
       onSuccess?.();
       onClose();
     } catch (error: any) {
-      console.error('Edit auction error:', error.response?.data || error.message);
       setErrors({ title: error instanceof Error ? error.message : 'Failed to update auction' });
     } finally {
       setIsSubmitting(false);
@@ -308,7 +418,9 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
           borderBottom: '1px solid #e0e0e0',
         }}
       >
-        Edit Auction
+        <Typography component="div" variant="h6" sx={{ fontWeight: 'bold' }}>
+          Edit Auction
+        </Typography>
         <Button
           size="small"
           onClick={onClose}
@@ -322,21 +434,23 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
         <Stack spacing={4}>
           {/* IMAGES SECTION */}
           <Box sx={{ mb: 1 }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
-              📷 IMAGES
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5, color: '#1f2937', fontSize: '13px' }}>
+              Upload photos
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#6b7280', fontSize: '12px', display: 'block', mb: 1.5 }}>
+              Upload photos to add to this content
             </Typography>
             <Box
               component="label"
               sx={{
                 display: 'block',
-                border: '1px solid #e0e0e0',
+                border: '2px dashed #d1d5db',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  borderColor: '#667eea',
-                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.15)',
-                  bgcolor: '#f9f9f9',
+                  borderColor: '#9ca3af',
+                  bgcolor: '#f9fafb',
                 },
               }}
             >
@@ -348,14 +462,14 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
                   onChange={handleImageUpload}
                   style={{ display: 'none' }}
                 />
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 1 }}>
-                  <CloudUploadIcon sx={{ fontSize: '48px', color: '#667eea' }} />
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 1 }}>
+                  <CloudUploadIcon sx={{ fontSize: '40px', color: '#9ca3af' }} />
                   <Box sx={{ textAlign: 'center' }}>
-                    <Typography sx={{ fontWeight: 600, color: '#667eea', fontSize: '15px', lineHeight: 1.4 }}>
-                      Click or drag images here
+                    <Typography sx={{ fontWeight: 500, color: '#1f2937', fontSize: '14px', lineHeight: 1.4 }}>
+                      Drag & drop your files here or <span style={{ color: '#3b82f6', fontWeight: 600 }}>choose file</span>
                     </Typography>
-                    <Typography sx={{ color: '#999', fontSize: '13px', lineHeight: 1.4, mt: 0.75 }}>
-                      JPG, PNG, GIF (Max 5 images)
+                    <Typography sx={{ color: '#9ca3af', fontSize: '12px', lineHeight: 1.4, mt: 0.5 }}>
+                      JPEG, PNG, SVG and ZIP formats, up to 100 MB.
                     </Typography>
                   </Box>
                 </Box>
@@ -413,44 +527,46 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
           </Box>
 
           {/* BASIC INFORMATION SECTION */}
-          <Box sx={{ mb: 1 }}>
+          <Box sx={{ bgcolor: 'white', border: '1px solid #e0e0e0', borderRadius: '8px', p: 2.5, mb: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
-              ℹ️ BASIC INFORMATION
+              Basic Information
             </Typography>
-            <Stack spacing={2}>
-              <TextField
-                fullWidth
-                label="Auction Title"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                error={!!errors.title}
-                helperText={errors.title}
-                size="small"
-                placeholder="Enter auction title"
-              />
-              <TextField
-                fullWidth
-                label="Description"
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                error={!!errors.description}
-                helperText={errors.description}
-                multiline
-                rows={3}
-                size="small"
-                placeholder="Enter item description"
-              />
-            </Stack>
+            <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '6px' }}>
+              <Stack spacing={2}>
+                <TextField
+                  fullWidth
+                  label="Auction Title"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  error={!!errors.title}
+                  helperText={errors.title}
+                  size="small"
+                  placeholder="Enter auction title"
+                />
+                <TextField
+                  fullWidth
+                  label="Description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  error={!!errors.description}
+                  helperText={errors.description}
+                  multiline
+                  rows={3}
+                  size="small"
+                  placeholder="Enter item description"
+                />
+              </Stack>
+            </Box>
           </Box>
 
           {/* ITEM DETAILS SECTION */}
-          <Box sx={{ mb: 1 }}>
+          <Box sx={{ bgcolor: 'white', border: '1px solid #e0e0e0', borderRadius: '8px', p: 2.5, mb: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
-              📦 ITEM DETAILS
+              Item Details
             </Typography>
-            <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '8px' }}>
+            <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '6px' }}>
               <Grid container spacing={1.5}>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
@@ -525,11 +641,11 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
           </Box>
 
           {/* PRICING SECTION */}
-          <Box sx={{ mb: 1 }}>
+          <Box sx={{ bgcolor: 'white', border: '1px solid #e0e0e0', borderRadius: '8px', p: 2.5, mb: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
-              💰 PRICING
+              Price Offering
             </Typography>
-            <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '8px' }}>
+            <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '6px' }}>
               <Grid container spacing={1.5}>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
@@ -566,17 +682,47 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
                   />
                 </Grid>
               </Grid>
+
+              <Grid container spacing={2} sx={{ mt: 2 }}>
+                <Grid size={{ xs: 12 }}>
+                  <Box sx={{ bgcolor: 'white', p: 1.5, borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', fontSize: '11px', fontWeight: 600, mb: 0.75 }}>
+                      Bid Information
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', fontSize: '10px', color: '#6b7280', fontWeight: 500 }}>
+                          Minimum Bid:
+                        </Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#667eea', fontSize: '12px' }}>
+                          Rp {formData.startingPrice !== '' ? formatCurrency(formData.startingPrice) : '0'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" sx={{ display: 'block', fontSize: '10px', color: '#6b7280', fontWeight: 500 }}>
+                          Increment:
+                        </Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#f97316', fontSize: '12px' }}>
+                          Rp {formData.bidIncrement !== '' ? formatCurrency(formData.bidIncrement) : '0'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Grid>
+              </Grid>
             </Box>
           </Box>
-          <Box sx={{ mb: 1 }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
-              ⏰ TIME & DURATION
+          <Box sx={{ bgcolor: 'white', border: '1px solid #e0e0e0', borderRadius: '8px', p: 2.5, mb: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2, color: '#1f2937', fontSize: '13px' }}>
+              Auction Schedule
             </Typography>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                  Start Date
+                </Typography>
                 <TextField
                   fullWidth
-                  label="Start Date"
                   name="startDate"
                   type="date"
                   value={formData.startDate}
@@ -585,26 +731,30 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
                   helperText={errors.startDate}
                   size="small"
                   InputLabelProps={{ shrink: true }}
+                  label=""
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Start Time"
-                  name="startTime"
-                  type="time"
+                <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                  Start Time
+                </Typography>
+                <Time24Input
+                  label=""
                   value={formData.startTime}
-                  onChange={handleInputChange}
+                  onChange={(newTime) => 
+                    setFormData(prev => ({ ...prev, startTime: newTime }))
+                  }
                   error={!!errors.startTime}
                   helperText={errors.startTime}
                   size="small"
-                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
+                <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                  End Date
+                </Typography>
                 <TextField
                   fullWidth
-                  label="End Date"
                   name="endDate"
                   type="date"
                   value={formData.endDate}
@@ -613,20 +763,22 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
                   helperText={errors.endDate}
                   size="small"
                   InputLabelProps={{ shrink: true }}
+                  label=""
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="End Time"
-                  name="endTime"
-                  type="time"
+                <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                  End Time
+                </Typography>
+                <Time24Input
+                  label=""
                   value={formData.endTime}
-                  onChange={handleInputChange}
+                  onChange={(newTime) => 
+                    setFormData(prev => ({ ...prev, endTime: newTime }))
+                  }
                   error={!!errors.endTime}
                   helperText={errors.endTime}
                   size="small"
-                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
             </Grid>

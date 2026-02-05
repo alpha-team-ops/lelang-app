@@ -6,12 +6,14 @@ import {
   Settings as SettingsIcon,
   History as HistoryIcon,
   List as ListIcon,
+  EmojiEvents as TrophyIcon,
 } from '@mui/icons-material';
 import OverviewPage from '../pages/admin/dashboard/OverviewPage';
 import AnalyticsPage from '../pages/admin/dashboard/AnalyticsPage';
 import GalleryPage from '../pages/admin/auctions/GalleryPage';
 import TablePage from '../pages/admin/auctions/TablePage';
 import ActivityPage from '../pages/admin/auctions/ActivityPage';
+import WinnerBidsPage from '../pages/admin/auctions/WinnerBidsPage';
 import UserManagementPage from '../pages/admin/managements/UserManagementPage';
 import RolesPage from '../pages/admin/managements/RolesPage';
 import SettingsPage from '../pages/admin/settings/SettingsPage';
@@ -52,6 +54,7 @@ export const menuCategories: MenuCategory[] = [
       { text: 'Gallery', icon: <GavelIcon />, path: '/admin/auction-gallery' },
       { text: 'Table', icon: <ListIcon />, path: '/admin/auction-table' },
       { text: 'Activity', icon: <HistoryIcon />, path: '/admin/auction-activity' },
+      { text: 'Winners', icon: <TrophyIcon />, path: '/admin/auction-winners' },
     ]
   },
   {
@@ -91,6 +94,10 @@ export const protectedRoutes: ProtectedRoute[] = [
   {
     path: '/admin/auction-activity',
     element: <ActivityPage />,
+  },
+  {
+    path: '/admin/auction-winners',
+    element: <WinnerBidsPage />,
   },
   {
     path: '/admin/staff',

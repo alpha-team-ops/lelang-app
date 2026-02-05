@@ -9,6 +9,7 @@ import {
   Select,
   MenuItem,
   FormControl,
+  InputLabel,
   Stack,
   Grid,
   InputAdornment,
@@ -22,7 +23,62 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { auctionService } from '../../../data/services';
+import { imageService } from '../../../data/services';
 import { usePermission } from '../../../hooks/usePermission';
+
+// Custom 24-hour Time Input Component
+const Time24Input: React.FC<{
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: boolean;
+  helperText?: string;
+  size?: 'small' | 'medium';
+}> = ({ label, value, onChange, error, helperText, size = 'small' }) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let input = e.target.value.replace(/[^\d:]/g, '');
+    
+    if (input.length >= 2 && !input.includes(':')) {
+      input = input.slice(0, 2) + ':' + input.slice(2);
+    }
+    
+    if (input.length > 5) {
+      input = input.slice(0, 5);
+    }
+    
+    // Validate format HH:mm
+    if (input.length === 5) {
+      const [hours, mins] = input.split(':');
+      const h = parseInt(hours, 10);
+      const m = parseInt(mins, 10);
+      
+      if (h > 23 || m > 59) {
+        return;
+      }
+    }
+    
+    onChange(input);
+  };
+
+  return (
+    <TextField
+      fullWidth
+      label={label}
+      value={value}
+      onChange={handleChange}
+      error={error}
+      helperText={error ? helperText : ''}
+      size={size}
+      inputProps={{
+        placeholder: 'hh:mm',
+        maxLength: 5,
+        pattern: '[0-9]{2}:[0-9]{2}',
+        inputMode: 'numeric',
+      }}
+      InputLabelProps={{ shrink: true }}
+    />
+  );
+};
 
 
 interface FormData {
@@ -103,12 +159,13 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
     serialNumber: '',
     itemLocation: '',
     purchaseYear: '',
-    startingPrice: '',
-    bidIncrement: '',
+    startingPrice: 0,
+    bidIncrement: 0,
     startDate: '',
     startTime: '',
     endDate: '',
     endTime: '',
+    images: [],
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -200,24 +257,14 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
 
     // Required fields
     if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (formData.startingPrice === '' || formData.startingPrice <= 0)
-      newErrors.startingPrice = 'Starting price must be greater than 0';
-    if (formData.bidIncrement === '' || formData.bidIncrement <= 0)
-      newErrors.bidIncrement = 'Bid increment must be greater than 0';
+    // Starting price and bid increment default to 0, validation handled by backend
 
     // Optional fields - only validate if filled
     if (formData.description && !formData.description.trim()) 
       newErrors.description = 'Description cannot be empty';
 
     // Date/Time validation: optional but must follow rules if provided
-    // Rule 1: if start_time provided, must be in the future
-    if (formData.startDate && formData.startTime) {
-      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
-      const now = new Date();
-      if (startDateTime <= now) {
-        newErrors.startDate = 'Start time must be in the future';
-      }
-    }
+    // Rule 1: Start time is optional - can be in the past or future
 
     // Rule 2: if end_time provided, must be after start_time
     if (formData.endDate && formData.endTime) {
@@ -250,7 +297,26 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
     setSubmitError('');
     setIsSubmitting(true);
     try {
-      // Build payload matching CreateAuctionRequest interface (camelCase)
+      // Step 1: Upload images first if any
+      let imageUrls: string[] = [];
+      if (formData.images && formData.images.length > 0) {
+        try {
+          const uploadResponse = await imageService.uploadBulk(formData.images);
+          if (uploadResponse.success && uploadResponse.data) {
+            // Handle backend response structure: data.images or data directly
+            let imageArray: any[] = Array.isArray(uploadResponse.data) 
+              ? uploadResponse.data 
+              : (uploadResponse.data as any).images || [];
+            imageUrls = imageArray.map((img: any) => img.url || img.path).filter(Boolean);
+          }
+        } catch (imageError: any) {
+          setSubmitError(`Image upload failed: ${imageError.message}`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Step 2: Build payload matching CreateAuctionRequest interface (camelCase)
       // auctionService will convert to snake_case for backend
       const payload: any = {
         title: formData.title,
@@ -265,7 +331,11 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
       if (formData.serialNumber?.trim()) payload.serialNumber = formData.serialNumber.trim();
       if (formData.itemLocation?.trim()) payload.itemLocation = formData.itemLocation.trim();
       if (formData.purchaseYear) payload.purchaseYear = Number(formData.purchaseYear);
-      if (formData.images && formData.images.length > 0) payload.images = formData.images;
+      
+      // Add image URLs if available
+      if (imageUrls.length > 0) {
+        payload.images = imageUrls;
+      }
 
       // Add date/time only if provided (auctionService will convert to snake_case)
       // Only add if BOTH date and time are provided
@@ -276,6 +346,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
         payload.endTime = `${formData.endDate} ${formData.endTime}:00`;
       }
 
+      // Step 3: Create auction with uploaded image URLs
       await auctionService.createAuction(payload);
 
       setSubmitError('');
@@ -289,12 +360,13 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
         serialNumber: '',
         itemLocation: '',
         purchaseYear: '',
-        startingPrice: '',
-        bidIncrement: '',
+        startingPrice: 0,
+        bidIncrement: 0,
         startDate: '',
         startTime: '',
         endDate: '',
         endTime: '',
+        images: [],
       });
       setErrors({});
       setImagePreviews([]);
@@ -354,23 +426,25 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
             </Alert>
           )}
 
-          {/* Section 0: Gambar Barang */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2.5, color: '#1f2937', fontSize: '13px' }}>
-              � IMAGES
+          {/* IMAGES SECTION */}
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5, color: '#1f2937', fontSize: '13px' }}>
+              Upload photos
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#6b7280', fontSize: '12px', display: 'block', mb: 1.5 }}>
+              Upload photos to add to this content
             </Typography>
             <Box
               component="label"
               sx={{
                 display: 'block',
-                border: '1px solid #e0e0e0',
+                border: '2px dashed #d1d5db',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  borderColor: '#667eea',
-                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.15)',
-                  bgcolor: '#f9f9f9',
+                  borderColor: '#9ca3af',
+                  bgcolor: '#f9fafb',
                 },
               }}
             >
@@ -382,14 +456,14 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                   onChange={handleImageUpload}
                   style={{ display: 'none' }}
                 />
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 1 }}>
-                  <CloudUploadIcon sx={{ fontSize: '48px', color: '#667eea' }} />
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 1 }}>
+                  <CloudUploadIcon sx={{ fontSize: '40px', color: '#9ca3af' }} />
                   <Box sx={{ textAlign: 'center' }}>
-                    <Typography sx={{ fontWeight: 600, color: '#667eea', fontSize: '15px', lineHeight: 1.4 }}>
-                      Click or drag images here
+                    <Typography sx={{ fontWeight: 500, color: '#1f2937', fontSize: '14px', lineHeight: 1.4 }}>
+                      Drag & drop your files here or <span style={{ color: '#3b82f6', fontWeight: 600 }}>choose file</span>
                     </Typography>
-                    <Typography sx={{ color: '#999', fontSize: '13px', lineHeight: 1.4, mt: 0.75 }}>
-                      JPG, PNG, GIF (Max 5 images)
+                    <Typography sx={{ color: '#9ca3af', fontSize: '12px', lineHeight: 1.4, mt: 0.5 }}>
+                      JPEG, PNG, SVG and ZIP formats, up to 100 MB.
                     </Typography>
                   </Box>
                 </Box>
@@ -445,205 +519,202 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
               </Box>
             )}
           </Box>
+          {/* Section 1 & 2: Basic Information */}
+          <Box sx={{ bgcolor: 'white', border: '1px solid #e0e0e0', borderRadius: '8px', p: 2.5 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2, color: '#1f2937', fontSize: '13px' }}>
+              Basic Information
+            </Typography>
+            <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '6px' }}>
+              {/* Title */}
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Auction Title"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Laptop HP ProBook 450"
+                  error={!!errors.title}
+                  helperText={errors.title}
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      fontSize: '14px',
+                    },
+                  }}
+                />
+              </Box>
 
-          {/* Section 1 & 2: Title & Description (Combined Card) */}
-          <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '8px' }}>
-            {/* Title */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5, fontSize: '12px' }}>
-                Title
-              </Typography>
-              <TextField
-                fullWidth
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                placeholder="e.g., Laptop HP ProBook 450"
-                error={!!errors.title}
-                helperText={errors.title}
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    fontSize: '14px',
-                  },
-                }}
-              />
-            </Box>
-
-            {/* Description */}
-            <Box>
-              <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5, fontSize: '12px' }}>
-                Description <Typography component="span" sx={{ color: '#999', fontSize: '11px' }}>(Optional)</Typography>
-              </Typography>
-              <TextField
-                fullWidth
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                placeholder="Complete product description, condition, specifications, etc."
-                multiline
-                rows={3}
-                error={!!errors.description}
-                helperText={errors.description}
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    fontSize: '13px',
-                  },
-                }}
-              />
+              {/* Description */}
+              <Box>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="Complete product description, condition, specifications, etc."
+                  multiline
+                  rows={3}
+                  error={!!errors.description}
+                  helperText={errors.description}
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      fontSize: '13px',
+                    },
+                  }}
+                />
+              </Box>
             </Box>
           </Box>
 
-          {/* Section 3: Item Information (Category, Condition, SN, Prices) */}
-          <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '8px' }}>
-            <Grid container spacing={1.5}>
-              <Grid size={{ xs: 6 }}>
-                <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                  Category <Typography component="span" sx={{ color: '#999', fontSize: '11px' }}>(Optional)</Typography>
-                </Typography>
-                <FormControl fullWidth error={!!errors.category} size="small">
-                  <Select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleSelectChange}
-                  >
-                    <MenuItem value="">-- Select Category --</MenuItem>
-                    {CATEGORIES.map((cat) => (
-                      <MenuItem key={cat} value={cat}>
-                        {cat}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
+          {/* Section 3: Item Details */}
+          <Box sx={{ bgcolor: 'white', border: '1px solid #e0e0e0', borderRadius: '8px', p: 2.5 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2, color: '#1f2937', fontSize: '13px' }}>
+              Item Details
+            </Typography>
+            <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '6px' }}>
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 6 }}>
+                  <FormControl fullWidth error={!!errors.category} size="small">
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      name="category"
+                      value={formData.category}
+                      onChange={handleSelectChange}
+                      label="Category"
+                    >
+                      <MenuItem value="">-- Select Category --</MenuItem>
+                      {CATEGORIES.map((cat) => (
+                        <MenuItem key={cat} value={cat}>
+                          {cat}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
 
-              <Grid size={{ xs: 6 }}>
-                <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                  Condition <Typography component="span" sx={{ color: '#999', fontSize: '11px' }}>(Optional)</Typography>
-                </Typography>
-                <FormControl fullWidth error={!!errors.condition} size="small">
-                  <Select
-                    name="condition"
-                    value={formData.condition}
-                    onChange={handleSelectChange}
-                  >
-                    <MenuItem value="">-- Select Condition --</MenuItem>
-                    {CONDITIONS.map((cond) => (
-                      <MenuItem key={cond} value={cond}>
-                        {cond}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
+                <Grid size={{ xs: 6 }}>
+                  <FormControl fullWidth error={!!errors.condition} size="small">
+                    <InputLabel>Condition</InputLabel>
+                    <Select
+                      name="condition"
+                      value={formData.condition}
+                      onChange={handleSelectChange}
+                      label="Condition"
+                    >
+                      <MenuItem value="">-- Select Condition --</MenuItem>
+                      {CONDITIONS.map((cond) => (
+                        <MenuItem key={cond} value={cond}>
+                          {cond}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
 
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  label="Serial Number (SN)"
-                  name="serialNumber"
-                  value={formData.serialNumber}
-                  onChange={handleInputChange}
-                  placeholder="e.g., ABC123456789"
-                  error={!!errors.serialNumber}
-                  helperText={errors.serialNumber}
-                  size="small"
-                  sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
-                />
-              </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <TextField
+                    fullWidth
+                    label="Serial Number (SN)"
+                    name="serialNumber"
+                    value={formData.serialNumber}
+                    onChange={handleInputChange}
+                    placeholder="e.g., ABC123456789"
+                    error={!!errors.serialNumber}
+                    helperText={errors.serialNumber}
+                    size="small"
+                    sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
+                  />
+                </Grid>
 
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Item Location"
-                  name="itemLocation"
-                  value={formData.itemLocation}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Jakarta, Indonesia"
-                  error={!!errors.itemLocation}
-                  helperText={errors.itemLocation}
-                  size="small"
-                  sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
-                />
-              </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Item Location"
+                    name="itemLocation"
+                    value={formData.itemLocation}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Jakarta, Indonesia"
+                    error={!!errors.itemLocation}
+                    helperText={errors.itemLocation}
+                    size="small"
+                    sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
+                  />
+                </Grid>
 
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Purchase Year"
-                  name="purchaseYear"
-                  type="number"
-                  value={formData.purchaseYear}
-                  onChange={handleInputChange}
-                  placeholder="e.g., 2023"
-                  error={!!errors.purchaseYear}
-                  helperText={errors.purchaseYear}
-                  size="small"
-                  sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
-                />
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="Purchase Year"
+                    name="purchaseYear"
+                    type="number"
+                    value={formData.purchaseYear}
+                    onChange={handleInputChange}
+                    placeholder="e.g., 2023"
+                    error={!!errors.purchaseYear}
+                    helperText={errors.purchaseYear}
+                    size="small"
+                    sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
+                  />
+                </Grid>
               </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                  Starting Price
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 700, color: '#667eea' }}>
-                  Rp {formData.startingPrice !== '' ? formatCurrency(formData.startingPrice) : '0'}
-                </Typography>
-              </Grid>
-            </Grid>
+            </Box>
           </Box>
 
           {/* Section 4: Price Offering */}
-          <Box sx={{ bgcolor: '#f5f5f5', p: 2.5, borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+          <Box sx={{ bgcolor: 'white', border: '1px solid #e0e0e0', borderRadius: '8px', p: 2.5 }}>
             <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2, color: '#1f2937', fontSize: '13px' }}>
               Price Offering
             </Typography>
-
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Starting Price"
-                  name="startingPrice"
-                  type="text"
-                  value={formData.startingPrice !== '' ? formatCurrency(formData.startingPrice) : ''}
-                  onChange={handleInputChange}
-                  placeholder="0"
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start" sx={{ fontSize: '13px', fontWeight: 600 }}>Rp</InputAdornment>,
-                  }}
-                  error={!!errors.startingPrice}
-                  helperText={errors.startingPrice}
-                  size="small"
-                  sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
-                />
+            <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '6px' }}>
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                    Starting Price
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    value={formatCurrency(formData.startingPrice)}
+                    onChange={handleInputChange}
+                    error={!!errors.startingPrice}
+                    helperText={errors.startingPrice}
+                    name="startingPrice"
+                    size="small"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">Rp</InputAdornment>,
+                      
+                    }}
+                    sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', fontWeight: 600, mb: 0.5 }}>
+                    Bid Increment
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    label=""
+                    name="bidIncrement"
+                    type="text"
+                    value={formData.bidIncrement !== '' ? formatCurrency(formData.bidIncrement) : ''}
+                    onChange={handleInputChange}
+                    placeholder="0"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start" sx={{ fontSize: '13px', fontWeight: 600 }}>Rp</InputAdornment>,
+                    }}
+                    error={!!errors.bidIncrement}
+                    helperText={errors.bidIncrement}
+                    size="small"
+                    sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
+                  />
+                </Grid>
               </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Bid Increment"
-                  name="bidIncrement"
-                  type="text"
-                  value={formData.bidIncrement !== '' ? formatCurrency(formData.bidIncrement) : ''}
-                  onChange={handleInputChange}
-                  placeholder="0"
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start" sx={{ fontSize: '13px', fontWeight: 600 }}>Rp</InputAdornment>,
-                  }}
-                  error={!!errors.bidIncrement}
-                  helperText={errors.bidIncrement}
-                  size="small"
-                  sx={{ '& .MuiOutlinedInput-root': { fontSize: '13px' } }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
+              <Grid size={{ xs: 12 }} sx={{ mt: 2 }}>
                 <Box sx={{ bgcolor: 'white', p: 1.5, borderRadius: '6px', border: '1px solid #e5e7eb' }}>
                   <Typography variant="caption" color="textSecondary" sx={{ display: 'block', fontSize: '11px', fontWeight: 600, mb: 0.75 }}>
-                    📊 Bid Information
+                    Bid Information
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <Box>
@@ -665,76 +736,85 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                   </Box>
                 </Box>
               </Grid>
-            </Grid>
+            </Box>
           </Box>
 
           {/* Section 5: Auction Schedule */}
-          <Box>
-            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, color: '#1f2937', fontSize: '13px' }}>
+          <Box sx={{ bgcolor: 'white', border: '1px solid #e0e0e0', borderRadius: '8px', p: 2.5 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2, color: '#1f2937', fontSize: '13px' }}>
               Auction Schedule
             </Typography>
+            <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: '6px' }}>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 6 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                    Start Date
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    name="startDate"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={handleInputChange}
+                    InputLabelProps={{ shrink: true }}
+                    error={!!errors.startDate}
+                    helperText={errors.startDate}
+                    size="small"
+                    label=""
+                  />
+                </Grid>
 
-            <Grid container spacing={1.5}>
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Start Date"
-                  name="startDate"
-                  type="date"
-                  value={formData.startDate}
-                  onChange={handleInputChange}
-                  InputLabelProps={{ shrink: true }}
-                  error={!!errors.startDate}
-                  helperText={errors.startDate}
-                  size="small"
-                />
-              </Grid>
+                <Grid size={{ xs: 6 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                    Start Time
+                  </Typography>
+                  <Time24Input
+                    label=""
+                    value={formData.startTime}
+                    onChange={(newTime) => 
+                      setFormData(prev => ({ ...prev, startTime: newTime }))
+                    }
+                    error={!!errors.startTime}
+                    helperText={errors.startTime}
+                    size="small"
+                  />
+                </Grid>
 
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Start Time"
-                  name="startTime"
-                  type="time"
-                  value={formData.startTime}
-                  onChange={handleInputChange}
-                  InputLabelProps={{ shrink: true }}
-                  error={!!errors.startTime}
-                  helperText={errors.startTime}
-                  size="small"
-                />
-              </Grid>
+                <Grid size={{ xs: 6 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                    End Date
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    name="endDate"
+                    type="date"
+                    value={formData.endDate}
+                    onChange={handleInputChange}
+                    InputLabelProps={{ shrink: true }}
+                    error={!!errors.endDate}
+                    helperText={errors.endDate}
+                    size="small"
+                    label=""
+                  />
+                </Grid>
 
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  label="End Date"
-                  name="endDate"
-                  type="date"
-                  value={formData.endDate}
-                  onChange={handleInputChange}
-                  InputLabelProps={{ shrink: true }}
-                  error={!!errors.endDate}
-                  helperText={errors.endDate}
-                  size="small"
-                />
+                <Grid size={{ xs: 6 }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                    End Time
+                  </Typography>
+                  <Time24Input
+                    label=""
+                    value={formData.endTime}
+                    onChange={(newTime) => 
+                      setFormData(prev => ({ ...prev, endTime: newTime }))
+                    }
+                    error={!!errors.endTime}
+                    helperText={errors.endTime}
+                    size="small"
+                  />
+                </Grid>
               </Grid>
-
-              <Grid size={{ xs: 6 }}>
-                <TextField
-                  fullWidth
-                  label="End Time"
-                  name="endTime"
-                  type="time"
-                  value={formData.endTime}
-                  onChange={handleInputChange}
-                  InputLabelProps={{ shrink: true }}
-                  error={!!errors.endTime}
-                  helperText={errors.endTime}
-                  size="small"
-                />
-              </Grid>
-            </Grid>
+            </Box>
           </Box>
         </Stack>
       </DialogContent>

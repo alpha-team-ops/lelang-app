@@ -142,13 +142,9 @@ export const auctionService = {
       if (data.itemLocation) payload.item_location = data.itemLocation;
       if (data.purchaseYear) payload.purchase_year = data.purchaseYear;
       
-      // Images: backend expects array of URLs or file paths
-      // For now, we skip file upload and just send empty if no images
-      // In future, implement file upload separately
+      // Images: send array of image URLs
       if (data.images && data.images.length > 0) {
-        // If images are File objects, we can't directly send them in JSON
-        // For now, just send the count or skip
-        // TODO: Implement multipart file upload
+        payload.images = data.images;
       }
       
       // Date/time are optional

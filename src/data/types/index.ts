@@ -34,6 +34,8 @@ export interface PortalAuction {
   currentBid: number;
   reservePrice: number;
   bidIncrement: number;
+  startingPrice?: number; // Starting price of the auction
+  startTime?: Date | string; // Start time of the auction
   endTime: Date | string;
   participantCount: number;
   images?: string[]; // Array of image URLs

@@ -45,7 +45,7 @@ const AuctionRealtimeListener: React.FC<{
 
   useRealtimeAuction({
     auctionId,
-    enabled: true,
+    enabled: true, // Enabled for real-time bid activity tracking
     onBidPlaced: handleBidPlaced,
   });
 

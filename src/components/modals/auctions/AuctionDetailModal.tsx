@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -42,27 +42,49 @@ const StatusBadge: React.FC<{ status: Auction['status'] }> = ({ status }) => {
 };
 
 // Countdown Timer Component
-const CountdownTimer: React.FC<{ endTime: Date | string | null }> = ({ endTime }) => {
+const CountdownTimer: React.FC<{ auction: Auction | null }> = ({ auction }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
 
   useEffect(() => {
-    // If endTime is null, auction is in draft status
-    if (!endTime) {
+    if (!auction) {
+      setTimeLeft('Draft');
+      return;
+    }
+
+    // Determine which time to use for countdown
+    let countdownTime: Date | string | null = null;
+    
+    // If startTime is in future → countdown from startTime (SCHEDULED)
+    const now = new Date();
+    if (auction.startTime) {
+      const startDate = typeof auction.startTime === 'string' ? new Date(auction.startTime) : auction.startTime;
+      if (!isNaN(startDate.getTime()) && startDate > now) {
+        countdownTime = auction.startTime;
+      }
+    }
+    
+    // Otherwise use endTime
+    if (!countdownTime && auction.endTime) {
+      countdownTime = auction.endTime;
+    }
+
+    // If no time, show Draft
+    if (!countdownTime) {
       setTimeLeft('Draft');
       return;
     }
 
     const updateTimer = () => {
       const now = new Date();
-      const endDate = typeof endTime === 'string' ? new Date(endTime) : endTime;
+      const targetDate = typeof countdownTime === 'string' ? new Date(countdownTime as string) : countdownTime;
       
       // Handle invalid date
-      if (isNaN(endDate.getTime())) {
+      if (isNaN(targetDate.getTime())) {
         setTimeLeft('Invalid');
         return;
       }
 
-      const diff = endDate.getTime() - now.getTime();
+      const diff = targetDate.getTime() - now.getTime();
 
       if (diff <= 0) {
         setTimeLeft('Ended');
@@ -79,7 +101,7 @@ const CountdownTimer: React.FC<{ endTime: Date | string | null }> = ({ endTime }
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [endTime]);
+  }, [auction?.startTime, auction?.endTime]);
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -106,6 +128,44 @@ const getBidderDisplayName = (bidder: string | undefined): string => {
   return bidder;
 };
 
+// Helper function to determine actual auction status based on timing
+// Status from backend may not be accurate if startTime/endTime in DB not synced
+const getActualAuctionStatus = (auction: Auction): Auction['status'] => {
+  const now = new Date();
+  
+  // Check if has valid startTime
+  if (auction.startTime) {
+    const startDate = typeof auction.startTime === 'string' ? new Date(auction.startTime) : auction.startTime;
+    if (!isNaN(startDate.getTime())) {
+      // startTime in future → SCHEDULED
+      if (startDate > now) {
+        return 'SCHEDULED';
+      }
+    }
+  }
+  
+  // Check if has valid endTime
+  if (auction.endTime) {
+    const endDate = typeof auction.endTime === 'string' ? new Date(auction.endTime) : auction.endTime;
+    if (!isNaN(endDate.getTime())) {
+      // endTime in past → ENDED
+      if (endDate < now) {
+        return 'ENDED';
+      }
+      // Between startTime and endTime → LIVE
+      if (auction.startTime) {
+        const startDate = typeof auction.startTime === 'string' ? new Date(auction.startTime) : auction.startTime;
+        if (!isNaN(startDate.getTime()) && startDate <= now && endDate > now) {
+          return 'LIVE';
+        }
+      }
+    }
+  }
+  
+  // Return backend status as fallback
+  return auction.status;
+};
+
 // Auction Detail Modal Component
 interface AuctionDetailModalProps {
   open: boolean;
@@ -119,54 +179,129 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState(0);
   const [liveAuction, setLiveAuction] = useState<Auction | null>(auction);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  
+  // ✅ Use useRef to track which auctionId has already been incremented
+  // This prevents multiple increments even if component re-renders
+  const incrementedAuctionIdRef = useRef<string | null>(null);
 
+  // ✅ Calculate actual status based on startTime/endTime timing
+  const actualStatus = useMemo(() => {
+    if (!liveAuction) return 'DRAFT' as const;
+    return getActualAuctionStatus(liveAuction);
+  }, [liveAuction?.startTime, liveAuction?.endTime, liveAuction?.status]);
+
+  // ✅ FIX 1: Sync liveAuction state when auction prop changes
+  useEffect(() => {
+    if (auction) {
+      setLiveAuction(auction);
+      setIsInitialLoading(true);
+    }
+  }, [auction?.id]);
+
+  // Reset UI state
   useEffect(() => {
     setSelectedImageIndex(0);
     setActiveTab(0);
   }, [auction?.id]);
 
-  // Memoize WebSocket callbacks
-  const handleBidPlaced = useCallback(() => {
-    // Bid placed - data will be updated via polling
-  }, []);
-
-  const handleAuctionUpdated = useCallback((data: Auction) => {
-    setLiveAuction(data);
-  }, []);
-
-  const handleAuctionEnded = useCallback(() => {
-    setLiveAuction(prev => prev ? { ...prev, status: 'ENDED' } : null);
-  }, []);
-
-  // WebSocket connection
-  useRealtimeAuction({
-    auctionId: auction?.id || '',
-    enabled: open && !!auction?.id,
-    onBidPlaced: handleBidPlaced,
-    onAuctionUpdated: handleAuctionUpdated,
-    onAuctionEnded: handleAuctionEnded,
-  });
-
-  // Polling for real-time updates
-  useAuctionPolling(
-    auction?.id || '',
-    1000, // Poll every 1 second
-    open && !!auction?.id, // Only poll when modal is open
-    (updatedAuction) => {
-      setLiveAuction(updatedAuction);
-    }
-  );
-
-  // Track view when modal opens
+  // ✅ FIX 2: Initial fetch immediately on modal open (don't wait for polling)
   useEffect(() => {
-    if (open && auction?.id) {
-      // Call API to increment view count
-      auctionService.incrementViewCount(auction.id).catch((err) => {
-        // Silently fail - view tracking is not critical
-        console.log('View tracking:', err.message);
-      });
+    if (open && auction?.id && isInitialLoading) {
+      const fetchInitialData = async () => {
+        try {
+          // Always use admin endpoint to get full auction data with all fields
+          // (startingPrice, startTime, etc.)
+          const endpoint = 'api/v1/auctions';
+          const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+          const url = `${apiUrl}/${endpoint}/${auction.id}`;
+
+          let token = sessionStorage.getItem('portalToken') || sessionStorage.getItem('authToken');
+          if (!token) {
+            token = localStorage.getItem('accessToken');
+          }
+
+          if (!token) {
+            console.warn('⚠️ No token for initial fetch');
+            setIsInitialLoading(false);
+            return;
+          }
+
+          const response = await fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.data) {
+              setLiveAuction(data.data);
+            }
+          }
+        } catch (err) {
+          // Initial fetch failed - will use polling fallback
+        } finally {
+          setIsInitialLoading(false);
+        }
+      };
+
+      fetchInitialData();
     }
   }, [open, auction?.id]);
+
+  // Memoize callback - only update currentBid from WebSocket
+  const handleCurrentBidUpdate = useCallback((currentBid: number, bidderName?: string) => {
+    setLiveAuction(prev => prev ? { 
+      ...prev, 
+      currentBid: currentBid,
+      currentBidder: bidderName || prev.currentBidder 
+    } : null);
+  }, []);
+
+  // WebSocket connection - OPTIMIZED for currentBid only
+  useRealtimeAuction({
+    auctionId: auction?.id || '',
+    status: actualStatus, // Use calculated actual status (not backend status)
+    enabled: open && !!auction?.id,
+    onCurrentBidUpdate: handleCurrentBidUpdate,
+  });
+
+  // ✅ FIX 3: Polling - only for LIVE auctions, every 3 seconds
+  // ❌ Don't poll DRAFT/ENDED auctions (no real-time updates needed)
+  useAuctionPolling(
+    auction?.id || '',
+    3000, // Poll every 3 seconds
+    open && !!auction?.id && !isInitialLoading && actualStatus === 'LIVE', // Use actual status
+    (updatedAuction) => {
+      setLiveAuction(updatedAuction);
+    },
+    auction?.status // Pass auction status to use correct endpoint
+  );
+
+  // Track view when modal opens - only increment ONCE per unique auctionId
+  // Use useRef to track the last incremented ID, preventing re-increment on re-render
+  useEffect(() => {
+    if (open && auction?.id) {
+      // Only increment if this is a NEW auction (different from last time)
+      if (incrementedAuctionIdRef.current !== auction.id) {
+        auctionService.incrementViewCount(auction.id).catch((_err) => {
+          // Silently fail - view tracking is not critical
+        });
+        // Update ref to current auctionId
+        incrementedAuctionIdRef.current = auction.id;
+      }
+    }
+  }, [open, auction?.id]);
+
+  // Reset ref when modal closes
+  useEffect(() => {
+    if (!open) {
+      incrementedAuctionIdRef.current = null;
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -183,7 +318,8 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
 
   const isEnded = liveAuction.status === 'ENDED';
 
-  const formatCurrency = (value: number): string => {
+  const formatCurrency = (value: number | undefined | null): string => {
+    if (value === undefined || value === null || isNaN(value)) return 'N/A';
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
@@ -219,7 +355,7 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <StatusBadge status={liveAuction.status} />
+          <StatusBadge status={actualStatus} />
           <Typography sx={{ fontWeight: 700, fontSize: '20px', color: '#1f2937' }}>
             {liveAuction.title}
           </Typography>
@@ -569,27 +705,39 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
               📊 BID ACTIVITY
             </Typography>
             <Box sx={{ display: 'grid', gap: 1.5 }}>
-              <Box sx={{ padding: 1.75, backgroundColor: '#fafbfc', borderRadius: '8px', borderLeft: '4px solid #1f2937' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography sx={{ fontWeight: 700, color: '#1f2937', fontSize: '15px' }}>
-                    Current Highest Bid
+              {/* Only show Current Highest Bid if there are actual bids */}
+              {liveAuction.totalBids > 0 ? (
+                <Box sx={{ padding: 1.75, backgroundColor: '#fafbfc', borderRadius: '8px', borderLeft: '4px solid #1f2937' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography sx={{ fontWeight: 700, color: '#1f2937', fontSize: '15px' }}>
+                      Current Highest Bid
+                    </Typography>
+                    <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>Just now</Typography>
+                  </Box>
+                  <Typography sx={{ fontSize: '18px', fontWeight: 700, color: '#1f2937', mb: 0.75 }}>
+                    {formatCurrency(liveAuction.currentBid)}
                   </Typography>
-                  <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>Just now</Typography>
+                  <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>
+                    by Bidder {getBidderDisplayName(liveAuction.currentBidder)}
+                  </Typography>
                 </Box>
-                <Typography sx={{ fontSize: '18px', fontWeight: 700, color: '#1f2937', mb: 0.75 }}>
-                  {formatCurrency(auction.currentBid)}
-                </Typography>
-                <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>
-                  by Bidder {getBidderDisplayName(auction.currentBidder)}
-                </Typography>
-              </Box>
+              ) : (
+                <Box sx={{ padding: 1.75, backgroundColor: '#fafbfc', borderRadius: '8px', borderLeft: '4px solid #9ca3af' }}>
+                  <Typography sx={{ fontWeight: 700, color: '#6b7280', fontSize: '15px', textAlign: 'center' }}>
+                    No bids yet
+                  </Typography>
+                  <Typography sx={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', mt: 0.5 }}>
+                    Starting price: {formatCurrency(liveAuction.startingPrice || liveAuction.currentBid)}
+                  </Typography>
+                </Box>
+              )}
 
               <Box sx={{ padding: 1.75, backgroundColor: '#f9fafb', borderRadius: '8px', textAlign: 'center' }}>
                 <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#1f2937', mb: 0.5 }}>
-                  {auction.totalBids}
+                  {liveAuction.totalBids}
                 </Typography>
                 <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>
-                  {auction.totalBids === 1 ? 'bid' : 'bids'} in total
+                  {liveAuction.totalBids === 1 ? 'bid' : 'bids'} in total
                 </Typography>
               </Box>
             </Box>
@@ -614,7 +762,7 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
         </Button>
         {!isEnded && onEdit && (
           <Button
-            onClick={() => onEdit(auction)}
+            onClick={() => onEdit(liveAuction)}
             variant="contained"
             startIcon={<EditIcon />}
             sx={{ bgcolor: '#667eea', textTransform: 'none' }}

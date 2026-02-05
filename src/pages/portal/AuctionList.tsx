@@ -5,12 +5,28 @@ import { auctionService } from '../../data/services';
 import { portalAuctionsMock } from '../../data/mock/auctions';
 import type { PortalAuction } from '../../data/types';
 import AuctionModal from './AuctionModal';
+import AuctionTimerDisplay from './components/AuctionTimerDisplay';
 import './styles/portal.css';
 
 // Helper to calculate time remaining from endTime
-const calculateTimeRemaining = (endTime: Date | string): string => {
+const calculateTimeRemaining = (
+  endTime: Date | string | null | undefined,
+  status?: string
+): string => {
+  // Don't show timer for DRAFT or CANCELLED auctions
+  if (status === 'DRAFT' || status === 'CANCELLED') {
+    return 'N/A';
+  }
+
+  // Handle null/undefined endTime
+  if (!endTime) return 'N/A';
+
   const now = new Date();
   const endTimeDate = typeof endTime === 'string' ? new Date(endTime) : endTime;
+  
+  // Handle invalid date
+  if (isNaN(endTimeDate.getTime())) return 'N/A';
+  
   const diff = endTimeDate.getTime() - now.getTime();
 
   if (diff <= 0) return 'Sudah Berakhir';
@@ -65,22 +81,41 @@ export default function AuctionList() {
   // (not 500ms to avoid overwhelming backend and race conditions)
   useEffect(() => {
     let isPolling = false; // Prevent overlapping requests
-    const pollingInterval = setInterval(async () => {
-      if (isPolling) return; // Skip if previous poll still running
-      
-      isPolling = true;
-      try {
-        const response = await auctionService.getAllPortalAuctions(page, 10);
-        setAuctions(response.auctions);
-      } catch (err) {
-        // Silently ignore polling errors to avoid noise
-        // console.error('Error polling auctions:', err);
-      } finally {
-        isPolling = false;
-      }
-    }, 2000); // Poll every 2 seconds - more reasonable for backend response time
+    let pollingInterval: NodeJS.Timeout | null = null;
+    
+    const startPolling = () => {
+      pollingInterval = setInterval(async () => {
+        if (isPolling) return; // Skip if previous poll still running
+        
+        // Check if user session is still valid
+        const currentSession = getUserSession();
+        if (!currentSession) {
+          // Session expired, stop polling and redirect
+          if (pollingInterval) clearInterval(pollingInterval);
+          navigate('/portal');
+          return;
+        }
+        
+        isPolling = true;
+        try {
+          const response = await auctionService.getAllPortalAuctions(page, 10);
+          setAuctions(response.auctions);
+        } catch (err) {
+          // Silently ignore polling errors to avoid noise
+        } finally {
+          isPolling = false;
+        }
+      }, 2000); // Poll every 2 seconds - more reasonable for backend response time
+    };
 
-    return () => clearInterval(pollingInterval);
+    // Only start polling if user is authenticated
+    if (userSession) {
+      startPolling();
+    }
+
+    return () => {
+      if (pollingInterval) clearInterval(pollingInterval);
+    };
   }, [page]);
 
   // Session timer
@@ -250,10 +285,7 @@ export default function AuctionList() {
               </div>
 
               {/* Timer */}
-              <div className="auction-timer">
-                <span className="auction-timer-icon">⏱️</span>
-                {calculateTimeRemaining(auction.endTime)}
-              </div>
+              <AuctionTimerDisplay auction={auction} />
 
               {/* Bid Button */}
               <button

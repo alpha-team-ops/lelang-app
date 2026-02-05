@@ -18,47 +18,34 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
   const [bidSuccess, setBidSuccess] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [liveAuction, setLiveAuction] = useState<PortalAuction>(auction);
+  const [displayTimeRemaining, setDisplayTimeRemaining] = useState<string>('N/A');
   const bidInputRef = useRef<HTMLInputElement>(null);
+  const incrementedAuctionIdRef = useRef<string | null>(null);
 
-  // Memoize callbacks to prevent infinite subscribe/unsubscribe loops
-  const handleBidPlaced = useCallback((data: any) => {
-    // Update current bid and participant count
-    setLiveAuction(prev => {
-      const newBid = data.bidAmount || data.currentBid || prev.currentBid;
-      return {
-        ...prev,
-        currentBid: newBid,
-        participantCount: (prev.participantCount || 0) + 1,
-      };
-    });
-  }, []);  // Empty dependencies - use state callback instead
-
-  const handleAuctionUpdated = useCallback((data: any) => {
-    setLiveAuction(data);
-  }, []);
-
-  const handleAuctionEnded = useCallback(() => {
+  // Memoize callback - only update currentBid for bandwidth optimization
+  const handleCurrentBidUpdate = useCallback((currentBid: number, bidderName?: string) => {
     setLiveAuction(prev => ({
       ...prev,
-      status: 'ENDED',
+      currentBid: currentBid,
+      participantCount: (prev.participantCount || 0) + 1,
     }));
   }, []);
 
-  // Try WebSocket first, fallback to polling
+  // Try WebSocket first, fallback to polling - OPTIMIZED for currentBid only
   const { isConnected } = useRealtimeAuction({
     auctionId: auction.id,
+    status: auction.status, // Use auction prop (not liveAuction which can be undefined initially)
     enabled: true,
-    onBidPlaced: handleBidPlaced,
-    onAuctionUpdated: handleAuctionUpdated,
-    onAuctionEnded: handleAuctionEnded,
+    onCurrentBidUpdate: handleCurrentBidUpdate,
   });
 
   // Polling for specific auction in modal - ensures instant updates in modal view
   // Parent AuctionList also polls all auctions for list updates
+  // ✅ Only poll LIVE auctions (others don't need real-time updates)
   useAuctionPolling(
     auction.id,
     1000, // Poll every 1 second (not 500ms to reduce server load)
-    true, // ✅ ALWAYS enabled - modal needs real-time updates
+    auction.status === 'LIVE', // Only poll LIVE auctions
     (updatedAuction) => {
       setLiveAuction(updatedAuction);
     }
@@ -70,7 +57,12 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
   }, [auction]);
 
   // Calculate time remaining from endTime
-  const calculateTimeRemaining = (endTime: Date | string): string => {
+  const calculateTimeRemaining = (endTime: Date | string, status?: string): string => {
+    // Don't show timer for DRAFT or CANCELLED auctions
+    if (status === 'DRAFT' || status === 'CANCELLED') {
+      return 'N/A';
+    }
+
     const endTimeDate = typeof endTime === 'string' ? new Date(endTime) : endTime;
     const now = new Date();
     const diff = endTimeDate.getTime() - now.getTime();
@@ -86,15 +78,44 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
     return `${minutes}m`;
   };
 
+  // Timer effect - only update display for non-DRAFT auctions
+  useEffect(() => {
+    const currentAuction = liveAuction || auction;
+    
+    // For DRAFT/CANCELLED, show N/A and don't set interval
+    if (currentAuction.status === 'DRAFT' || currentAuction.status === 'CANCELLED') {
+      setDisplayTimeRemaining('N/A');
+      return;
+    }
+
+    // Calculate initial value
+    setDisplayTimeRemaining(calculateTimeRemaining(currentAuction.endTime, currentAuction.status));
+
+    // Only setup interval for non-DRAFT auctions
+    const timerInterval = setInterval(() => {
+      const current = liveAuction || auction;
+      setDisplayTimeRemaining(calculateTimeRemaining(current.endTime, current.status));
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [liveAuction?.id, auction.id, liveAuction?.status, auction.status]);
+
   // Prevent body scroll when modal opens
   useEffect(() => {
     document.body.classList.add('modal-open');
-    // Track view when modal opens
+    
+    // Track view when modal opens - only increment ONCE per unique auctionId
+    // Use useRef to track the last incremented ID, preventing re-increment on re-render
     if (auction?.id) {
-      auctionService.incrementViewCount(auction.id).catch((err) => {
-        console.log('View tracking:', err.message);
-      });
+      // Only increment if this is a NEW auction (different from last time)
+      if (incrementedAuctionIdRef.current !== auction.id) {
+        auctionService.incrementViewCount(auction.id).catch((_err) => {
+        });
+        // Update ref to current auctionId
+        incrementedAuctionIdRef.current = auction.id;
+      }
     }
+    
     return () => {
       document.body.classList.remove('modal-open');
     };
@@ -206,12 +227,6 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
       await bidService.placeBid({
         auctionId: currentAuction.id,
         bidAmount: bidValue,
-      });
-
-      console.log('Bid submitted successfully:', {
-        auctionId: currentAuction.id,
-        bidAmount: bidValue,
-        timestamp: new Date().toISOString(),
       });
 
       setBidSuccess(true);
@@ -368,7 +383,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
               <div className="price-value" style={{ 
                 color: (liveAuction || auction).endTime && new Date((liveAuction || auction).endTime).getTime() - new Date().getTime() < 5 * 60 * 1000 ? '#dc2626' : '#f97316'
               }}>
-                {calculateTimeRemaining((liveAuction || auction).endTime)}
+                {displayTimeRemaining}
               </div>
             </div>
             <div className="price-item">

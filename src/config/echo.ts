@@ -20,34 +20,20 @@ export const initializeEcho = () => {
     wssPort: parseInt(import.meta.env.VITE_REVERB_PORT || '8080'),
     forceTLS: import.meta.env.VITE_REVERB_SCHEME === 'https',
     enabledTransports: ['ws', 'wss'],
+    maxReconnectionDelay: 5000, // 🚀 Faster reconnection
+    reconnectionDelay: 1000,    // 🚀 Faster initial reconnection
   }
-
-  console.log('🔧 Initializing Echo with config:', {
-    broadcaster: config.broadcaster,
-    key: config.key,
-    wsHost: config.wsHost,
-    wsPort: config.wsPort,
-    forceTLS: config.forceTLS,
-    scheme: import.meta.env.VITE_REVERB_SCHEME || 'http',
-  })
 
   try {
     const echoInstance = new Echo(config as any)
-    console.log('✅ Echo initialized successfully')
     
-    // Monitor connection status
+    // 🚀 Check connection faster (500ms instead of 1000ms)
     setTimeout(() => {
       const socketId = echoInstance.connector.socketId()
-      if (socketId) {
-        console.log('✅ WebSocket connected! Socket ID:', socketId)
-      } else {
-        console.warn('⚠️ WebSocket may not be connected yet')
-      }
-    }, 1000)
+    }, 500)
     
     return echoInstance
   } catch (err) {
-    console.error('❌ Error initializing Echo:', err)
     throw err
   }
 }
@@ -58,9 +44,7 @@ export const getEcho = (): Echo<any> => {
   if (!echoInstance) {
     try {
       echoInstance = initializeEcho()
-      console.log('🎯 Echo instance created and stored')
     } catch (err) {
-      console.error('❌ Failed to create Echo instance:', err)
       throw err
     }
   }

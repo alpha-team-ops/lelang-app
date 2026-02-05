@@ -94,8 +94,8 @@ const AppContent = () => {
               menuCategories={menuCategories}
               user={dashboardUser}
               onLogout={handleLogout}
-              onProfile={() => console.log('Profile')}
-              onApiDocsClick={() => console.log('API Docs')}
+              onProfile={() => {}}
+              onApiDocsClick={() => {}}
             />
           </ProtectedRoute>
         }
