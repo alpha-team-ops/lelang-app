@@ -89,7 +89,6 @@ const AuctionActivityPage: React.FC = () => {
   }, [page, rowsPerPage]);
 
   const handleNewBid = useCallback((bidActivity: BidActivity) => {
-    console.log('💰 New bid for', bidActivity.auctionTitle, bidActivity.bidAmount);
     setActivities((prev) => [bidActivity, ...prev]);
   }, []);
 

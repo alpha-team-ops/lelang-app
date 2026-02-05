@@ -3,10 +3,169 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getUserSession, clearUserSession, getSessionRemainingTime, formatRemainingTime } from './utils/sessionManager';
 import { auctionService } from '../../data/services';
 import { portalAuctionsMock } from '../../data/mock/auctions';
+import authService from '../../data/services/authService';
+import { useRealtimeAuction } from '../../hooks/useRealtimeAuction';
 import type { PortalAuction } from '../../data/types';
 import AuctionModal from './AuctionModal';
 import AuctionTimerDisplay from './components/AuctionTimerDisplay';
 import './styles/portal.css';
+
+// ✅ PortalAuctionCard - individual card with WebSocket + polling for real-time price updates
+const PortalAuctionCard: React.FC<{
+  auction: PortalAuction;
+  onSelectAuction: (auction: PortalAuction) => void;
+}> = ({ auction: initialAuction, onSelectAuction }) => {
+  const [liveData, setLiveData] = useState<Partial<PortalAuction>>({});
+
+  // Call recordView to trigger broadcast when card mounts
+  useEffect(() => {
+    const recordView = async () => {
+      try {
+        // Use auctionService client which has correct base URL and auth
+        await auctionService.incrementViewCount(initialAuction.id);
+      } catch (err) {
+        // Silently fail
+      }
+    };
+    
+    recordView();
+  }, [initialAuction.id]);
+
+  // Memoize callback for bid updates
+  const handleCurrentBidUpdate = useCallback((currentBid: number, bidderName?: string) => {
+    setLiveData((prev) => ({
+      ...prev,
+      currentBid: currentBid,
+      participantCount: (prev.participantCount || 0) + (bidderName ? 1 : 0),
+    }));
+  }, []);
+
+  // Subscribe to WebSocket via useRealtimeAuction hook (handles bid.placed and auction.updated)
+  useRealtimeAuction({
+    auctionId: initialAuction.id,
+    status: initialAuction.status,
+    enabled: true,
+    onCurrentBidUpdate: handleCurrentBidUpdate,
+  });
+
+  // 🚀 Manual polling for portal auctions (because useAuctionPolling is admin-only)
+  // Poll every 2 seconds to ensure we get latest price, participants, etc.
+  useEffect(() => {
+    let isPolling = false;
+    let pollingInterval: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      pollingInterval = setInterval(async () => {
+        if (isPolling) return; // Skip if already polling
+        isPolling = true;
+
+        try {
+          const token = sessionStorage.getItem('portalToken') || authService.getStoredToken();
+          if (!token) {
+            isPolling = false;
+            return;
+          }
+
+          const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+          // Use portal endpoint for portal auctions
+          const url = `${apiUrl}/api/v1/auctions/${initialAuction.id}`;
+          
+          const response = await fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const responseData = await response.json();
+            if (responseData.data) {
+              setLiveData((prev) => ({
+                ...prev,
+                currentBid: responseData.data.currentBid ?? prev.currentBid,
+                participantCount: responseData.data.participantCount ?? prev.participantCount,
+                status: responseData.data.status ?? prev.status,
+                endTime: responseData.data.endTime ?? prev.endTime,
+                viewCount: responseData.data.viewCount ?? prev.viewCount,
+              }));
+            }
+          }
+        } catch (err) {
+          // Silently fail polling
+        } finally {
+          isPolling = false;
+        }
+      }, 2000); // Poll every 2s for near-realtime updates
+    };
+
+    if (initialAuction.status === 'LIVE') {
+      startPolling();
+    }
+
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [initialAuction.id, initialAuction.status]);
+
+  const displayAuction = { ...initialAuction, ...liveData };
+
+  return (
+    <div className="auction-card">
+      {/* Image */}
+      <div className="auction-image">
+        {displayAuction.images && displayAuction.images.length > 0 ? (
+          <img 
+            src={displayAuction.images[0]} 
+            alt={displayAuction.title}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+        ) : (
+          <div className="auction-image-placeholder">📦</div>
+        )}
+        <div className="auction-category-badge">{displayAuction.category}</div>
+      </div>
+
+      {/* Content */}
+      <div className="auction-content">
+        {/* Name & Condition */}
+        <div className="auction-name">{displayAuction.title}</div>
+        <div className="auction-condition">{displayAuction.condition}</div>
+
+        {/* Price & Participants */}
+        <div className="auction-info">
+          <div className="info-item">
+            <div className="info-label">Current Price</div>
+            <div className="info-value price">
+              Rp {displayAuction.currentBid.toLocaleString('id-ID')}
+            </div>
+          </div>
+          <div className="info-item">
+            <div className="info-label">Participants</div>
+            <div className="info-value participants">{displayAuction.participantCount} people</div>
+          </div>
+        </div>
+
+        {/* Timer */}
+        <AuctionTimerDisplay auction={displayAuction} />
+
+        {/* Bid Button */}
+        <button
+          className="auction-button"
+          onClick={() => onSelectAuction(displayAuction)}
+        >
+          💰 Place Bid
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export default function AuctionList() {
   const navigate = useNavigate();
@@ -54,7 +213,6 @@ export default function AuctionList() {
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to load auctions';
         setError(errorMsg);
-        console.error('Error loading auctions:', err);
         // Fallback to mock data if error
         setAuctions(portalAuctionsMock);
       } finally {
@@ -234,57 +392,11 @@ export default function AuctionList() {
       {/* Auction Grid */}
       <div className="auction-grid">
         {auctions.map((auction) => (
-          <div key={auction.id} className="auction-card">
-            {/* Image */}
-            <div className="auction-image">
-              {auction.images && auction.images.length > 0 ? (
-                <img 
-                  src={auction.images[0]} 
-                  alt={auction.title}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                  }}
-                />
-              ) : (
-                <div className="auction-image-placeholder">📦</div>
-              )}
-              <div className="auction-category-badge">{auction.category}</div>
-            </div>
-
-            {/* Content */}
-            <div className="auction-content">
-              {/* Name & Condition */}
-              <div className="auction-name">{auction.title}</div>
-              <div className="auction-condition">{auction.condition}</div>
-
-              {/* Price & Participants */}
-              <div className="auction-info">
-                <div className="info-item">
-                  <div className="info-label">Current Price</div>
-                  <div className="info-value price">
-                    Rp {auction.currentBid.toLocaleString('id-ID')}
-                  </div>
-                </div>
-                <div className="info-item">
-                  <div className="info-label">Participants</div>
-                  <div className="info-value participants">{auction.participantCount} people</div>
-                </div>
-              </div>
-
-              {/* Timer */}
-              <AuctionTimerDisplay auction={auction} />
-
-              {/* Bid Button */}
-              <button
-                className="auction-button"
-                onClick={() => setSelectedAuction(auction)}
-              >
-                💰 Place Bid
-              </button>
-            </div>
-          </div>
+          <PortalAuctionCard 
+            key={auction.id}
+            auction={auction}
+            onSelectAuction={setSelectedAuction}
+          />
         ))}
       </div>
 

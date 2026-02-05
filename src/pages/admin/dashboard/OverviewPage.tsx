@@ -168,7 +168,7 @@ export default function OverviewPage() {
         setStats(statsData);
         await fetchAuctions(1, 100);
       } catch (error) {
-        console.error('Error loading dashboard data:', error);
+        // Silently fail with fallback data
       } finally {
         setLoading(false);
       }
@@ -284,7 +284,7 @@ export default function OverviewPage() {
                 trend={analytics.active_auctions_trend}
                 tooltip="Exclude draft & cancelled auctions"
                 isClickable={true}
-                onClick={() => console.log('Navigate to auctions')}
+                onClick={() => {}}
               />
             </Grid>
 
@@ -299,7 +299,7 @@ export default function OverviewPage() {
                 subtitle="Within 24 hours"
                 isClickable={true}
                 isPriority={true}
-                onClick={() => console.log('Navigate to ending auctions')}
+                onClick={() => {}}
               />
             </Grid>
 
@@ -314,7 +314,7 @@ export default function OverviewPage() {
                 trend={analytics.active_users_trend}
                 subtitle="Users logged in or bidding"
                 isClickable={true}
-                onClick={() => console.log('Navigate to active users')}
+                onClick={() => {}}
               />
             </Grid>
           </Grid>

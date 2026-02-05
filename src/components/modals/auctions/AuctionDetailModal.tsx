@@ -221,7 +221,6 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
           }
 
           if (!token) {
-            console.warn('⚠️ No token for initial fetch');
             setIsInitialLoading(false);
             return;
           }

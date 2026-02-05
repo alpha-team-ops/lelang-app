@@ -120,7 +120,6 @@ export default function PortalForm() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.';
       setApiError(errorMessage);
-      console.error('Portal login error:', error);
     } finally {
       setIsSubmitting(false);
     }

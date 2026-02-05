@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import type { PortalAuction } from '../../data/types';
 import { bidService, auctionService } from '../../data/services';
-import { useRealtimeAuction, useAuctionPolling } from '../../hooks/useRealtimeAuction';
+import { useRealtimeAuction } from '../../hooks/useRealtimeAuction';
 import { createEchoInstance } from '../../lib/websocket';
 import Echo from 'laravel-echo';
 import './styles/portal.css';
@@ -26,6 +26,20 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
   const incrementedAuctionIdRef = useRef<string | null>(null);
   const echoRef = useRef<Echo<any> | null>(null);
 
+  // Call recordView when modal opens to trigger broadcast from backend
+  useEffect(() => {
+    const recordView = async () => {
+      try {
+        // Use auctionService client which has correct base URL and auth
+        await auctionService.incrementViewCount(auction.id);
+      } catch (err) {
+        // Silently fail
+      }
+    };
+    
+    recordView();
+  }, [auction.id]);
+
   // Memoize callback - only update currentBid for bandwidth optimization
   const handleCurrentBidUpdate = useCallback((currentBid: number) => {
     setLiveAuction(prev => ({
@@ -41,18 +55,6 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
     enabled: true,
     onCurrentBidUpdate: handleCurrentBidUpdate,
   });
-
-  // Polling for specific auction in modal - ensures instant updates in modal view
-  // Parent AuctionList also polls all auctions for list updates
-  // ✅ Only poll LIVE auctions (others don't need real-time updates)
-  useAuctionPolling(
-    auction.id,
-    1000, // Poll every 1 second (not 500ms to reduce server load)
-    auction.status === 'LIVE', // Only poll LIVE auctions
-    (updatedAuction) => {
-      setLiveAuction(updatedAuction);
-    }
-  );
 
   // Also sync with parent prop changes (from parent's polling)
   useEffect(() => {
@@ -164,10 +166,11 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
               currentBid: data.currentBid,
             });
 
-            // Update current bid
+            // Update current bid and participants
             setLiveAuction((prev) => ({
               ...prev,
               currentBid: data.currentBid,
+              participantCount: data.participantCount ?? prev.participantCount,
             }));
 
             // Clear notification after 5 seconds
@@ -187,6 +190,67 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
       }
     };
   }, [auction?.id]);
+
+  // 🚀 Manual polling fallback for portal auctions - ensure updates even if WebSocket slow
+  // Poll every 2 seconds to get latest price, participants, status
+  useEffect(() => {
+    let isPolling = false;
+    let pollingInterval: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      pollingInterval = setInterval(async () => {
+        if (isPolling) return; // Skip if already polling
+        isPolling = true;
+
+        try {
+          const token = sessionStorage.getItem('portalToken');
+          if (!token) {
+            isPolling = false;
+            return;
+          }
+
+          const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+          const url = `${apiUrl}/api/v1/auctions/${auction.id}`;
+          
+          const response = await fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const responseData = await response.json();
+            if (responseData.data) {
+              setLiveAuction((prev) => ({
+                ...prev,
+                currentBid: responseData.data.currentBid ?? prev.currentBid,
+                participantCount: responseData.data.participantCount ?? prev.participantCount,
+                status: responseData.data.status ?? prev.status,
+                endTime: responseData.data.endTime ?? prev.endTime,
+                viewCount: responseData.data.viewCount ?? prev.viewCount,
+              }));
+            }
+          }
+        } catch (err) {
+          // Silently fail polling
+        } finally {
+          isPolling = false;
+        }
+      }, 2000); // Poll every 2s for near-realtime updates
+    };
+
+    if (auction.status === 'LIVE') {
+      startPolling();
+    }
+
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [auction.id, auction.status]);
 
   const handleBidChange = (e: ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
@@ -306,7 +370,6 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit bid. Please try again.';
       setError(errorMessage);
-      console.error('Bid error:', err);
     } finally {
       setIsSubmitting(false);
     }

@@ -18,7 +18,7 @@ interface UseRealtimeAuctionOptions {
  * - Hanya track currentBid untuk minimize bandwidth
  * - Hanya subscribe ke LIVE auctions (DRAFT/ENDED tidak perlu)
  * - Auto-subscribe saat status berubah ke LIVE
- * Fallback ke polling jika WebSocket tidak tersedia
+ * Fallback ke polling jika WebSocket tidak tersedia (ADMIN ONLY)
  */
 export const useRealtimeAuction = ({
   auctionId,
