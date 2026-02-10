@@ -24,8 +24,10 @@ import {
   Close as CloseIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
+import { Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import type { WinnerBid } from '../../../data/types';
 import { winnerBidService } from '../../../data/services/winnerBidService';
+import { useAuth } from '../../../config/AuthContext';
 import WinnerBidDetailModal from '../../../components/modals/auctions/WinnerBidDetailModal';
 import UpdateWinnerBidStatusModal from '../../../components/modals/auctions/UpdateWinnerBidStatusModal';
 
@@ -38,6 +40,7 @@ const WinnerBidsPage: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   // Modal states
   const [selectedWinner, setSelectedWinner] = useState<WinnerBid | null>(null);
@@ -46,12 +49,16 @@ const WinnerBidsPage: React.FC = () => {
 
   // Load winner bids
   const fetchWinnerBids = useCallback(async () => {
+    if (!isAuthenticated) {
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     try {
       // Call API with filters
       const response = await winnerBidService.getAllWinnerBids({
-        status: statusFilter || undefined,
+        status: statusFilter && statusFilter.length > 0 ? statusFilter : undefined,
         page: page + 1, // API uses 1-based pagination
         limit: rowsPerPage,
       });
@@ -64,11 +71,13 @@ const WinnerBidsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, statusFilter]);
+  }, [page, rowsPerPage, statusFilter, isAuthenticated]);
 
   useEffect(() => {
-    fetchWinnerBids();
-  }, [fetchWinnerBids]);
+    if (!authLoading && isAuthenticated) {
+      fetchWinnerBids();
+    }
+  }, [fetchWinnerBids, authLoading, isAuthenticated]);
 
   // Filter winner bids by search text (local filtering)
   const filteredWinnerBids = useMemo(() => {
@@ -76,7 +85,8 @@ const WinnerBidsPage: React.FC = () => {
       const matchSearch =
         winner.auctionTitle.toLowerCase().includes(searchText.toLowerCase()) ||
         winner.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
-        winner.serialNumber.toLowerCase().includes(searchText.toLowerCase());
+        winner.serialNumber.toLowerCase().includes(searchText.toLowerCase()) ||
+        winner.corporateIdNip.toLowerCase().includes(searchText.toLowerCase());
       return matchSearch;
     });
   }, [winnerBids, searchText]);
@@ -142,7 +152,7 @@ const WinnerBidsPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: 'bold' }}>
+      <Typography variant="h4" sx={{ mb: 4, fontWeight: 700, color: '#1f2937', letterSpacing: '-0.5px' }}>
         Winner Bids Management
       </Typography>
 
@@ -153,7 +163,7 @@ const WinnerBidsPage: React.FC = () => {
       )}
 
       {/* Search and Filter Section */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Paper sx={{ p: 2.5, mb: 3, backgroundColor: '#fafafa', border: '1px solid #e5e7eb' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
@@ -162,43 +172,72 @@ const WinnerBidsPage: React.FC = () => {
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               InputProps={{
-                startAdornment: <SearchIcon sx={{ mr: 1, color: 'action.active' }} />,
+                startAdornment: <SearchIcon sx={{ mr: 1, color: '#9ca3af' }} />,
                 endAdornment: searchText && (
                   <IconButton
                     size="small"
                     onClick={() => setSearchText('')}
                     edge="end"
                   >
-                    <CloseIcon />
+                    <CloseIcon fontSize="small" />
                   </IconButton>
                 ),
               }}
               size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: '#ffffff',
+                  borderRadius: '8px',
+                  '&:hover fieldset': {
+                    borderColor: '#d1d5db',
+                  },
+                },
+              }}
             />
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              fullWidth
-              select
-              label="Filter by Status"
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(0);
-              }}
-              SelectProps={{
-                native: true,
-              }}
-              size="small"
-            >
-              <option value="">All Status</option>
-              <option value="PAYMENT_PENDING">Payment Pending</option>
-              <option value="PAID">Paid</option>
-              <option value="SHIPPED">Shipped</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="CANCELLED">Cancelled</option>
-            </TextField>
+            <FormControl fullWidth size="small" sx={{ minWidth: '200px' }}>
+              <InputLabel 
+                id="status-filter-label"
+                sx={{ 
+                  '&.MuiInputLabel-shrink': { transform: 'translate(14px, -9px) scale(0.75)' },
+                  transform: 'translate(14px, -9px) scale(0.75)',
+                  transformOrigin: 'top left'
+                }}
+              >
+                Filter by Status
+              </InputLabel>
+              <Select
+                labelId="status-filter-label"
+                id="status-filter"
+                value={statusFilter}
+                label="Filter by Status"
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(0);
+                }}
+                displayEmpty
+                renderValue={(value) => {
+                  const statusMap: Record<string, string> = {
+                    '': 'All Status',
+                    'PAYMENT_PENDING': 'Payment Pending',
+                    'PAID': 'Paid',
+                    'SHIPPED': 'Shipped',
+                    'COMPLETED': 'Completed',
+                    'CANCELLED': 'Cancelled',
+                  };
+                  return statusMap[value as string] || 'All Status';
+                }}
+              >
+                <MenuItem value="">All Status</MenuItem>
+                <MenuItem value="PAYMENT_PENDING">Payment Pending</MenuItem>
+                <MenuItem value="PAID">Paid</MenuItem>
+                <MenuItem value="SHIPPED">Shipped</MenuItem>
+                <MenuItem value="COMPLETED">Completed</MenuItem>
+                <MenuItem value="CANCELLED">Cancelled</MenuItem>
+              </Select>
+            </FormControl>
           </Grid>
         </Grid>
       </Paper>
@@ -219,37 +258,74 @@ const WinnerBidsPage: React.FC = () => {
           <>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Auction Title</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Winner Name</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="right">
-                    Winning Bid
+                <TableRow sx={{ backgroundColor: '#ffffff', borderBottom: '2px solid #e5e7eb' }}>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>AUCTION TITLE</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>SERIAL NUMBER</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>WINNER NAME</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>NIP / ID</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }} align="right">
+                    WINNING BID
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Payment Due Date</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
-                    Actions
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>STATUS</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>PAYMENT DUE</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }} align="center">
+                    ACTIONS
                   </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredWinnerBids.map((winner) => (
-                  <TableRow key={winner.id} hover>
-                    <TableCell>{winner.auctionTitle}</TableCell>
-                    <TableCell>{winner.fullName}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  <TableRow key={winner.id} hover sx={{ '&:hover': { backgroundColor: '#fafbfc' }, borderBottom: '1px solid #f0f0f0' }}>
+                    <TableCell sx={{ fontWeight: 500, color: '#1f2937', py: 2.5, fontSize: '13px' }}>{winner.auctionTitle}</TableCell>
+                    <TableCell sx={{ py: 2.5 }}>
+                      <Chip
+                        label={winner.serialNumber}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          fontFamily: 'monospace',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          backgroundColor: '#ffffff',
+                          borderColor: '#d1d5db',
+                          color: '#4b5563',
+                          height: '24px',
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 500, color: '#2d3748', py: 2.5, fontSize: '13px' }}>{winner.fullName}</TableCell>
+                    <TableCell sx={{ py: 2.5 }}>
+                      <Chip
+                        label={winner.corporateIdNip}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          fontFamily: 'monospace',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          backgroundColor: '#ffffff',
+                          borderColor: '#d1d5db',
+                          color: '#4b5563',
+                          height: '24px',
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: '13px', color: '#1f2937', py: 2.5 }}>
                       {formatCurrency(winner.winningBid)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ py: 2.5 }}>
                       <Chip
                         label={winner.status.replace(/_/g, ' ')}
                         color={getStatusChipColor(winner.status)}
                         size="small"
+                        sx={{ fontWeight: 500, fontSize: '11px', letterSpacing: '0px', height: '24px' }}
                       />
                     </TableCell>
-                    <TableCell>{formatDate(winner.paymentDueDate)}</TableCell>
-                    <TableCell align="center">
-                      <Stack direction="row" spacing={1} justifyContent="center">
+                    <TableCell sx={{ fontSize: '12px', color: '#6b7280', py: 2.5 }}>
+                      {formatDate(winner.paymentDueDate)}
+                    </TableCell>
+                    <TableCell align="center" sx={{ py: 2.5 }}>
+                      <Stack direction="row" spacing={0.5} justifyContent="center">
                         <IconButton
                           size="small"
                           color="primary"
@@ -280,6 +356,19 @@ const WinnerBidsPage: React.FC = () => {
               page={page}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{
+                backgroundColor: '#ffffff',
+                borderTop: '1px solid #e5e7eb',
+                '& .MuiTablePagination-toolbar': { py: 1.5, px: 2 },
+                '& .MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+                  color: '#6b7280',
+                  fontWeight: 500,
+                  fontSize: '12px',
+                  margin: 0,
+                },
+                '& .MuiSelect-standard': { fontWeight: 500, fontSize: '12px' },
+                '& .MuiIconButton-root': { color: '#9ca3af' },
+              }}
             />
           </>
         )}

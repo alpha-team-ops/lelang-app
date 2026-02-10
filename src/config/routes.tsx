@@ -8,20 +8,23 @@ import {
   List as ListIcon,
   EmojiEvents as TrophyIcon,
 } from '@mui/icons-material';
-import OverviewPage from '../pages/admin/dashboard/OverviewPage';
-import AnalyticsPage from '../pages/admin/dashboard/AnalyticsPage';
-import GalleryPage from '../pages/admin/auctions/GalleryPage';
-import TablePage from '../pages/admin/auctions/TablePage';
-import ActivityPage from '../pages/admin/auctions/ActivityPage';
-import WinnerBidsPage from '../pages/admin/auctions/WinnerBidsPage';
-import UserManagementPage from '../pages/admin/managements/UserManagementPage';
-import RolesPage from '../pages/admin/managements/RolesPage';
-import SettingsPage from '../pages/admin/settings/SettingsPage';
-import OrganizationSettingsPage from '../pages/admin/settings/OrganizationSettingsPage';
+import { lazy } from 'react';
+
+// Lazy load pages untuk mengurangi initial bundle
+const OverviewPage = lazy(() => import('../pages/admin/dashboard/OverviewPage'));
+const AnalyticsPage = lazy(() => import('../pages/admin/dashboard/AnalyticsPage'));
+const GalleryPage = lazy(() => import('../pages/admin/auctions/GalleryPage'));
+const TablePage = lazy(() => import('../pages/admin/auctions/TablePage'));
+const ActivityPage = lazy(() => import('../pages/admin/auctions/ActivityPage'));
+const WinnerBidsPage = lazy(() => import('../pages/admin/auctions/WinnerBidsPage'));
+const UserManagementPage = lazy(() => import('../pages/admin/managements/UserManagementPage'));
+const RolesPage = lazy(() => import('../pages/admin/managements/RolesPage'));
+const SettingsPage = lazy(() => import('../pages/admin/settings/SettingsPage'));
+const OrganizationSettingsPage = lazy(() => import('../pages/admin/settings/OrganizationSettingsPage'));
 
 // Portal pages
-import PortalForm from '../pages/portal/PortalForm';
-import AuctionList from '../pages/portal/AuctionList';
+const PortalForm = lazy(() => import('../pages/portal/PortalForm'));
+const AuctionList = lazy(() => import('../pages/portal/AuctionList'));
 
 export interface MenuItem {
   text: string;

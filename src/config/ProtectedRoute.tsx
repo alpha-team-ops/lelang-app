@@ -16,6 +16,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { isAuthenticated, loading, user, permissions } = useAuth();
 
+  // IMPORTANT: Show loading state ONLY if currently loading
+  // This prevents rendering children with useEffect calls before auth check completes
   if (loading) {
     return (
       <Box
@@ -31,6 +33,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
+  // Redirect to login IMMEDIATELY if not authenticated (don't render children)
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }

@@ -34,11 +34,13 @@ import AuctionDetailModal from '../../../components/modals/auctions/AuctionDetai
 import CreateAuctionModal from '../../../components/modals/auctions/CreateAuctionModal';
 import EditAuctionModal from '../../../components/modals/auctions/EditAuctionModal';
 import { useAuction } from '../../../config/AuctionContext';
+import { useAuth } from '../../../config/AuthContext';
 import { useRealtimeAuction } from '../../../hooks/useRealtimeAuction';
 import type { Auction } from '../../../data/types';
 
 const TablePage: React.FC = () => {
   const { auctions, loading, error, fetchAuctions, deleteAuction } = useAuction();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [searchText, setSearchText] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -50,10 +52,16 @@ const TablePage: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [liveAuctions, setLiveAuctions] = useState<Record<string, Auction>>({});
 
-  // Load auctions on mount
+  // Load auctions on mount - only if authenticated
   useEffect(() => {
-    fetchAuctions(1, 100);
-  }, [fetchAuctions]);
+    if (!authLoading && !isAuthenticated) {
+      return;
+    }
+    
+    if (!authLoading && isAuthenticated) {
+      fetchAuctions(1, 100);
+    }
+  }, [fetchAuctions, isAuthenticated, authLoading]);
 
   // Real-time listener component for each auction
   const TableAuctionRealtimeListener = React.memo(({ auction, onUpdate }: { auction: Auction; onUpdate: (auctionId: string, data: Partial<Auction>) => void }) => {

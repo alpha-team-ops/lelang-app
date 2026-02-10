@@ -1,9 +1,9 @@
 import axios from 'axios';
 import type { WinnerBid } from '../types/index';
 
-// Create a specialized client for winner bids API
+// Create a specialized client for admin winner bids API (authenticated, auto-filters by organization)
 const winnerBidClient = axios.create({
-  baseURL: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/${import.meta.env.VITE_API_VERSION || 'v1'}/bids/winners`,
+  baseURL: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/${import.meta.env.VITE_API_VERSION || 'v1'}/admin/bids/winners`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -92,6 +92,25 @@ export const winnerBidService = {
       };
     } catch (error: any) {
       const message = error.response?.data?.message || `Failed to fetch winner bids with status ${status}`;
+      throw new Error(message);
+    }
+  },
+
+  /**
+   * Get winner bids with overdue payments
+   */
+  getOverduePayments: async (page: number = 1, limit: number = 10): Promise<{ winnerBids: WinnerBid[]; pagination: any }> => {
+    try {
+      const response = await winnerBidClient.get('/overdue-payments', {
+        params: { page, limit },
+      });
+
+      return {
+        winnerBids: response.data.data || [],
+        pagination: response.data.pagination,
+      };
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to fetch overdue payments';
       throw new Error(message);
     }
   },

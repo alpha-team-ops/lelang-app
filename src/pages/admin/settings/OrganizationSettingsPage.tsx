@@ -32,10 +32,12 @@ import {
 } from '@mui/icons-material';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import { useOrganization } from '../../../config/OrganizationContext';
+import { useAuth } from '../../../config/AuthContext';
 import type { OrganizationSettings } from '../../../data/services/organizationService';
 
 const OrganizationSettingsPage: React.FC = () => {
   const { organization, loading, error, fetchSettings, updateSettings, uploadLogo, clearError } = useOrganization();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -43,11 +45,14 @@ const OrganizationSettingsPage: React.FC = () => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [formData, setFormData] = useState<Partial<OrganizationSettings>>({});
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  // Fetch settings on mount
+  // Fetch settings on mount - only if authenticated
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (!authLoading && isAuthenticated) {
+      fetchSettings();
+    }
+  }, [fetchSettings, authLoading, isAuthenticated]);
 
   // Update form when organization data is loaded
   useEffect(() => {
@@ -56,6 +61,29 @@ const OrganizationSettingsPage: React.FC = () => {
       setLogoPreview(organization.logo);
     }
   }, [organization]);
+
+  const handleCopyToClipboard = async (text: string, fieldName: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      // Fallback untuk browser yang tidak support navigator.clipboard
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopiedField(fieldName);
+        setTimeout(() => setCopiedField(null), 2000);
+      } catch (fallbackErr) {
+        console.error('Fallback copy failed:', fallbackErr);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
     const { name, value } = e.target as HTMLInputElement;
@@ -278,15 +306,15 @@ const OrganizationSettingsPage: React.FC = () => {
                                 size="small"
                                 onClick={() => {
                                   if (organization?.organizationCode) {
-                                    navigator.clipboard.writeText(organization.organizationCode);
-                                    alert('Organization code copied to clipboard!');
+                                    handleCopyToClipboard(organization.organizationCode, 'organizationCode');
                                   }
                                 }}
                                 sx={{
                                   px: 0.5,
                                   minWidth: 'auto',
-                                  color: '#6b7280',
+                                  color: copiedField === 'organizationCode' ? '#10b981' : '#6b7280',
                                   '&:hover': { color: '#374151' },
+                                  transition: 'color 0.2s',
                                 }}
                               >
                                 <ContentCopyIcon fontSize="small" />
@@ -433,11 +461,15 @@ const OrganizationSettingsPage: React.FC = () => {
                       size="small"
                       onClick={() => {
                         if (organization?.portalInvitationCode) {
-                          navigator.clipboard.writeText(organization.portalInvitationCode);
-                          alert('Invitation code copied to clipboard!');
+                          handleCopyToClipboard(organization.portalInvitationCode, 'invitationCode');
                         }
                       }}
-                      sx={{ px: 2 }}
+                      sx={{ 
+                        px: 2,
+                        color: copiedField === 'invitationCode' ? '#10b981' : 'inherit',
+                        borderColor: copiedField === 'invitationCode' ? '#10b981' : 'inherit',
+                        transition: 'all 0.2s',
+                      }}
                     >
                       <ContentCopyIcon fontSize="small" />
                     </Button>
@@ -469,11 +501,15 @@ const OrganizationSettingsPage: React.FC = () => {
                       onClick={() => {
                         if (organization?.portalInvitationCode) {
                           const link = `${window.location.origin}/portal?invitationCode=${organization.portalInvitationCode}`;
-                          navigator.clipboard.writeText(link);
-                          alert('Portal link copied to clipboard!');
+                          handleCopyToClipboard(link, 'portalLink');
                         }
                       }}
-                      sx={{ px: 2 }}
+                      sx={{ 
+                        px: 2,
+                        color: copiedField === 'portalLink' ? '#10b981' : 'inherit',
+                        borderColor: copiedField === 'portalLink' ? '#10b981' : 'inherit',
+                        transition: 'all 0.2s',
+                      }}
                     >
                       <ContentCopyIcon fontSize="small" />
                     </Button>

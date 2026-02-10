@@ -39,11 +39,13 @@ import {
 import CreateStaffModal from '../../../components/modals/managements/CreateStaffModal';
 import EditStaffModal from '../../../components/modals/managements/EditStaffModal';
 import { useStaff } from '../../../config/StaffContext';
+import { useAuth } from '../../../config/AuthContext';
 import { usePermission } from '../../../hooks/usePermission';
 import type { Staff } from '../../../data/services/staffService';
 
 const UserManagementPage: React.FC = () => {
   const { staff, loading, error, fetchStaff, deleteStaff } = useStaff();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { has } = usePermission();
   
   // Check permissions
@@ -62,10 +64,16 @@ const UserManagementPage: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'ADMIN' | 'MODERATOR'>('ALL');
   const [deleting, setDeleting] = useState(false);
 
-  // Load staff on mount
+  // Load staff on mount - only if authenticated
   useEffect(() => {
-    fetchStaff();
-  }, [fetchStaff]);
+    if (!authLoading && !isAuthenticated) {
+      return;
+    }
+    
+    if (!authLoading && isAuthenticated) {
+      fetchStaff();
+    }
+  }, [fetchStaff, isAuthenticated, authLoading]);
 
   // Filter dan search
   const filteredUsers = useMemo(() => {

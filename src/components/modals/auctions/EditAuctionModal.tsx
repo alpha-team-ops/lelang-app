@@ -216,7 +216,7 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
         purchaseYear: auction.purchaseYear || '',
       });
 
-      if (auction.images) {
+      if (auction.images && Array.isArray(auction.images)) {
         setImagePreviews(auction.images);
       }
     }
@@ -345,7 +345,8 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
             imageUrls = imageArray.map((img: any) => img.url || img.path).filter(Boolean);
           }
         } catch (imageError: any) {
-          setErrors({ title: `Image upload failed: ${imageError.message}` });
+          const errorMessage = imageError.message || 'Failed to upload images';
+          setErrors({ title: errorMessage });
           setIsSubmitting(false);
           return;
         }

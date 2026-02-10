@@ -59,9 +59,47 @@ portalClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Add error interceptor
+// Helper function to convert snake_case to camelCase
+const convertSnakeToCamel = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') return obj;
+  
+  if (Array.isArray(obj)) {
+    return obj.map(convertSnakeToCamel);
+  }
+  
+  const result: any = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      const camelKey = key.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
+      result[camelKey] = convertSnakeToCamel(obj[key]);
+    }
+  }
+  return result;
+};
+
+// Add response interceptor for admin auctions
 auctionClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Transform snake_case to camelCase
+    if (response.data && response.data.data) {
+      response.data.data = convertSnakeToCamel(response.data.data);
+    }
+    return response;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for portal auctions
+portalClient.interceptors.response.use(
+  (response) => {
+    // Transform snake_case to camelCase
+    if (response.data && response.data.data) {
+      response.data.data = convertSnakeToCamel(response.data.data);
+    }
+    return response;
+  },
   (error) => {
     return Promise.reject(error);
   }

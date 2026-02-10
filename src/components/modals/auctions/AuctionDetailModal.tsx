@@ -8,16 +8,20 @@ import {
   Typography,
   Box,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Edit as EditIcon,
   Timer as TimerIcon,
+  TrendingUp as TrendingUpIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
-import type { Auction } from '../../../data/types';
+import type { Auction, BidActivity } from '../../../data/types';
 import { useRealtimeAuction, useAuctionPolling } from '../../../hooks/useRealtimeAuction';
 import { createEchoInstance } from '../../../lib/websocket';
 import authService from '../../../data/services/authService';
+import { bidService } from '../../../data/services/bidService';
 import Echo from 'laravel-echo';
 
 // Status Badge
@@ -183,12 +187,81 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
   const [activeTab, setActiveTab] = useState(0);
   const [liveAuction, setLiveAuction] = useState<Auction | null>(auction);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [bidActivities, setBidActivities] = useState<BidActivity[]>([]);
+  const [bidActivityLoading, setBidActivityLoading] = useState(false);
+  const echoRef = useRef<Echo | null>(null);
 
   // ✅ Calculate actual status based on startTime/endTime timing
   const actualStatus = useMemo(() => {
     if (!liveAuction) return 'DRAFT' as const;
     return getActualAuctionStatus(liveAuction);
   }, [liveAuction?.startTime, liveAuction?.endTime, liveAuction?.status]);
+
+  // Fetch bid activities for activity tab (authenticated endpoint auto-filters by organization)
+  const fetchBidActivities = useCallback(async () => {
+    if (!auction?.id) return;
+    
+    // Don't set loading for fallback polls
+    try {
+      console.log('Fetching bid activities for auction:', auction.id);
+      const response = await bidService.getBidsForAuction({
+        auctionId: auction.id,
+        page: 1,
+        limit: 100, // Fetch more bids to ensure we get all
+      });
+      console.log('Bid activities fetched:', response.bids?.length, response.bids);
+      
+      // Sort bids by timestamp descending (newest first)
+      const sortedBids = (response.bids || []).sort((a, b) => {
+        const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : (a.timestamp as Date).getTime();
+        const timeB = typeof b.timestamp === 'string' ? new Date(b.timestamp).getTime() : (b.timestamp as Date).getTime();
+        return timeB - timeA;
+      });
+      
+      setBidActivities(sortedBids);
+    } catch (err) {
+      console.error('Failed to fetch bid activities:', err);
+      // Don't clear on error during polls
+    }
+  }, [auction?.id]);
+
+  // Add new bid to activities (for realtime)
+  const addBidActivity = useCallback((newBid: BidActivity) => {
+    setBidActivities(prev => {
+      // Deduplicate - check if bid with same amount and bidder already exists (within 1 second)
+      const isDuplicate = prev.some(b => 
+        b.bidAmount === newBid.bidAmount && 
+        b.bidder === newBid.bidder &&
+        (typeof b.timestamp === 'string' 
+          ? new Date(b.timestamp).getTime() 
+          : (b.timestamp as Date).getTime()) > Date.now() - 1000
+      );
+      
+      if (isDuplicate) {
+        console.log('Duplicate bid detected, skipping');
+        return prev;
+      }
+      
+      return [newBid, ...prev];
+    });
+  }, []);
+
+  // Fetch bid activities when modal opens or auction changes
+  useEffect(() => {
+    if (open && auction?.id) {
+      setBidActivityLoading(true);
+      fetchBidActivities().finally(() => setBidActivityLoading(false));
+      
+      // Fallback polling (gentle, no loading indicator) - every 5 seconds
+      // This ensures we don't miss any bids if WebSocket event is delayed or not sent
+      const pollInterval = setInterval(() => {
+        console.log('Polling bid activities...');
+        fetchBidActivities();
+      }, 5000);
+      
+      return () => clearInterval(pollInterval);
+    }
+  }, [open, auction?.id, fetchBidActivities]);
 
   // ✅ FIX 1: Sync liveAuction state when auction prop changes
   useEffect(() => {
@@ -259,12 +332,31 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
     } : null);
   }, []);
 
+  // Handle auction updates (for bid activity)
+  const handleAuctionUpdate = useCallback((data: any) => {
+    console.log('Auction updated via WebSocket:', data);
+    // If currentBid is in the update, add to bid activities
+    if (data.currentBid !== undefined && data.bidderName) {
+      const newBid: BidActivity = {
+        id: `bid-${Date.now()}`,
+        auctionId: auction?.id,
+        bidAmount: data.currentBid,
+        bidder: data.bidderName,
+        bidderName: data.bidderName,
+        timestamp: new Date(),
+        status: 'CURRENT',
+      };
+      addBidActivity(newBid);
+    }
+  }, [auction?.id, addBidActivity]);
+
   // WebSocket connection - OPTIMIZED for currentBid only
   useRealtimeAuction({
     auctionId: auction?.id || '',
     status: actualStatus, // Use calculated actual status (not backend status)
     enabled: open && !!auction?.id,
     onCurrentBidUpdate: handleCurrentBidUpdate,
+    onAuctionUpdate: handleAuctionUpdate,
   });
 
   // ✅ FIX 3: Polling - only for LIVE auctions, every 3 seconds
@@ -290,8 +382,6 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
     };
   }, [open]);
 
-  // WebSocket setup for real-time updates (admin endpoint with Bearer token)
-  const echoRef = useRef<Echo<any> | null>(null);
   const [bidNotification, setBidNotification] = useState<{
     bidderName: string;
     currentBid: number;
@@ -757,45 +847,156 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
         {/* TAB 2: ACTIVITY */}
         {activeTab === 2 && (
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 2, color: '#1f2937', fontSize: '13px' }}>
-              📊 BID ACTIVITY
-            </Typography>
-            <Box sx={{ display: 'grid', gap: 1.5 }}>
-              {/* Only show Current Highest Bid if there are actual bids */}
-              {liveAuction.totalBids > 0 ? (
-                <Box sx={{ padding: 1.75, backgroundColor: '#fafbfc', borderRadius: '8px', borderLeft: '4px solid #1f2937' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography sx={{ fontWeight: 700, color: '#1f2937', fontSize: '15px' }}>
-                      Current Highest Bid
-                    </Typography>
-                    <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>Just now</Typography>
-                  </Box>
-                  <Typography sx={{ fontSize: '18px', fontWeight: 700, color: '#1f2937', mb: 0.75 }}>
-                    {formatCurrency(liveAuction.currentBid)}
-                  </Typography>
-                  <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>
-                    by Bidder {getBidderDisplayName(liveAuction.currentBidder)}
-                  </Typography>
-                </Box>
-              ) : (
-                <Box sx={{ padding: 1.75, backgroundColor: '#fafbfc', borderRadius: '8px', borderLeft: '4px solid #9ca3af' }}>
-                  <Typography sx={{ fontWeight: 700, color: '#6b7280', fontSize: '15px', textAlign: 'center' }}>
-                    No bids yet
-                  </Typography>
-                  <Typography sx={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', mt: 0.5 }}>
-                    Starting price: {formatCurrency(liveAuction.startingPrice || liveAuction.currentBid)}
-                  </Typography>
-                </Box>
-              )}
-
-              <Box sx={{ padding: 1.75, backgroundColor: '#f9fafb', borderRadius: '8px', textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#1f2937', mb: 0.5 }}>
-                  {liveAuction.totalBids}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <TrendingUpIcon sx={{ fontSize: '18px', color: '#1f2937' }} />
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#1f2937', fontSize: '13px' }}>
+                BID ACTIVITY HISTORY
+              </Typography>
+            </Box>
+            
+            {bidActivityLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress size={40} />
+              </Box>
+            ) : bidActivities.length === 0 ? (
+              <Box sx={{ 
+                padding: 3, 
+                backgroundColor: '#fafbfc', 
+                borderRadius: '12px', 
+                textAlign: 'center',
+                border: '1px dashed #d1d5db'
+              }}>
+                <Typography sx={{ fontWeight: 700, color: '#6b7280', fontSize: '15px' }}>
+                  No bids yet
                 </Typography>
-                <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>
-                  {liveAuction.totalBids === 1 ? 'bid' : 'bids'} in total
+                <Typography sx={{ fontSize: '13px', color: '#9ca3af', mt: 0.5 }}>
+                  Bids will appear here when bidding starts
                 </Typography>
               </Box>
+            ) : (
+              <Box sx={{ 
+                display: 'grid', 
+                gap: 1.2, 
+                maxHeight: '420px', 
+                overflowY: 'auto',
+                pr: 1,
+                '&::-webkit-scrollbar': {
+                  width: '6px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: '#f1f5f9',
+                  borderRadius: '3px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: '#cbd5e1',
+                  borderRadius: '3px',
+                  '&:hover': {
+                    backgroundColor: '#94a3b8',
+                  },
+                },
+              }}>
+                {bidActivities.map((bid, index) => (
+                  <Box 
+                    key={bid.id || index}
+                    sx={{ 
+                      padding: 1.75, 
+                      backgroundColor: '#ffffff',
+                      border: `1.5px solid ${bid.status === 'CURRENT' || bid.status === 'WINNING' ? '#10b981' : '#e5e7eb'}`,
+                      borderRadius: '10px',
+                      transition: 'all 0.3s ease',
+                      animation: index === 0 && bid.status === 'CURRENT' ? 'slideIn 0.3s ease' : 'none',
+                      '@keyframes slideIn': {
+                        from: {
+                          opacity: 0,
+                          transform: 'translateY(-8px)',
+                        },
+                        to: {
+                          opacity: 1,
+                          transform: 'translateY(0)',
+                        },
+                      },
+                      '&:hover': {
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                        borderColor: bid.status === 'CURRENT' || bid.status === 'WINNING' ? '#059669' : '#d1d5db',
+                      },
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+                        {bid.status === 'CURRENT' || bid.status === 'WINNING' ? (
+                          <CheckCircleIcon sx={{ fontSize: '16px', color: '#10b981' }} />
+                        ) : (
+                          <Box sx={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#e5e7eb' }} />
+                        )}
+                        <Typography sx={{ fontWeight: 700, color: '#1f2937', fontSize: '14px', letterSpacing: '-0.3px' }}>
+                          {formatCurrency(bid.bidAmount)}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>
+                          by
+                        </Typography>
+                        <Typography sx={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
+                          {getBidderDisplayName(bid.bidder || bid.bidderName)}
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ fontSize: '11px', color: '#d1d5db', mt: 0.5 }}>
+                        {typeof bid.timestamp === 'string' 
+                          ? new Date(bid.timestamp).toLocaleString('id-ID', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              second: '2-digit'
+                            })
+                          : (bid.timestamp as Date).toLocaleString('id-ID', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              second: '2-digit'
+                            })
+                        }
+                      </Typography>
+                    </Box>
+                    <Box sx={{ ml: 1, flexShrink: 0 }}>
+                      <Chip
+                        label={bid.status === 'CURRENT' ? 'HIGHEST' : bid.status === 'WINNING' ? 'WINNING' : 'OUTBID'}
+                        size="small"
+                        sx={{
+                          height: '24px',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          borderRadius: '6px',
+                          backgroundColor: bid.status === 'CURRENT' || bid.status === 'WINNING' ? '#d1fae5' : '#f3f4f6',
+                          color: bid.status === 'CURRENT' || bid.status === 'WINNING' ? '#047857' : '#9ca3af',
+                          border: 'none',
+                          letterSpacing: '0.5px',
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
+            
+            <Box sx={{ 
+              padding: 2, 
+              backgroundColor: '#f0fdf4', 
+              borderRadius: '10px', 
+              textAlign: 'center',
+              mt: 2,
+              border: '1px solid #bbf7d0'
+            }}>
+              <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#166534', mb: 0.25 }}>
+                Total Bids: {liveAuction?.totalBids || bidActivities.length}
+              </Typography>
+              <Typography sx={{ fontSize: '12px', color: '#4b7c59' }}>
+                {(liveAuction?.totalBids || bidActivities.length) === 1 ? 'bid placed' : 'bids placed'}
+              </Typography>
             </Box>
           </Box>
         )}

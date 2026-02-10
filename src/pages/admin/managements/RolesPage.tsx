@@ -33,10 +33,12 @@ import {
 } from '@mui/icons-material';
 import CreateRoleModal from '../../../components/modals/managements/CreateRoleModal';
 import { useRole } from '../../../config/RoleContext';
+import { useAuth } from '../../../config/AuthContext';
 import type { Role } from '../../../data/services/roleService';
 
 const RolesPage: React.FC = () => {
   const { roles, loading, error, fetchRoles, fetchPermissions, deleteRole } = useRole();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [searchText, setSearchText] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -46,11 +48,17 @@ const RolesPage: React.FC = () => {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Load roles and permissions on mount
+  // Load roles and permissions on mount - only if authenticated
   useEffect(() => {
-    fetchRoles();
-    fetchPermissions();
-  }, [fetchRoles, fetchPermissions]);
+    if (!authLoading && !isAuthenticated) {
+      return;
+    }
+    
+    if (!authLoading && isAuthenticated) {
+      fetchRoles();
+      fetchPermissions();
+    }
+  }, [fetchRoles, fetchPermissions, isAuthenticated, authLoading]);
 
   // Filter dan search
   const filteredRoles = useMemo(() => {

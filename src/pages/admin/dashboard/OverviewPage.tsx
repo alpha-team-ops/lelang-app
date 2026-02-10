@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 import { statsService } from '../../../data/services';
 import { useAuction } from '../../../config/AuctionContext';
+import { useAuth } from '../../../config/AuthContext';
 import type { DashboardStats } from '../../../data/types';
 
 interface StatCardProps {
@@ -156,11 +157,23 @@ const StatCard: React.FC<StatCardProps> = ({
 
 export default function OverviewPage() {
   const { auctions, fetchAuctions } = useAuction();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [revenueFilter, setRevenueFilter] = useState('today');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Only load data if user is authenticated
+    if (!authLoading && !isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
     const loadData = async () => {
       try {
         setLoading(true);
@@ -175,7 +188,7 @@ export default function OverviewPage() {
     };
 
     loadData();
-  }, [fetchAuctions]);
+  }, [fetchAuctions, isAuthenticated, authLoading]);
 
   // Calculate derived metrics
   const activeAuctions = auctions.filter(a => a.status === 'LIVE' || a.status === 'ENDING').length;

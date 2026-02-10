@@ -17,6 +17,7 @@ imageClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
   return config;
 });
 
@@ -64,18 +65,38 @@ export const imageService = {
    */
   uploadSingle: async (file: File): Promise<ImageUploadResponse> => {
     try {
+      // Validate file before upload
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const maxFileSize = 10 * 1024 * 1024; // 10MB per file
+
+      if (!allowedMimeTypes.includes(file.type)) {
+        throw new Error(`Unsupported file format: ${file.type}. Supported: JPEG, PNG, WebP, GIF`);
+      }
+
+      if (file.size > maxFileSize) {
+        throw new Error(`File too large. Max size: 10MB (current: ${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+      }
+
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await imageClient.post<ImageUploadResponse>('/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await imageClient.post<ImageUploadResponse>('/upload', formData);
 
       return response.data;
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to upload image';
+      // Get detailed error from response
+      const errorData = error.response?.data;
+      let message = 'Failed to upload image';
+      
+      if (errorData?.message) {
+        message = errorData.message;
+      } else if (errorData?.errors) {
+        // Handle validation errors from Laravel
+        message = typeof errorData.errors === 'string' 
+          ? errorData.errors 
+          : Object.values(errorData.errors)[0] as string;
+      }
+      
       throw new Error(message);
     }
   },
@@ -95,20 +116,55 @@ export const imageService = {
         };
       }
 
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append('files', file);
-      });
+      // Validate files before upload
+      const validatedFiles: File[] = [];
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const maxFileSize = 10 * 1024 * 1024; // 10MB per file
 
-      const response = await imageClient.post<BulkImageUploadResponse>('/bulk-upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      for (const file of files) {
+        // Check file type
+        if (!allowedMimeTypes.includes(file.type)) {
+          continue;
+        }
+
+        // Check file size
+        if (file.size > maxFileSize) {
+          continue;
+        }
+
+        validatedFiles.push(file);
+      }
+
+      if (validatedFiles.length === 0) {
+        throw new Error('No valid image files to upload. Supported formats: JPEG, PNG, WebP, GIF. Max size: 10MB per file');
+      }
+
+      const formData = new FormData();
+      validatedFiles.forEach((file, idx) => {
+        formData.append(`files[${idx}]`, file);
       });
+      
+      const response = await imageClient.post<BulkImageUploadResponse>('/bulk-upload', formData);
 
       return response.data;
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to upload images';
+      // Get detailed error from response
+      const errorData = error.response?.data;
+      let message = 'Failed to upload images';
+      
+      if (errorData?.message) {
+        message = errorData.message;
+      } else if (errorData?.errors) {
+        // Handle validation errors from Laravel
+        if (typeof errorData.errors === 'string') {
+          message = errorData.errors;
+        } else if (Array.isArray(errorData.errors)) {
+          message = errorData.errors.join(', ');
+        } else {
+          message = Object.values(errorData.errors).flat().join(', ');
+        }
+      }
+      
       throw new Error(message);
     }
   },

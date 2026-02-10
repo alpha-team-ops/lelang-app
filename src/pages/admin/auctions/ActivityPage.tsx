@@ -22,6 +22,7 @@ import type { BidActivity } from '../../../data/types';
 import { bidService } from '../../../data/services';
 import { useRealtimeAuction } from '../../../hooks/useRealtimeAuction';
 import { useAuction } from '../../../config/AuctionContext';
+import { useAuth } from '../../../config/AuthContext';
 
 // Real-time subscription wrapper for each auction
 const AuctionRealtimeListener: React.FC<{
@@ -62,9 +63,20 @@ const AuctionActivityPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(1);
   const { auctions } = useAuction();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
-  // Load activities from API
+  // Load activities from API (authenticated endpoint auto-filters by organization)
   useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
     const fetchActivities = async () => {
       try {
         setLoading(true);
@@ -86,7 +98,7 @@ const AuctionActivityPage: React.FC = () => {
     };
 
     fetchActivities();
-  }, [page, rowsPerPage]);
+  }, [page, rowsPerPage, isAuthenticated, authLoading]);
 
   const handleNewBid = useCallback((bidActivity: BidActivity) => {
     setActivities((prev) => [bidActivity, ...prev]);

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline, Box, CircularProgress } from '@mui/material';
 import './App.css';
@@ -14,6 +14,13 @@ import { StaffProvider } from './config/StaffContext';
 import { RoleProvider } from './config/RoleContext';
 import { AuctionProvider } from './config/AuctionContext';
 import { ProtectedRoute } from './config/ProtectedRoute';
+
+// Loading component untuk lazy-loaded routes
+const RouteLoader = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+    <CircularProgress />
+  </Box>
+);
 
 const theme = createTheme({
   palette: {
@@ -83,7 +90,7 @@ const AppContent = () => {
 
       {/* Portal public routes (without layout) */}
       {portalRoutes.map((route) => (
-        <Route key={route.path} path={route.path} element={route.element} />
+        <Route key={route.path} path={route.path} element={<Suspense fallback={<RouteLoader />}>{route.element}</Suspense>} />
       ))}
 
       {/* Protected routes with layout */}
@@ -102,7 +109,7 @@ const AppContent = () => {
       >
         {/* Dynamic protected routes */}
         {protectedRoutes.map((route) => (
-          <Route key={route.path} path={route.path} element={route.element} />
+          <Route key={route.path} path={route.path} element={<Suspense fallback={<RouteLoader />}>{route.element}</Suspense>} />
         ))}
       </Route>
 

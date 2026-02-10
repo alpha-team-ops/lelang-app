@@ -18,6 +18,7 @@ import {
   Timer as TimerIcon,
 } from '@mui/icons-material';
 import { useAuction } from '../../../config/AuctionContext';
+import { useAuth } from '../../../config/AuthContext';
 import { usePermission } from '../../../hooks/usePermission';
 import { useRealtimeAuction, useAuctionPolling } from '../../../hooks/useRealtimeAuction';
 import { createEchoInstance } from '../../../lib/websocket';
@@ -151,6 +152,7 @@ const CountdownTimer: React.FC<{ auction: Auction | null }> = ({ auction }) => {
 // Main GalleryPage Component
 const GalleryPage: React.FC = () => {
   const { auctions, loading, error, fetchAuctions } = useAuction();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { has } = usePermission();
   
   // Check permissions
@@ -163,10 +165,16 @@ const GalleryPage: React.FC = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
-  // Load auctions on mount
+  // Load auctions on mount - only if authenticated
   useEffect(() => {
-    fetchAuctions(1, 100);
-  }, [fetchAuctions]);
+    if (!authLoading && !isAuthenticated) {
+      return;
+    }
+    
+    if (!authLoading && isAuthenticated) {
+      fetchAuctions(1, 100);
+    }
+  }, [fetchAuctions, isAuthenticated, authLoading]);
 
   // Load only on mount, don't continuous poll - WebSocket handles real-time updates
   // Continuous polling causes unnecessary re-renders and redundant network calls

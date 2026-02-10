@@ -214,6 +214,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
     const newPreviews: string[] = [];
     const newFiles: File[] = [];
     let loadedCount = 0;
+    const totalValidFiles = Array.from(files).filter(f => f.type.startsWith('image/')).length;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -228,8 +229,8 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
           newPreviews.push(event.target.result as string);
           loadedCount++;
 
-          // Update state once all images are loaded
-          if (loadedCount === Object.keys(newFiles).length) {
+          // Update state once all VALID images are loaded
+          if (loadedCount === totalValidFiles) {
             setImagePreviews((prev) => [...prev, ...newPreviews]);
           }
         }
@@ -302,15 +303,18 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
       if (formData.images && formData.images.length > 0) {
         try {
           const uploadResponse = await imageService.uploadBulk(formData.images);
+          
           if (uploadResponse.success && uploadResponse.data) {
             // Handle backend response structure: data.images or data directly
             let imageArray: any[] = Array.isArray(uploadResponse.data) 
               ? uploadResponse.data 
               : (uploadResponse.data as any).images || [];
+            
             imageUrls = imageArray.map((img: any) => img.url || img.path).filter(Boolean);
           }
         } catch (imageError: any) {
-          setSubmitError(`Image upload failed: ${imageError.message}`);
+          const errorMessage = imageError.message || 'Failed to upload images';
+          setSubmitError(errorMessage);
           setIsSubmitting(false);
           return;
         }
@@ -331,7 +335,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
       if (formData.serialNumber?.trim()) payload.serialNumber = formData.serialNumber.trim();
       if (formData.itemLocation?.trim()) payload.itemLocation = formData.itemLocation.trim();
       if (formData.purchaseYear) payload.purchaseYear = Number(formData.purchaseYear);
-      
+
       // Add image URLs if available
       if (imageUrls.length > 0) {
         payload.images = imageUrls;
@@ -348,7 +352,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
 
       // Step 3: Create auction with uploaded image URLs
       await auctionService.createAuction(payload);
-
+      
       setSubmitError('');
       onSuccess?.();
       // Reset form

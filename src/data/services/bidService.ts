@@ -1,9 +1,18 @@
 import axios from 'axios';
 import type { BidActivity } from '../types/index';
 
-// Create a specialized client for bids API
+// Create a specialized client for bids API (public)
 const bidClient = axios.create({
   baseURL: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/${import.meta.env.VITE_API_VERSION || 'v1'}/bids`,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Create a specialized client for admin bids API (authenticated, auto-filters by organization)
+const adminBidClient = axios.create({
+  baseURL: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/${import.meta.env.VITE_API_VERSION || 'v1'}/admin/bids`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -20,6 +29,15 @@ bidClient.interceptors.request.use((config) => {
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Add token to admin requests (for authenticated admin users)
+adminBidClient.interceptors.request.use((config) => {
+  const accessToken = localStorage.getItem('accessToken');
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
 });
@@ -67,7 +85,7 @@ export const bidService = {
     }
   },
 
-  // Get bid activity for a specific auction (public endpoint)
+  // Get bid activity for a specific auction (authenticated admin endpoint, auto-filters by organization)
   getBidsForAuction: async (request: GetBidActivityRequest): Promise<{ bids: BidActivity[]; pagination: any }> => {
     try {
       const params = new URLSearchParams();
@@ -76,7 +94,7 @@ export const bidService = {
       if (request.page) params.append('page', request.page.toString());
       if (request.limit) params.append('limit', request.limit.toString());
 
-      const response = await bidClient.get(`/activity?${params}`);
+      const response = await adminBidClient.get(`/activity?${params}`);
       
       return {
         bids: response.data.data || [],
@@ -88,7 +106,7 @@ export const bidService = {
     }
   },
 
-  // Get all bid activity (public endpoint)
+  // Get all bid activity for admin (authenticated, auto-filters by organization)
   getAllBidActivity: async (page: number = 1, limit: number = 10): Promise<{ bids: BidActivity[]; pagination: any }> => {
     try {
       const params = new URLSearchParams({
@@ -96,7 +114,7 @@ export const bidService = {
         limit: limit.toString(),
       });
 
-      const response = await bidClient.get(`/activity?${params}`);
+      const response = await adminBidClient.get(`/activity?${params}`);
       
       return {
         bids: response.data.data || [],
