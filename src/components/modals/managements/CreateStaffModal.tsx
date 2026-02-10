@@ -20,6 +20,7 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useStaff } from '../../../config/StaffContext';
 import { useRole } from '../../../config/RoleContext';
 import { usePermission } from '../../../hooks/usePermission';
+import { toast } from 'react-toastify';
 import type { CreateStaffRequest } from '../../../data/services/staffService';
 
 export interface CreateStaffData {
@@ -85,19 +86,86 @@ const CreateStaffModal: React.FC<CreateStaffModalProps> = ({ open, onClose, onSu
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    } else {
+      const passwordErrors = validatePassword(formData.password);
+      if (passwordErrors.length > 0) {
+        newErrors.password = passwordErrors.join('\n');
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // Password validation requirements
+  const validatePassword = (password: string): string[] => {
+    const errors: string[] = [];
+
+    if (password.length < 8) {
+      errors.push('❌ At least 8 characters');
+    } else {
+      errors.push('✓ At least 8 characters');
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      errors.push('❌ At least one uppercase letter (A-Z)');
+    } else {
+      errors.push('✓ At least one uppercase letter (A-Z)');
+    }
+
+    if (!/[a-z]/.test(password)) {
+      errors.push('❌ At least one lowercase letter (a-z)');
+    } else {
+      errors.push('✓ At least one lowercase letter (a-z)');
+    }
+
+    if (!/[0-9]/.test(password)) {
+      errors.push('❌ At least one number (0-9)');
+    } else {
+      errors.push('✓ At least one number (0-9)');
+    }
+
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      errors.push('❌ At least one special character (!@#$%^&*)');
+    } else {
+      errors.push('✓ At least one special character (!@#$%^&*)');
+    }
+
+    return errors.filter((err) => err.startsWith('❌'));
+  };
+
+  // Get password requirement status for display
+  const getPasswordStatus = (password: string) => {
+    const allChecks = [
+      { check: password.length >= 8, label: 'At least 8 characters' },
+      { check: /[A-Z]/.test(password), label: 'Uppercase letter (A-Z)' },
+      { check: /[a-z]/.test(password), label: 'Lowercase letter (a-z)' },
+      { check: /[0-9]/.test(password), label: 'Number (0-9)' },
+      { check: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password), label: 'Special character' },
+    ];
+    return allChecks;
+  };
+
   const handleSubmit = async () => {
     setErrors({});
     clearError();
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      // Show toast alert with validation errors
+      const errorMessages = Object.values(errors).join('\n');
+      toast.error(
+        <div>
+          <strong>❌ Please fix the following errors:</strong>
+          <div style={{ marginTop: '8px', whiteSpace: 'pre-line', fontSize: '0.9rem' }}>
+            {errorMessages}
+          </div>
+        </div>,
+        {
+          autoClose: 4000,
+        }
+      );
+      return;
+    }
 
     setLoading(true);
     try {
@@ -186,6 +254,40 @@ const CreateStaffModal: React.FC<CreateStaffModalProps> = ({ open, onClose, onSu
               ),
             }}
           />
+
+          {/* Password Requirements Display */}
+          {formData.password && (
+            <Box
+              sx={{
+                p: 1.5,
+                bgcolor: '#f5f5f5',
+                borderRadius: 1,
+                border: '1px solid #e0e0e0',
+              }}
+            >
+              <Box sx={{ fontSize: '0.85rem', fontWeight: 600, mb: 1, color: '#666' }}>
+                Password Requirements:
+              </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {getPasswordStatus(formData.password).map((item, idx) => (
+                  <Box
+                    key={idx}
+                    sx={{
+                      fontSize: '0.8rem',
+                      color: item.check ? '#4caf50' : '#f44336',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                    }}
+                  >
+                    <span>{item.check ? '✓' : '✗'}</span>
+                    <span>{item.label}</span>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
           
           <FormControl fullWidth disabled={loading || rolesLoading}>
             <InputLabel>Role</InputLabel>
