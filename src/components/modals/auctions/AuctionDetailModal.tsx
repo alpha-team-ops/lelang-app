@@ -189,7 +189,7 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [bidActivities, setBidActivities] = useState<BidActivity[]>([]);
   const [bidActivityLoading, setBidActivityLoading] = useState(false);
-  const echoRef = useRef<Echo | null>(null);
+  const echoRef = useRef<Echo<any> | null>(null);
 
   // ✅ Calculate actual status based on startTime/endTime timing
   const actualStatus = useMemo(() => {
