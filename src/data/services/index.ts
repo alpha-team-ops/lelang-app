@@ -6,3 +6,6 @@ export { analyticsService } from './analyticsService';
 export { imageService } from './imageService';
 export { default as authService } from './authService';
 export { default as organizationService } from './organizationService';
+export { default as portalUserService } from './portalUserService';
+export { default as directorateService } from './directorateService';
+export { default as portalAuthService } from './portalAuthService';

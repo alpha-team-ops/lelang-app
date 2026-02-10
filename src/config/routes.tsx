@@ -7,6 +7,7 @@ import {
   History as HistoryIcon,
   List as ListIcon,
   EmojiEvents as TrophyIcon,
+  People as PeopleIcon,
 } from '@mui/icons-material';
 import { lazy } from 'react';
 
@@ -19,6 +20,7 @@ const ActivityPage = lazy(() => import('../pages/admin/auctions/ActivityPage'));
 const WinnerBidsPage = lazy(() => import('../pages/admin/auctions/WinnerBidsPage'));
 const UserManagementPage = lazy(() => import('../pages/admin/managements/UserManagementPage'));
 const RolesPage = lazy(() => import('../pages/admin/managements/RolesPage'));
+const PortalUsersPage = lazy(() => import('../pages/admin/managements/PortalUsersPage'));
 const SettingsPage = lazy(() => import('../pages/admin/settings/SettingsPage'));
 const OrganizationSettingsPage = lazy(() => import('../pages/admin/settings/OrganizationSettingsPage'));
 
@@ -64,6 +66,7 @@ export const menuCategories: MenuCategory[] = [
     category: 'Staff Management',
     items: [
       { text: 'Staff', icon: <PersonIcon />, path: '/admin/staff' },
+      { text: 'Portal Users', icon: <PeopleIcon />, path: '/admin/portal-users' },
       { text: 'Roles', icon: <SettingsIcon />, path: '/admin/roles' },
     ]
   },
@@ -105,6 +108,10 @@ export const protectedRoutes: ProtectedRoute[] = [
   {
     path: '/admin/staff',
     element: <UserManagementPage />,
+  },
+  {
+    path: '/admin/portal-users',
+    element: <PortalUsersPage />,
   },
   {
     path: '/admin/roles',

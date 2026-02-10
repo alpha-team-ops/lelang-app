@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import type { PortalAuction } from '../../data/types';
+import type { AccessLevel } from './utils/sessionManager';
 import { bidService, auctionService } from '../../data/services';
 import { useRealtimeAuction } from '../../hooks/useRealtimeAuction';
 import { createEchoInstance } from '../../lib/websocket';
@@ -11,9 +12,10 @@ interface AuctionModalProps {
   auction: PortalAuction;
   onClose: () => void;
   onBidSuccess: (newPrice: number) => void;
+  accessLevel?: AccessLevel;
 }
 
-export default function AuctionModal({ auction, onClose, onBidSuccess }: AuctionModalProps) {
+export default function AuctionModal({ auction, onClose, onBidSuccess, accessLevel }: AuctionModalProps) {
   const [bidAmount, setBidAmount] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -343,6 +345,12 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
+    // Prevent bid if VIEW_ONLY access
+    if (accessLevel === 'VIEW_ONLY') {
+      setError('You cannot place bids with view-only access. Please register to participate.');
+      return;
+    }
+
     if (!validateBid()) {
       return;
     }
@@ -581,11 +589,13 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
         </div>
 
         {/* Modal Footer - New Bid (Fixed) */}
-        <div className="modal-footer">
-          <div className="modal-section-title">🏷️ New Bid</div>
-          <form className="bid-form" onSubmit={handleSubmit}>
+        <div className="modal-footer" style={accessLevel === 'VIEW_ONLY' ? { opacity: 0.6, backgroundColor: '#f5f5f5' } : {}}>
+          <div className="modal-section-title">
+            {accessLevel === 'VIEW_ONLY' ? '🔒 View Only' : '🏷️ New Bid'}
+          </div>
+          <form className="bid-form" onSubmit={handleSubmit} style={accessLevel === 'VIEW_ONLY' ? { pointerEvents: 'none' } : {}}>
             {/* Bid Amount Input */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', opacity: accessLevel === 'VIEW_ONLY' ? 0.5 : 1 }}>
               <div className="bid-input-group">
                 <div className="bid-prefix">Rp</div>
                 <input
@@ -594,8 +604,8 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
                   className="bid-input"
                   value={formatCurrency(bidAmount)}
                   onChange={handleBidChange}
-                  placeholder="Enter bid amount"
-                  disabled={isSubmitting || bidSuccess}
+                  placeholder={accessLevel === 'VIEW_ONLY' ? 'View only - cannot bid' : 'Enter bid amount'}
+                  disabled={isSubmitting || bidSuccess || accessLevel === 'VIEW_ONLY'}
                   inputMode="numeric"
                   autoComplete="off"
                   spellCheck="false"
@@ -620,15 +630,23 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
               <button
                 type="submit"
                 className="bid-submit"
-                disabled={isSubmitting || bidSuccess || auction.status !== 'LIVE'}
+                disabled={isSubmitting || bidSuccess || auction.status !== 'LIVE' || accessLevel === 'VIEW_ONLY'}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
+                  backgroundColor: accessLevel === 'VIEW_ONLY' ? '#d1d5db' : undefined,
+                  color: accessLevel === 'VIEW_ONLY' ? '#666' : undefined,
+                  cursor: accessLevel === 'VIEW_ONLY' ? 'not-allowed' : 'pointer',
                 }}
               >
-                {isSubmitting ? (
+                {accessLevel === 'VIEW_ONLY' ? (
+                  <>
+                    <span>🔒</span>
+                    View Only - Cannot Bid
+                  </>
+                ) : isSubmitting ? (
                   <>
                     <span
                       style={{

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getUserSession, clearUserSession, getSessionRemainingTime, formatRemainingTime } from './utils/sessionManager';
+import { useNavigate } from 'react-router-dom';
+import { getUserSession, clearUserSession, getSessionRemainingTime, formatRemainingTime, getAccessLevel } from './utils/sessionManager';
+import type { AccessLevel } from './utils/sessionManager';
 import { auctionService } from '../../data/services';
 import { portalAuctionsMock } from '../../data/mock/auctions';
 import authService from '../../data/services/authService';
@@ -133,32 +134,105 @@ const PortalAuctionCard: React.FC<{
       </div>
 
       {/* Content */}
-      <div className="auction-content">
+      <div className="auction-content" style={{ padding: '16px' }}>
         {/* Name & Condition */}
-        <div className="auction-name">{displayAuction.title}</div>
-        <div className="auction-condition">{displayAuction.condition}</div>
+        <div className="auction-name" style={{ marginBottom: '8px' }}>{displayAuction.title}</div>
+        <div className="auction-condition" style={{ marginBottom: '12px' }}>{displayAuction.condition}</div>
 
-        {/* Price & Participants */}
-        <div className="auction-info">
-          <div className="info-item">
-            <div className="info-label">Current Price</div>
-            <div className="info-value price">
+        {/* Price Info - Admin Card Style */}
+        <div style={{
+          backgroundColor: displayAuction.status === 'LIVE' ? '#f0f4ff' : '#f5f5f5',
+          padding: '12px',
+          borderRadius: '8px',
+          border: displayAuction.status === 'LIVE' ? '1px solid #e0e7ff' : 'none',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '12px',
+          marginBottom: '12px',
+        }}>
+          {/* Current Price */}
+          <div>
+            <div style={{
+              fontSize: '11px',
+              color: '#6b7280',
+              fontWeight: 600,
+              marginBottom: '4px',
+              display: 'block'
+            }}>
+              Current Price
+            </div>
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 700,
+              color: '#0ea5e9'
+            }}>
               Rp {displayAuction.currentBid.toLocaleString('id-ID')}
             </div>
           </div>
-          <div className="info-item">
-            <div className="info-label">Participants</div>
-            <div className="info-value participants">{displayAuction.participantCount} people</div>
+          
+          {/* Starting Price */}
+          <div>
+            <div style={{
+              fontSize: '11px',
+              color: '#6b7280',
+              fontWeight: 600,
+              marginBottom: '4px',
+              display: 'block'
+            }}>
+              Starting Price
+            </div>
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 700,
+              color: '#0ea5e9'
+            }}>
+              Rp {displayAuction.startingPrice.toLocaleString('id-ID')}
+            </div>
+          </div>
+          
+          {/* Time Remaining */}
+          <div>
+            <div style={{
+              fontSize: '11px',
+              color: '#6b7280',
+              fontWeight: 600,
+              marginBottom: '4px',
+              display: 'block'
+            }}>
+              Time Remaining
+            </div>
+            <AuctionTimerDisplay auction={displayAuction} />
+          </div>
+          
+          {/* Total Participants */}
+          <div>
+            <div style={{
+              fontSize: '11px',
+              color: '#6b7280',
+              fontWeight: 600,
+              marginBottom: '4px',
+              display: 'block'
+            }}>
+              Total Participants
+            </div>
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 700,
+              color: '#0ea5e9'
+            }}>
+              {displayAuction.participantCount} people
+            </div>
           </div>
         </div>
-
-        {/* Timer */}
-        <AuctionTimerDisplay auction={displayAuction} />
 
         {/* Bid Button */}
         <button
           className="auction-button"
           onClick={() => onSelectAuction(displayAuction)}
+          style={{ 
+            width: '100%',
+            marginTop: '8px'
+          }}
         >
           💰 Place Bid
         </button>
@@ -169,7 +243,6 @@ const PortalAuctionCard: React.FC<{
 
 export default function AuctionList() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [selectedAuction, setSelectedAuction] = useState<PortalAuction | null>(null);
   const [sessionTime, setSessionTime] = useState<number>(0);
   const [auctions, setAuctions] = useState<PortalAuction[]>([]);
@@ -177,12 +250,22 @@ export default function AuctionList() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [accessLevel, setAccessLevel] = useState<AccessLevel>(() => {
+    const stored = sessionStorage.getItem('accessLevel') as AccessLevel;
+    return stored || null;
+  });
 
   const userSession = getUserSession();
-  // Extract invitation code from URL query params or localStorage
-  const urlInvitationCode = searchParams.get('invitationCode');
-  const storedInvitationCode = localStorage.getItem('invitationCode');
-  const invitationCode = urlInvitationCode || storedInvitationCode || undefined;
+  // Get portal token for API authentication
+  const portalToken = sessionStorage.getItem('portalToken');
+
+  // Update accessLevel when session changes
+  useEffect(() => {
+    const currentAccessLevel = getAccessLevel();
+    if (currentAccessLevel && currentAccessLevel !== accessLevel) {
+      setAccessLevel(currentAccessLevel);
+    }
+  }, [portalToken, accessLevel]);
 
   // Protect route: redirect to /portal if no valid session
   useEffect(() => {
@@ -191,12 +274,7 @@ export default function AuctionList() {
     }
   }, [userSession, navigate]);
 
-  // Save invitation code to localStorage if from URL
-  useEffect(() => {
-    if (urlInvitationCode) {
-      localStorage.setItem('invitationCode', urlInvitationCode);
-    }
-  }, [urlInvitationCode]);
+
 
   // Load auctions from service
   useEffect(() => {
@@ -205,11 +283,16 @@ export default function AuctionList() {
         setLoading(true);
         setError(null);
         
-        // Call API endpoint with pagination and invitation code
-        // Note: invitation code will be added by portalClient interceptor from localStorage
-        const response = await auctionService.getAllPortalAuctions(page, 10, undefined, invitationCode || undefined);
+        // Call API endpoint with pagination
+        const response = await auctionService.getAllPortalAuctions(page, 10);
         setAuctions(response.auctions);
         setTotalPages(response.pagination?.totalPages || 1);
+        
+        // Update accessLevel from response if provided
+        if ((response as any).accessLevel) {
+          setAccessLevel((response as any).accessLevel);
+          sessionStorage.setItem('accessLevel', (response as any).accessLevel);
+        }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to load auctions';
         setError(errorMsg);
@@ -221,7 +304,7 @@ export default function AuctionList() {
     };
 
     loadAuctions();
-  }, [page, invitationCode]);
+  }, [page, portalToken]);
 
   // Real-time polling for auctions - update all auctions every 2 seconds
   // (not 500ms to avoid overwhelming backend and race conditions)
@@ -244,7 +327,7 @@ export default function AuctionList() {
         
         isPolling = true;
         try {
-          const response = await auctionService.getAllPortalAuctions(page, 10, undefined, invitationCode || undefined);
+          const response = await auctionService.getAllPortalAuctions(page, 10);
           setAuctions(response.auctions);
         } catch (err) {
           // Silently ignore polling errors to avoid noise
@@ -262,7 +345,7 @@ export default function AuctionList() {
     return () => {
       if (pollingInterval) clearInterval(pollingInterval);
     };
-  }, [page, invitationCode, userSession, navigate]);
+  }, [page, portalToken, userSession, navigate]);
 
   // Session timer
   useEffect(() => {
@@ -469,6 +552,7 @@ export default function AuctionList() {
           auction={selectedAuction}
           onClose={handleCloseModal}
           onBidSuccess={handleOnBidSuccess}
+          accessLevel={accessLevel}
         />
       )}
     </div>

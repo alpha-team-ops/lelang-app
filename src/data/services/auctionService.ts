@@ -31,9 +31,15 @@ auctionClient.interceptors.request.use((config) => {
 });
 
 // Add token to portal requests if available, and add invitation_code from storage
+// Backend Priority:
+// 1. Bearer token (FULL access with portalToken)
+// 2. X-Portal-Code header (from localStorage after login)
+// 3. invitation_code parameter (fallback)
+// 4. Auth user (staff with accessToken)
 portalClient.interceptors.request.use((config) => {
-  // Try portal token first (for portal users)
-  const portalToken = sessionStorage.getItem('portalToken');
+  // 1. Bearer Token (highest priority)
+  // Try portal token first (for portal users with FULL access)
+  const portalToken = sessionStorage.getItem('portalToken') || localStorage.getItem('portalToken');
   // Fallback to access token (for staff users viewing as portal)
   const accessToken = localStorage.getItem('accessToken');
   const token = portalToken || accessToken;
@@ -42,12 +48,19 @@ portalClient.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
+  // 2. X-Portal-Code Header (second priority)
+  // This is sent after successful portal login
+  const portalCode = localStorage.getItem('portalCode');
+  if (portalCode) {
+    config.headers['X-Portal-Code'] = portalCode;
+  }
+
   // Initialize params if it doesn't exist
   if (!config.params) {
     config.params = {};
   }
 
-  // Add invitation_code to query params if not already present
+  // 3. invitation_code parameter (fallback for old method)
   if (!config.params.invitation_code) {
     // Try to get from localStorage (saved from URL or portal login)
     const storedInvitationCode = localStorage.getItem('invitationCode');
@@ -279,8 +292,7 @@ export const auctionService = {
   getAllPortalAuctions: async (
     page: number = 1,
     limit: number = 10,
-    filters?: { category?: string },
-    invitationCode?: string
+    filters?: { category?: string }
   ): Promise<{ auctions: PortalAuction[]; pagination: any }> => {
     try {
       const params: any = {
@@ -289,12 +301,8 @@ export const auctionService = {
         ...(filters?.category && { category: filters.category }),
       };
 
-      // Add invitation code if provided (required for unauthenticated access)
-      if (invitationCode) {
-        params.invitation_code = invitationCode;
-      }
-
-      // GET /api/v1/auctions - List all LIVE auctions (no path suffix needed)
+      // GET /api/v1/auctions - List all LIVE auctions
+      // Authorization header with portalToken will be added by interceptor
       const response = await portalClient.get('', { params });
 
       return {
@@ -307,22 +315,18 @@ export const auctionService = {
     }
   },
 
-  getPortalAuctionById: async (id: string, invitationCode?: string): Promise<PortalAuction | null> => {
+  getPortalAuctionById: async (id: string): Promise<PortalAuction | null> => {
     try {
-      const params: any = {};
-      if (invitationCode) {
-        params.invitation_code = invitationCode;
-      }
-
       // GET /api/v1/auctions/{id} - Show LIVE + ENDED auctions
-      const response = await portalClient.get(`/${id}`, { params });
+      // Authorization header with portalToken will be added by interceptor
+      const response = await portalClient.get(`/${id}`);
       return response.data.data;
     } catch (error: any) {
       return null;
     }
   },
 
-  searchAuctions: async (query: string, category?: string, page: number = 1, limit: number = 10, invitationCode?: string): Promise<PortalAuction[]> => {
+  searchAuctions: async (query: string, category?: string, page: number = 1, limit: number = 10): Promise<PortalAuction[]> => {
     try {
       const params: any = {
         query,
@@ -331,12 +335,8 @@ export const auctionService = {
         ...(category && { category }),
       };
 
-      // Add invitation code if provided
-      if (invitationCode) {
-        params.invitation_code = invitationCode;
-      }
-
       // GET /api/v1/auctions/search - Search LIVE auctions
+      // Authorization header with portalToken will be added by interceptor
       const response = await portalClient.get('/search', { params });
 
       return response.data.data || [];
@@ -346,19 +346,15 @@ export const auctionService = {
     }
   },
 
-  getAuctionsByCategory: async (category: string, page: number = 1, limit: number = 10, invitationCode?: string): Promise<PortalAuction[]> => {
+  getAuctionsByCategory: async (category: string, page: number = 1, limit: number = 10): Promise<PortalAuction[]> => {
     try {
       const params: any = { 
         page: page.toString(), 
         limit: limit.toString() 
       };
 
-      // Add invitation code if provided
-      if (invitationCode) {
-        params.invitation_code = invitationCode;
-      }
-
       // GET /api/v1/auctions/category/{category} - Filter LIVE by category
+      // Authorization header with portalToken will be added by interceptor
       const response = await portalClient.get(`/category/${category}`, { params });
 
       return response.data.data || [];

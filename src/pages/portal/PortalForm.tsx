@@ -1,22 +1,23 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import portalAuthService from '../../data/services/portalAuthService';
+import type { PortalDirectorate, PortalOrganization } from '../../data/services/portalAuthService';
 import { saveUserSession } from './utils/sessionManager';
-import { authService } from '../../data/services';
 import './styles/portal.css';
 
 interface FormData {
   fullName: string;
   corporateIdNip: string;
-  directorate: string;
-  invitationCode: string;
+  directoriateId: string;
+  portalCode: string;
 }
 
 interface FormErrors {
   fullName?: string;
   corporateIdNip?: string;
-  directorate?: string;
-  invitationCode?: string;
+  directoriateId?: string;
+  portalCode?: string;
 }
 
 export default function PortalForm() {
@@ -25,23 +26,59 @@ export default function PortalForm() {
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
     corporateIdNip: '',
-    directorate: '',
-    invitationCode: '',
+    directoriateId: '',
+    portalCode: '',
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string>('');
+  const [directorates, setDirectorates] = useState<PortalDirectorate[]>([]);
+  const [loadingDirectorates, setLoadingDirectorates] = useState(true);
+  const [organizationInfo, setOrganizationInfo] = useState<PortalOrganization | null>(null);
+  const [organizationError, setOrganizationError] = useState<string>('');
 
-  // Auto-fill invitation code from URL parameter if provided
+  // Fetch organization info, directorates, and auto-fill portal code from URL
   useEffect(() => {
-    const invitationCodeFromUrl = searchParams.get('invitationCode');
-    if (invitationCodeFromUrl) {
-      setFormData((prev) => ({
-        ...prev,
-        invitationCode: invitationCodeFromUrl,
-      }));
-    }
+    const portalCode = searchParams.get('portalCode') || searchParams.get('invitationCode');
+
+    const fetchData = async () => {
+      try {
+        if (!portalCode) {
+          setLoadingDirectorates(false);
+          return;
+        }
+
+        // Fetch organization info
+        try {
+          const orgData = await portalAuthService.getOrganizationInfo(portalCode);
+          setOrganizationInfo(orgData);
+          setOrganizationError('');
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'Failed to fetch organization info';
+          console.error('Error fetching organization info:', err);
+          setOrganizationError(errorMsg);
+        }
+
+        // Fetch directorates
+        try {
+          const dirsData = await portalAuthService.getDirectorates(portalCode);
+          setDirectorates(dirsData);
+        } catch (err) {
+          console.error('Failed to fetch directorates:', err);
+        }
+
+        // Auto-fill portal code
+        setFormData((prev) => ({
+          ...prev,
+          portalCode: portalCode,
+        }));
+      } finally {
+        setLoadingDirectorates(false);
+      }
+    };
+
+    fetchData();
   }, [searchParams]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -62,20 +99,22 @@ export default function PortalForm() {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
-    }
+    // Full Name is optional per spec
+    // if (!formData.fullName.trim()) {
+    //   newErrors.fullName = 'Full name is required';
+    // }
 
     if (!formData.corporateIdNip.trim()) {
       newErrors.corporateIdNip = 'Corporate ID / NIP is required';
     }
 
-    if (!formData.directorate.trim()) {
-      newErrors.directorate = 'Directorate is required';
-    }
+    // Directorate is optional per spec
+    // if (!formData.directoriateId.trim()) {
+    //   newErrors.directoriateId = 'Directorate is required';
+    // }
 
-    if (!formData.invitationCode.trim()) {
-      newErrors.invitationCode = 'Invitation code is required';
+    if (!formData.portalCode.trim()) {
+      newErrors.portalCode = 'Portal code is required';
     }
 
     setErrors(newErrors);
@@ -93,29 +132,49 @@ export default function PortalForm() {
     setApiError('');
 
     try {
-      // Call portal login API
-      const response = await authService.portalLogin({
-        fullName: formData.fullName,
+      // Call portal login API with new spec
+      const response = await portalAuthService.login({
         corporateIdNip: formData.corporateIdNip,
-        directorate: formData.directorate,
-        invitationCode: formData.invitationCode,
+        portalCode: formData.portalCode,
+        fullName: formData.fullName || undefined,
+        directoriateId: formData.directoriateId || undefined,
       });
 
-      // Save session data with token info
-      saveUserSession({
-        fullName: formData.fullName,
-        corporateIdNip: formData.corporateIdNip,
-        directorate: formData.directorate,
-        invitationCode: formData.invitationCode,
+      // Get accessLevel from top level response (per spec: Skenario 1 & 2)
+      const accessLevel = (response as any).accessLevel || 'FULL';
+
+      // Save portal session to sessionStorage using the correct format
+      const sessionData = {
+        fullName: response.data.user.fullName,
+        corporateIdNip: response.data.user.corporateIdNip,
+        directorate: response.data.user.directorate,
+        invitationCode: formData.portalCode,
         timestamp: Date.now(),
-        portalToken: response.portalToken,
-        userId: response.userId,
-      });
+        portalToken: response.data.portalToken, // Can be null for VIEW_ONLY
+        userId: response.data.user.id, // Can be null for VIEW_ONLY
+        accessLevel: accessLevel,
+      };
+      
+      saveUserSession(sessionData);
 
-      // Save invitation code to localStorage for API requests
-      localStorage.setItem('invitationCode', formData.invitationCode);
+      // ✅ Backend Priority Implementation:
+      // 1. Bearer token (portalToken) - highest priority
+      // 2. X-Portal-Code header - send in every request
+      // 3. invitation_code parameter - fallback
+      // 4. Auth user (staff) - lowest priority
+      
+      // Save to localStorage for persistence (across tabs/reloads)
+      localStorage.setItem('portalCode', formData.portalCode);
+      localStorage.setItem('accessLevel', accessLevel);
+      
+      // Save portalToken to localStorage if FULL access (for use in other tabs)
+      if (response.data.portalToken) {
+        localStorage.setItem('portalToken', response.data.portalToken);
+      } else {
+        localStorage.removeItem('portalToken');
+      }
 
-      // Navigate to auction list
+      // Navigate to auction list (works for both FULL and VIEW_ONLY)
       navigate('/portal/auctions');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.';
@@ -132,6 +191,26 @@ export default function PortalForm() {
           <span className="icon">🏛️</span>
         </div>
         <h1 className="portal-title">Auction Portal</h1>
+        {organizationError && (
+          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '12px', marginBottom: '16px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: '14px', color: '#991b1b', fontWeight: '500' }}>
+              ⚠️ Error: {organizationError}
+            </p>
+          </div>
+        )}
+        {organizationInfo && (
+          <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #0ea5e9', borderRadius: '8px', padding: '12px', marginBottom: '16px', textAlign: 'center' }}>
+            <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#0369a1' }}>Organization</p>
+            <p style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#1e40af' }}>
+              {organizationInfo.organizationName}
+            </p>
+            {organizationInfo.description && (
+              <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#0369a1' }}>
+                {organizationInfo.description}
+              </p>
+            )}
+          </div>
+        )}
         <p className="portal-subtitle">Enter your information to start participating in auctions</p>
 
         {apiError && (
@@ -141,11 +220,11 @@ export default function PortalForm() {
         )}
 
         <form className="form" onSubmit={handleSubmit}>
-          {/* Full Name */}
+          {/* Full Name - Optional */}
           <div className="form-group">
             <label className="form-label">
               <span className="label-icon">👤</span>
-              Full Name
+              Full Name <span style={{ color: '#999', fontSize: '12px' }}>(Optional)</span>
             </label>
             <input
               type="text"
@@ -153,7 +232,7 @@ export default function PortalForm() {
               name="fullName"
               value={formData.fullName}
               onChange={handleChange}
-              placeholder="Enter your full name"
+              placeholder="Enter your full name (optional)"
               disabled={isSubmitting}
             />
             {errors.fullName && (
@@ -163,11 +242,11 @@ export default function PortalForm() {
             )}
           </div>
 
-          {/* ID */}
+          {/* Corporate ID / NIP - Required */}
           <div className="form-group">
             <label className="form-label">
               <span className="label-icon">🆔</span>
-              Corporate ID / NIP
+              Corporate ID / NIP <span style={{ color: '#dc2626' }}>*</span>
             </label>
             <input
               type="text"
@@ -175,8 +254,9 @@ export default function PortalForm() {
               name="corporateIdNip"
               value={formData.corporateIdNip}
               onChange={handleChange}
-              placeholder="Enter your corporate ID or NIP"
+              placeholder="Enter your NIP"
               disabled={isSubmitting}
+              required
             />
             {errors.corporateIdNip && (
               <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
@@ -185,51 +265,52 @@ export default function PortalForm() {
             )}
           </div>
 
-          {/* Directorate */}
+          {/* Directorate - Optional, fetched from API */}
           <div className="form-group">
             <label className="form-label">
               <span className="label-icon">🏢</span>
-              Directorate
+              Directorate <span style={{ color: '#999', fontSize: '12px' }}>(Optional)</span>
             </label>
             <select
               className="form-select"
-              name="directorate"
-              value={formData.directorate}
+              name="directoriateId"
+              value={formData.directoriateId}
               onChange={handleChange}
-              disabled={isSubmitting}
+              disabled={isSubmitting || loadingDirectorates}
             >
               <option value="">-- Select Directorate --</option>
-              <option value="IT">IT Directorate</option>
-              <option value="HR">HR Directorate</option>
-              <option value="Finance">Finance Directorate</option>
-              <option value="Operations">Operations Directorate</option>
-              <option value="Sales">Sales Directorate</option>
+              {directorates.map((dir) => (
+                <option key={dir.id} value={dir.id}>
+                  {dir.name}
+                </option>
+              ))}
             </select>
-            {errors.directorate && (
+            {errors.directoriateId && (
               <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
-                {errors.directorate}
+                {errors.directoriateId}
               </span>
             )}
           </div>
 
-          {/* Invitation Code */}
+          {/* Portal Code - Required */}
           <div className="form-group">
             <label className="form-label">
               <span className="label-icon">🔐</span>
-              Invitation Code
+              Portal Code <span style={{ color: '#dc2626' }}>*</span>
             </label>
             <input
               type="text"
               className="form-input"
-              name="invitationCode"
-              value={formData.invitationCode}
+              name="portalCode"
+              value={formData.portalCode}
               onChange={handleChange}
-              placeholder="Enter your invitation code"
+              placeholder="Enter your portal code"
               disabled={isSubmitting}
+              required
             />
-            {errors.invitationCode && (
+            {errors.portalCode && (
               <span style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
-                {errors.invitationCode}
+                {errors.portalCode}
               </span>
             )}
           </div>

@@ -21,15 +21,26 @@ const adminBidClient = axios.create({
 
 // Add token to requests if available
 bidClient.interceptors.request.use((config) => {
-  // Try portal token first (for portal users)
-  const portalToken = sessionStorage.getItem('portalToken');
-  // Fallback to access token (for staff users)
+  // Priority 1: Try portal token first (for portal users with FULL access)
+  // Check both sessionStorage (current session) and localStorage (persistent)
+  const portalTokenSession = sessionStorage.getItem('portalToken');
+  const portalTokenLocal = localStorage.getItem('portalToken');
+  const portalToken = portalTokenSession || portalTokenLocal;
+  
+  // Priority 2: Fallback to access token (for staff users)
   const accessToken = localStorage.getItem('accessToken');
   const token = portalToken || accessToken;
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  // Also add X-Portal-Code header if available (for backend fallback)
+  const portalCode = localStorage.getItem('portalCode');
+  if (portalCode) {
+    config.headers['X-Portal-Code'] = portalCode;
+  }
+  
   return config;
 });
 

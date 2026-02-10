@@ -1,5 +1,7 @@
 // Session Management Utility
 
+export type AccessLevel = 'FULL' | 'VIEW_ONLY' | null;
+
 export interface UserSession {
   fullName: string;
   corporateIdNip: string;
@@ -8,18 +10,33 @@ export interface UserSession {
   timestamp: number;
   portalToken?: string;
   userId?: string;
+  accessLevel?: AccessLevel;
 }
 
 export const saveUserSession = (userData: UserSession) => {
   sessionStorage.setItem('userSession', JSON.stringify(userData));
   sessionStorage.setItem('authToken', `token-${Date.now()}`);
   
-  // Also store portalToken and userId separately for API calls
-  if (userData.portalToken) {
+  // Save portalToken separately for API calls (only if not null/undefined)
+  if (userData.portalToken && userData.portalToken !== 'null' && userData.portalToken.length > 0) {
     sessionStorage.setItem('portalToken', userData.portalToken);
+  } else {
+    // Remove portalToken if it exists from previous session
+    sessionStorage.removeItem('portalToken');
   }
-  if (userData.userId) {
+  
+  // Store accessLevel separately for easy access (always save, even if null)
+  if (userData.accessLevel) {
+    sessionStorage.setItem('accessLevel', userData.accessLevel);
+  } else {
+    sessionStorage.removeItem('accessLevel');
+  }
+  
+  // Save userId separately (only if not null)
+  if (userData.userId && userData.userId !== 'null') {
     sessionStorage.setItem('userId', userData.userId);
+  } else {
+    sessionStorage.removeItem('userId');
   }
 };
 
@@ -33,6 +50,12 @@ export const clearUserSession = () => {
   sessionStorage.removeItem('authToken');
   sessionStorage.removeItem('portalToken');
   sessionStorage.removeItem('userId');
+  sessionStorage.removeItem('accessLevel');
+};
+
+export const getAccessLevel = (): AccessLevel => {
+  const accessLevel = sessionStorage.getItem('accessLevel') as AccessLevel;
+  return accessLevel || null;
 };
 
 export const isSessionActive = (): boolean => {

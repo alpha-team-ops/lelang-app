@@ -33,7 +33,10 @@ import {
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import { useOrganization } from '../../../config/OrganizationContext';
 import { useAuth } from '../../../config/AuthContext';
+import DirectorateManagementModal from '../../../components/modals/managements/DirectorateManagementModal';
+import directorateService from '../../../data/services/directorateService';
 import type { OrganizationSettings } from '../../../data/services/organizationService';
+import type { Directorate } from '../../../data/services/directorateService';
 
 const OrganizationSettingsPage: React.FC = () => {
   const { organization, loading, error, fetchSettings, updateSettings, uploadLogo, clearError } = useOrganization();
@@ -46,11 +49,30 @@ const OrganizationSettingsPage: React.FC = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [formData, setFormData] = useState<Partial<OrganizationSettings>>({});
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [directorateModalOpen, setDirectorateModalOpen] = useState(false);
+  const [directorates, setDirectorates] = useState<Directorate[]>([]);
+  const [directoratesLoading, setDirectoratesLoading] = useState(false);
+
+  // Fetch directorates from API
+  const fetchDirectorates = async () => {
+    try {
+      setDirectoratesLoading(true);
+      const data = await directorateService.getAll();
+      setDirectorates(data);
+    } catch (err: any) {
+      console.error('Error fetching directorates:', err);
+      // Silently fail - will show empty list
+      setDirectorates([]);
+    } finally {
+      setDirectoratesLoading(false);
+    }
+  };
 
   // Fetch settings on mount - only if authenticated
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       fetchSettings();
+      fetchDirectorates();
     }
   }, [fetchSettings, authLoading, isAuthenticated]);
 
@@ -420,6 +442,43 @@ const OrganizationSettingsPage: React.FC = () => {
               </Stack>
             </Grid>
           </Grid>
+
+          {/* Directorates Management Section */}
+          <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #e5e7eb' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', gap: 1 }}>
+                Directorates Management
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => setDirectorateModalOpen(true)}
+                sx={{ textTransform: 'none', fontSize: '0.85rem' }}
+              >
+                Manage
+              </Button>
+            </Box>
+            <Typography variant="body2" sx={{ color: '#6b7280', mb: 2 }}>
+              Configure directorates/departments available for portal users
+            </Typography>
+
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', display: 'block', mb: 1 }}>
+                Active Directorates ({directorates.length})
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {directorates.length > 0 ? (
+                  directorates.map((directorate) => (
+                    <Chip key={directorate.id} label={directorate.name} variant="outlined" size="small" />
+                  ))
+                ) : (
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    No directorates configured yet
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          </Box>
 
           {/* Portal Invitation Code Section */}
           <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #e5e7eb' }}>
@@ -796,6 +855,15 @@ const OrganizationSettingsPage: React.FC = () => {
           </Button>
         </Box>
       )}
+
+      {/* Directorate Management Modal */}
+      <DirectorateManagementModal
+        open={directorateModalOpen}
+        onClose={() => setDirectorateModalOpen(false)}
+        directorates={directorates}
+        onDirectoratesChange={setDirectorates}
+        loading={directoratesLoading}
+      />
     </Box>
   );
 };
