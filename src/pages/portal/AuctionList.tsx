@@ -393,6 +393,8 @@ export default function AuctionList() {
 
   const handleLogout = () => {
     clearUserSession();
+    // Don't remove portalCode - it should persist for 24 hours
+    // Only remove temporary session-related localStorage items
     localStorage.removeItem('invitationCode');
     navigate('/portal');
   };

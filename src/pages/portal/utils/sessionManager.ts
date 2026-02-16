@@ -53,6 +53,33 @@ export const clearUserSession = () => {
   sessionStorage.removeItem('accessLevel');
 };
 
+export const savePortalCodePersistent = (invitationCode: string) => {
+  const expiryTime = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+  localStorage.setItem('portalCode', invitationCode);
+  localStorage.setItem('portalCodeExpiry', expiryTime.toString());
+};
+
+export const getPortalCodePersistent = (): string | null => {
+  const code = localStorage.getItem('portalCode');
+  const expiry = localStorage.getItem('portalCodeExpiry');
+  
+  if (!code || !expiry) return null;
+  
+  // Check if code has expired
+  if (Date.now() > parseInt(expiry)) {
+    localStorage.removeItem('portalCode');
+    localStorage.removeItem('portalCodeExpiry');
+    return null;
+  }
+  
+  return code;
+};
+
+export const clearPortalCodePersistent = () => {
+  localStorage.removeItem('portalCode');
+  localStorage.removeItem('portalCodeExpiry');
+};
+
 export const getAccessLevel = (): AccessLevel => {
   const accessLevel = sessionStorage.getItem('accessLevel') as AccessLevel;
   return accessLevel || null;

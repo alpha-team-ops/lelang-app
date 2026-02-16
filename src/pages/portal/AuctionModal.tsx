@@ -669,7 +669,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
                   value={formatCurrency(bidAmount)}
                   onChange={handleBidChange}
                   placeholder="Enter bid amount"
-                  disabled={isSubmitting || bidSuccess}
+                  disabled={isSubmitting || bidSuccess || currentAccessLevel === 'VIEW_ONLY'}
                   inputMode="numeric"
                   autoComplete="off"
                   spellCheck="false"
@@ -694,7 +694,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
               <button
                 type="submit"
                 className="bid-submit"
-                disabled={isSubmitting || bidSuccess}
+                disabled={isSubmitting || bidSuccess || currentAccessLevel === 'VIEW_ONLY'}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

@@ -3,7 +3,7 @@ import type { FormEvent, ChangeEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import portalAuthService from '../../data/services/portalAuthService';
 import type { PortalDirectorate, PortalOrganization } from '../../data/services/portalAuthService';
-import { saveUserSession } from './utils/sessionManager';
+import { saveUserSession, savePortalCodePersistent, getPortalCodePersistent } from './utils/sessionManager';
 import './styles/portal.css';
 
 interface FormData {
@@ -38,9 +38,11 @@ export default function PortalForm() {
   const [organizationInfo, setOrganizationInfo] = useState<PortalOrganization | null>(null);
   const [organizationError, setOrganizationError] = useState<string>('');
 
-  // Fetch organization info, directorates, and auto-fill portal code from URL
+  // Fetch organization info, directorates, and auto-fill portal code from URL or localStorage
   useEffect(() => {
-    const portalCode = searchParams.get('portalCode') || searchParams.get('invitationCode');
+    const portalCodeFromUrl = searchParams.get('portalCode') || searchParams.get('invitationCode');
+    const portalCodeFromStorage = getPortalCodePersistent();
+    const portalCode = portalCodeFromUrl || portalCodeFromStorage;
 
     const fetchData = async () => {
       try {
@@ -157,14 +159,10 @@ export default function PortalForm() {
       
       saveUserSession(sessionData);
 
-      // ✅ Backend Priority Implementation:
-      // 1. Bearer token (portalToken) - highest priority
-      // 2. X-Portal-Code header - send in every request
-      // 3. invitation_code parameter - fallback
-      // 4. Auth user (staff) - lowest priority
+      // Save portal code persistently (24 hours)
+      savePortalCodePersistent(formData.portalCode);
       
-      // Save to localStorage for persistence (across tabs/reloads)
-      localStorage.setItem('portalCode', formData.portalCode);
+      // Save to localStorage for other uses
       localStorage.setItem('accessLevel', accessLevel);
       
       // Save portalToken to localStorage if FULL access (for use in other tabs)

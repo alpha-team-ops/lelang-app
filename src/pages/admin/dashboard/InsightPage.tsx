@@ -684,32 +684,50 @@ const InsightPage: React.FC = () => {
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="timeLabel" />
               <YAxis yAxisId="left" label={{ value: 'Bid Count', angle: -90, position: 'insideLeft' }} />
-              <YAxis yAxisId="right" orientation="right" label={{ value: 'Avg Value (IDR)', angle: 90, position: 'insideRight' }} />
+              <YAxis 
+                yAxisId="right" 
+                orientation="right" 
+                label={{ value: 'Avg Value (Rp)', angle: 90, position: 'insideRight' }}
+                tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
+              />
               <Tooltip
+                contentStyle={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '12px',
+                }}
                 formatter={(value: any, name: string) => {
-                  if (name === 'avgBidValue')
-                    return [formatCurrency(value), 'Avg Value'];
+                  if (name === 'Avg Value') {
+                    return [formatCurrency(value), 'Avg Value (Rp)'];
+                  }
                   return [value, 'Bid Count'];
                 }}
+                labelFormatter={(label) => `Time: ${label}`}
               />
-              <Legend />
+              <Legend 
+                wrapperStyle={{ paddingTop: '20px' }}
+                iconType="line"
+              />
               <Line
                 yAxisId="left"
-                type="monotone"
+                type="natural"
                 dataKey="bidCount"
                 stroke="#667eea"
                 strokeWidth={2}
                 dot={{ fill: '#667eea', r: 5 }}
                 name="Bid Count"
+                isAnimationActive={true}
               />
               <Line
                 yAxisId="right"
-                type="monotone"
+                type="natural"
                 dataKey="avgBidValue"
                 stroke="#f093fb"
                 strokeWidth={2}
                 dot={{ fill: '#f093fb', r: 5 }}
                 name="Avg Value"
+                isAnimationActive={true}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -1139,7 +1157,7 @@ const InsightPage: React.FC = () => {
                           sx={{
                             height: '100%',
                             backgroundColor: '#ef4444',
-                            width: `${100 - analyticsData.successRate.successRate}%`,
+                            width: `${100 - (analyticsData.successRate.successRate * 100)}%`,
                             transition: 'width 0.3s ease',
                           }}
                         />
