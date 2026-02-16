@@ -22,6 +22,8 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
+  Schedule as ScheduleIcon,
+  Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { mockStaff } from '../../../data/mock/staff';
 import { mockOrganizationSettings } from '../../../data/mock/organizationSettings';
@@ -40,10 +42,27 @@ export default function SettingsPage() {
 
   const [profileFormData, setProfileFormData] = useState<Staff | undefined>(currentUser);
   const [orgFormData, setOrgFormData] = useState<OrganizationSettings>(mockOrganizationSettings);
+  const [systemFormData, setSystemFormData] = useState<any>({
+    timezone: 'Asia/Jakarta',
+    currency: 'IDR',
+    language: 'id',
+    emailNotifications: false,
+    auctionNotifications: true,
+    bidNotifications: true,
+    twoFactorAuth: false,
+  });
 
   React.useEffect(() => {
     setProfileFormData(currentUser);
   }, [currentUser]);
+
+  const handleSwitchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setSystemFormData((prev: any) => ({
+      ...prev,
+      [name]: checked,
+    }));
+  };
 
   const handleSave = async () => {
     setSaveLoading(true);
@@ -178,111 +197,6 @@ export default function SettingsPage() {
             </Grid>
           </Grid>
 
-          {/* Timezone & Locale Section */}
-          <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #e5e7eb' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 3, color: '#374151' }}>
-              Timezone & Locale
-            </Typography>
-
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Timezone</InputLabel>
-                  <Select
-                    name="timezone"
-                    value={orgFormData.timezone || 'Asia/Jakarta'}
-                    label="Timezone"
-                    disabled={!isEditing}
-                    onChange={(e) =>
-                      setOrgFormData((prev) => ({
-                        ...prev,
-                        timezone: e.target.value,
-                      }))
-                    }
-                  >
-                    <MenuItem value="Asia/Jakarta">Asia/Jakarta (WIB - UTC+7)</MenuItem>
-                    <MenuItem value="Asia/Makassar">Asia/Makassar (WITA - UTC+8)</MenuItem>
-                    <MenuItem value="Asia/Jayapura">Asia/Jayapura (WIT - UTC+9)</MenuItem>
-                    <MenuItem value="Asia/Bangkok">Asia/Bangkok (UTC+7)</MenuItem>
-                    <MenuItem value="Asia/Singapore">Asia/Singapore (UTC+8)</MenuItem>
-                    <MenuItem value="UTC">UTC</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Language</InputLabel>
-                  <Select
-                    name="language"
-                    value={orgFormData.language || 'id'}
-                    label="Language"
-                    disabled={!isEditing}
-                    onChange={(e) =>
-                      setOrgFormData((prev) => ({
-                        ...prev,
-                        language: e.target.value,
-                      }))
-                    }
-                  >
-                    <MenuItem value="id">Indonesian</MenuItem>
-                    <MenuItem value="en">English</MenuItem>
-                    <MenuItem value="es">Spanish</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Box>
-
-          {/* Notification Preferences Section */}
-          <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #e5e7eb' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 3, color: '#374151' }}>
-              Notification Preferences
-            </Typography>
-
-            <Stack spacing={2}>
-              <FormControlLabel
-                control={<Switch disabled={!isEditing} />}
-                label={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      Email Notifications
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#6b7280' }}>
-                      Receive email alerts for important activities
-                    </Typography>
-                  </Box>
-                }
-              />
-              <FormControlLabel
-                control={<Switch disabled={!isEditing} defaultChecked />}
-                label={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      Auction Notifications
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#6b7280' }}>
-                      Get notified about auction updates
-                    </Typography>
-                  </Box>
-                }
-              />
-              <FormControlLabel
-                control={<Switch disabled={!isEditing} defaultChecked />}
-                label={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      Bid Notifications
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#6b7280' }}>
-                      Get notified about bid activities
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Stack>
-          </Box>
-
           {/* Security Section */}
           <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #e5e7eb' }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 3, color: '#374151' }}>
@@ -312,6 +226,192 @@ export default function SettingsPage() {
               </Button>
             </Stack>
           </Box>
+        </Box>
+      </Card>
+
+      {/* Regional Settings Card */}
+      <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: '12px', mt: 3 }}>
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 3, pb: 2, borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ScheduleIcon />
+            Regional Settings
+          </Typography>
+
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Timezone</InputLabel>
+                <Select
+                  name="timezone"
+                  value={systemFormData.timezone || 'Asia/Jakarta'}
+                  label="Timezone"
+                  disabled={!isEditing}
+                  onChange={(e) =>
+                    setSystemFormData((prev: any) => ({
+                      ...prev,
+                      timezone: e.target.value,
+                    }))
+                  }
+                >
+                  <MenuItem value="Asia/Jakarta">Asia/Jakarta (WIB - UTC+7)</MenuItem>
+                  <MenuItem value="Asia/Makassar">Asia/Makassar (WITA - UTC+8)</MenuItem>
+                  <MenuItem value="Asia/Jayapura">Asia/Jayapura (WIT - UTC+9)</MenuItem>
+                  <MenuItem value="Asia/Bangkok">Asia/Bangkok (UTC+7)</MenuItem>
+                  <MenuItem value="Asia/Singapore">Asia/Singapore (UTC+8)</MenuItem>
+                  <MenuItem value="UTC">UTC</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  name="currency"
+                  value={systemFormData.currency || 'IDR'}
+                  label="Currency"
+                  disabled={!isEditing}
+                  onChange={(e) =>
+                    setSystemFormData((prev: any) => ({
+                      ...prev,
+                      currency: e.target.value,
+                    }))
+                  }
+                >
+                  <MenuItem value="IDR">IDR - Indonesian Rupiah</MenuItem>
+                  <MenuItem value="USD">USD - US Dollar</MenuItem>
+                  <MenuItem value="EUR">EUR - Euro</MenuItem>
+                  <MenuItem value="SGD">SGD - Singapore Dollar</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Language</InputLabel>
+                <Select
+                  name="language"
+                  value={systemFormData.language || 'id'}
+                  label="Language"
+                  disabled={!isEditing}
+                  onChange={(e) =>
+                    setSystemFormData((prev: any) => ({
+                      ...prev,
+                      language: e.target.value,
+                    }))
+                  }
+                >
+                  <MenuItem value="id">Bahasa Indonesia</MenuItem>
+                  <MenuItem value="en">English</MenuItem>
+                  <MenuItem value="zh">中文 (Chinese)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Box>
+      </Card>
+
+      {/* Notifications Card */}
+      <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: '12px', mt: 3 }}>
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 3, pb: 2, borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <NotificationsIcon />
+            Notification Settings
+          </Typography>
+
+          <Stack spacing={2}>
+            <Card sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    name="emailNotifications"
+                    checked={systemFormData.emailNotifications || false}
+                    onChange={handleSwitchChange}
+                    disabled={!isEditing}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      Email Notifications
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                      Receive email updates about system activity
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Card>
+
+            <Card sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    name="auctionNotifications"
+                    checked={systemFormData.auctionNotifications || false}
+                    onChange={handleSwitchChange}
+                    disabled={!isEditing}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      Auction Notifications
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                      Get notified about new and ending auctions
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Card>
+
+            <Card sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    name="bidNotifications"
+                    checked={systemFormData.bidNotifications || false}
+                    onChange={handleSwitchChange}
+                    disabled={!isEditing}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      Bid Notifications
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                      Receive alerts when someone places a bid
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Card>
+
+            <Card sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    name="twoFactorAuth"
+                    checked={systemFormData.twoFactorAuth || false}
+                    onChange={handleSwitchChange}
+                    disabled={!isEditing}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      Two-Factor Authentication
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                      Require 2FA for admin accounts
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Card>
+          </Stack>
         </Box>
       </Card>
 
