@@ -15,6 +15,9 @@ import {
   Chip,
   Stack,
   Skeleton,
+  ToggleButton,
+  ToggleButtonGroup,
+  Button,
 } from '@mui/material';
 import {
   LineChart,
@@ -28,13 +31,16 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { Download as DownloadIcon } from '@mui/icons-material';
 import {
   TrendingUp as TrendingUpIcon,
-
+  Visibility as VisibilityIcon,
+  LocalOffer as LocalOfferIcon,
+  EmojiEvents as EmojiEventsIcon,
   LocalFireDepartment as FireIcon,
 } from '@mui/icons-material';
-import { analyticsService } from '../../../data/services';
-import type { AnalyticsData, ConversionMetrics } from '../../../data/services/analyticsService';
+import { insightsService } from '../../../data/services';
+import type { DashboardInsightsData } from '../../../data/services/insightsService';
 
 // StatCard Component
 interface StatCardProps {
@@ -146,84 +152,212 @@ const ChartContainer: React.FC<{ children: React.ReactNode; title: string }> = (
 
 // Funnel Card Component
 const FunnelCard: React.FC<{ data: ConversionMetrics }> = ({ data }) => {
+  // Calculate percentages relative to viewers (or 0 if no data)
+  const viewerPercentage = data.totalViews > 0 ? 100 : 0;
+  const biderPercentage = data.totalViews > 0 ? (data.totalBidders / data.totalViews * 100) : 0;
+  const winnerPercentage = data.totalBidders > 0 ? (data.totalWinners / data.totalBidders * 100) : 0;
+
   const funnelItems = [
-    { label: 'Viewers', value: data.totalViews, percentage: 100, color: '#667eea' },
+    { label: 'Viewers', value: data.totalViews, percentage: viewerPercentage, color: '#3b82f6', bgColor: '#dbeafe' },
     {
       label: 'Bidders',
       value: data.totalBidders,
-      percentage: data.viewToBidRate,
-      color: '#764ba2',
+      percentage: biderPercentage,
+      color: '#8b5cf6',
+      bgColor: '#ede9fe',
     },
     {
       label: 'Winners',
       value: data.totalWinners,
-      percentage: data.bidToWinRate,
-      color: '#f093fb',
+      percentage: winnerPercentage,
+      color: '#ec4899',
+      bgColor: '#fce7f3',
     },
   ];
 
   return (
     <Card
       sx={{
-        boxShadow: '0 8px 16px rgba(0, 0, 0, 0.08)',
-        borderRadius: '12px',
+        boxShadow: '0 12px 24px rgba(0, 0, 0, 0.08)',
+        borderRadius: '16px',
         border: 'none',
+        background: 'linear-gradient(135deg, #ffffff 0%, #f9fafb 100%)',
       }}
     >
       <CardHeader
         title="Conversion Funnel"
-        subheader="View → Bid → Win (UX/Pricing Insights)"
+        subheader="View → Bid → Win (Visitor Journey)"
         sx={{
-          backgroundColor: '#fafbfc',
-          borderBottom: '1px solid #e0e0e0',
+          backgroundColor: 'transparent',
+          borderBottom: '2px solid #f3f4f6',
           '& .MuiCardHeader-title': {
-            fontSize: '16px',
-            fontWeight: 600,
+            fontSize: '18px',
+            fontWeight: 700,
+            letterSpacing: '-0.5px',
+          },
+          '& .MuiCardHeader-subheader': {
+            fontSize: '13px',
+            fontWeight: 500,
+            color: '#64748b',
           },
         }}
       />
-      <CardContent>
-        <Stack spacing={3}>
-          {funnelItems.map((item, index) => (
-            <Box key={index}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {item.label}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {item.value.toLocaleString()}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{ color: '#667eea', fontWeight: 500 }}
+      <CardContent sx={{ pt: 4, pb: 3 }}>
+        <Stack spacing={4}>
+          {funnelItems.map((item, index) => {
+            const dropoffFromPrevious = index === 0 
+              ? 0 
+              : funnelItems[index - 1].percentage - item.percentage;
+
+            return (
+              <Box key={index}>
+                {/* Header dengan Label dan Metrics */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box 
+                      sx={{ 
+                        width: '36px', 
+                        height: '36px', 
+                        borderRadius: '8px',
+                        backgroundColor: item.bgColor,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {index === 0 && <VisibilityIcon sx={{ color: item.color, fontSize: '20px' }} />}
+                      {index === 1 && <LocalOfferIcon sx={{ color: item.color, fontSize: '20px' }} />}
+                      {index === 2 && <EmojiEventsIcon sx={{ color: item.color, fontSize: '20px' }} />}
+                    </Box>
+                    <Box>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ fontWeight: 700, fontSize: '14px', color: '#0f172a' }}
+                      >
+                        {item.label}
+                      </Typography>
+                      {index > 0 && (
+                        <Typography 
+                          variant="caption" 
+                          sx={{ color: '#64748b', fontSize: '12px' }}
+                        >
+                          Dropoff: {(funnelItems[index - 1].percentage - item.percentage).toFixed(1)}%
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ fontWeight: 700, fontSize: '16px', color: item.color }}
+                    >
+                      {item.value.toLocaleString()}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: item.color, fontWeight: 600, fontSize: '12px' }}
+                    >
+                      {item.percentage.toFixed(1)}%
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Progress Bar with Animation */}
+                <Box
+                  sx={{
+                    height: '48px',
+                    backgroundColor: '#f1f5f9',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    paddingX: 1.5,
+                    overflow: 'hidden',
+                    border: `2px solid ${item.bgColor}`,
+                    position: 'relative',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      height: '44px',
+                      backgroundColor: item.color,
+                      borderRadius: '8px',
+                      width: `${item.percentage}%`,
+                      maxWidth: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      paddingX: 2,
+                      transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: `0 4px 12px ${item.color}40`,
+                      position: 'relative',
+                      '&::after': {
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                        borderRadius: '8px',
+                      },
+                    }}
                   >
-                    ({item.percentage.toFixed(1)}%)
-                  </Typography>
+                    {item.percentage > 5 && (
+                      <Typography
+                        variant="caption"
+                        sx={{ 
+                          fontWeight: 700, 
+                          color: '#ffffff',
+                          fontSize: '13px',
+                          position: 'relative',
+                          zIndex: 1,
+                        }}
+                      >
+                        {item.percentage.toFixed(0)}%
+                      </Typography>
+                    )}
+                  </Box>
                 </Box>
               </Box>
-              <Box
-                sx={{
-                  height: '40px',
-                  backgroundColor: `${item.color}20`,
-                  border: `2px solid ${item.color}`,
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  paddingX: 2,
-                  width: `${item.percentage}%`,
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  sx={{ fontWeight: 600, color: item.color }}
-                >
-                  {item.percentage.toFixed(1)}%
-                </Typography>
-              </Box>
-            </Box>
-          ))}
+            );
+          })}
         </Stack>
+
+        {/* Summary Stats */}
+        <Box
+          sx={{
+            mt: 4,
+            pt: 4,
+            borderTop: '2px solid #f3f4f6',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: 2,
+          }}
+        >
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '12px' }}>
+              View to Bid Rate
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#667eea', mt: 0.5 }}>
+              {biderPercentage.toFixed(1)}%
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '12px' }}>
+              Bid to Win Rate
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#ec4899', mt: 0.5 }}>
+              {winnerPercentage.toFixed(1)}%
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '12px' }}>
+              Overall Conversion
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#22c55e', mt: 0.5 }}>
+              {data.totalViews > 0 ? ((data.totalWinners / data.totalViews) * 100).toFixed(1) : 0}%
+            </Typography>
+          </Box>
+        </Box>
       </CardContent>
     </Card>
   );
@@ -239,26 +373,53 @@ const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
-// Main AnalyticsPage Component
-const AnalyticsPage: React.FC = () => {
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+// Main InsightPage Component
+const InsightPage: React.FC = () => {
+  const [analyticsData, setAnalyticsData] = useState<DashboardInsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day');
 
   const MIN_LOADING_TIME = 700; // 0.7 second minimum skeleton visibility
 
   // Fetch analytics data from service
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (selectedPeriod: 'day' | 'week' | 'month' = period) => {
     const startTime = Date.now();
-    let dataToSet: AnalyticsData | null = null;
+    let dataToSet: DashboardInsightsData | null = null;
     let errorToSet: string | null = null;
 
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch from service (mock or API)
-      dataToSet = await analyticsService.getAnalytics();
+      // Fetch all analytics data in parallel from API
+      const [
+        bidTrendData,
+        auctionPerformanceData,
+        conversionMetricsData,
+        priceComparisonData,
+        topBiddersData,
+        successRateData,
+        auctionStatusSummaryData,
+      ] = await Promise.all([
+        insightsService.getBidTrend({ period: selectedPeriod }),
+        insightsService.getAuctionPerformance({ limit: 10 }),
+        insightsService.getConversionMetrics(),
+        insightsService.getPriceComparison(10),
+        insightsService.getTopBidders({ limit: 5 }),
+        insightsService.getSuccessRate(),
+        insightsService.getAuctionStatusSummary({ period: selectedPeriod }),
+      ]);
+
+      dataToSet = {
+        bidTrend: bidTrendData,
+        auctionPerformance: auctionPerformanceData,
+        conversionMetrics: conversionMetricsData,
+        priceComparison: priceComparisonData,
+        topBidders: topBiddersData,
+        successRate: successRateData,
+        auctionStatusSummary: auctionStatusSummaryData,
+      };
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : 'Failed to load analytics';
@@ -292,8 +453,38 @@ const AnalyticsPage: React.FC = () => {
 
   // Effects
   useEffect(() => {
-    fetchAnalytics();
-  }, []);
+    fetchAnalytics(period);
+  }, [period]);
+
+  // Handle period change
+  const handlePeriodChange = (event: React.MouseEvent<HTMLElement>, newPeriod: 'day' | 'week' | 'month' | null) => {
+    if (newPeriod !== null) {
+      setPeriod(newPeriod);
+    }
+  };
+
+  // Export analytics data to CSV
+  const exportToCSV = () => {
+    if (!analyticsData) return;
+
+    const csvContent = [
+      ['Analytics Report - ' + new Date().toLocaleDateString()],
+      [],
+      ['Key Metrics'],
+      ['Total Bids', analyticsData.bidTrend.reduce((sum, d) => sum + d.bidCount, 0)],
+      ['Avg Bid Value', analyticsData.bidTrend.length > 0 ? analyticsData.bidTrend.reduce((sum, d) => sum + d.avgBidValue, 0) / analyticsData.bidTrend.length : 0],
+      ['Conversion Rate', (analyticsData.conversionMetrics.viewToBidRate * 100).toFixed(2) + '%'],
+      ['Success Rate', (analyticsData.successRate.successRate * 100).toFixed(2) + '%'],
+    ].map(row => row.join(',')).join('\n');
+
+    const element = document.createElement('a');
+    element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent));
+    element.setAttribute('download', `analytics-${period}-${new Date().toISOString().split('T')[0]}.csv`);
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
 
   // Render loading state
   if (loading) {
@@ -376,16 +567,63 @@ const AnalyticsPage: React.FC = () => {
   return (
     <Box sx={{ py: { xs: 2, md: 3 }, px: { xs: 2, md: 3 } }}>
       {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-          Analytics Dashboard
-        </Typography>
-        <Typography
-          variant="body2"
-          sx={{ color: 'rgba(0, 0, 0, 0.6)', mb: 3 }}
-        >
-          Deep insights to make better decisions
-        </Typography>
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+            Analytics Dashboard
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ color: 'rgba(0, 0, 0, 0.6)' }}
+          >
+            Deep insights to make better decisions
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {/* Period Toggle */}
+          <ToggleButtonGroup
+            value={period}
+            exclusive
+            onChange={handlePeriodChange}
+            sx={{
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              '& .MuiToggleButton-root': {
+                px: 2,
+                py: 1,
+                fontSize: '13px',
+                fontWeight: 600,
+                textTransform: 'capitalize',
+                '&.Mui-selected': {
+                  bgcolor: '#667eea',
+                  color: 'white',
+                  '&:hover': {
+                    bgcolor: '#667eea',
+                  },
+                },
+              },
+            }}
+          >
+            <ToggleButton value="day">Day</ToggleButton>
+            <ToggleButton value="week">Week</ToggleButton>
+            <ToggleButton value="month">Month</ToggleButton>
+          </ToggleButtonGroup>
+
+          {/* Export Button */}
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={exportToCSV}
+            sx={{
+              bgcolor: '#667eea',
+              '&:hover': {
+                bgcolor: '#5a67d8',
+              },
+            }}
+          >
+            Export
+          </Button>
+        </Box>
       </Box>
 
       {/* Key Metrics */}
@@ -407,8 +645,10 @@ const AnalyticsPage: React.FC = () => {
         <StatCard
           title="Avg Bid Value"
           value={formatCurrency(
-            analyticsData.bidTrend.reduce((sum, d) => sum + d.avgBidValue, 0) /
-              analyticsData.bidTrend.length
+            analyticsData.bidTrend.length > 0
+              ? analyticsData.bidTrend.reduce((sum, d) => sum + d.avgBidValue, 0) /
+                  analyticsData.bidTrend.length
+              : 0
           )}
           subtext="Per transaction"
           icon={<TrendingUpIcon />}
@@ -416,14 +656,14 @@ const AnalyticsPage: React.FC = () => {
         />
         <StatCard
           title="Conversion Rate"
-          value={analyticsData.conversionMetrics.viewToBidRate.toFixed(1) + '%'}
+          value={(analyticsData.conversionMetrics.viewToBidRate * 100).toFixed(1) + '%'}
           subtext="View to Bid"
           icon={<TrendingUpIcon />}
           color="#f093fb"
         />
         <StatCard
           title="Success Rate"
-          value={analyticsData.successRate.successRate.toFixed(1) + '%'}
+          value={(analyticsData.successRate.successRate * 100).toFixed(1) + '%'}
           subtext={`${analyticsData.successRate.successfulAuctions} of ${analyticsData.successRate.totalAuctions}`}
           icon={<TrendingUpIcon />}
           color="#4facfe"
@@ -517,43 +757,49 @@ const AnalyticsPage: React.FC = () => {
         </ChartContainer>
       </Box>
 
-      {/* 3. Draft Bids Status Chart */}
+      {/* 3. Auction Status Distribution */}
       <Box sx={{ mb: 4 }}>
-        <ChartContainer title="3. Draft Bids Status">
+        <ChartContainer title="3. Auction Status Distribution">
           <Typography
             variant="caption"
             sx={{ color: 'rgba(0, 0, 0, 0.6)', mb: 2, display: 'block' }}
           >
-            Auction breakdown of draft bids: pending review vs awaiting approval
+            Overview of auctions by status: Draft, Scheduled, Live, and Ended
           </Typography>
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart
-              data={analyticsData.draftBids}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis
-                dataKey="auctionTitle"
-                angle={-45}
-                textAnchor="end"
-                height={100}
-              />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar
-                dataKey="pendingReview"
-                fill="#f59e0b"
-                name="Pending Review"
-                radius={[8, 8, 0, 0]}
-              />
-              <Bar
-                dataKey="awaitingApproval"
-                fill="#06b6d4"
-                name="Awaiting Approval"
-                radius={[8, 8, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 2, mb: 3 }}>
+            <Box sx={{ p: 2, bgcolor: '#f3f4f6', borderRadius: '8px', textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: 'rgba(0, 0, 0, 0.6)', mb: 0.5 }}>Draft</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 600, color: '#9ca3af' }}>
+                {analyticsData.auctionStatusSummary?.draft || 0}
+              </Typography>
+            </Box>
+            <Box sx={{ p: 2, bgcolor: '#fef3c7', borderRadius: '8px', textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: 'rgba(0, 0, 0, 0.6)', mb: 0.5 }}>Scheduled</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 600, color: '#f59e0b' }}>
+                {analyticsData.auctionStatusSummary?.scheduled || 0}
+              </Typography>
+            </Box>
+            <Box sx={{ p: 2, bgcolor: '#fee2e2', borderRadius: '8px', textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: 'rgba(0, 0, 0, 0.6)', mb: 0.5 }}>Live</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 600, color: '#ef4444' }}>
+                {analyticsData.auctionStatusSummary?.live || 0}
+              </Typography>
+            </Box>
+            <Box sx={{ p: 2, bgcolor: '#dcfce7', borderRadius: '8px', textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: 'rgba(0, 0, 0, 0.6)', mb: 0.5 }}>Ended</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 600, color: '#22c55e' }}>
+                {analyticsData.auctionStatusSummary?.ended || 0}
+              </Typography>
+            </Box>
+          </Box>
+          <Box sx={{ p: 2, bgcolor: '#f0f9ff', borderRadius: '8px' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>Total Auctions</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: '#0369a1' }}>
+                {analyticsData.auctionStatusSummary?.total || 0}
+              </Typography>
+            </Box>
+          </Box>
         </ChartContainer>
       </Box>
 
@@ -591,9 +837,6 @@ const AnalyticsPage: React.FC = () => {
                     Starting Price
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    Reserve Price
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>
                     Avg Winning
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
@@ -618,9 +861,6 @@ const AnalyticsPage: React.FC = () => {
                       <TableCell>{item.auctionTitle}</TableCell>
                       <TableCell align="right">
                         {formatCurrency(item.startingPrice)}
-                      </TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(item.reservePrice)}
                       </TableCell>
                       <TableCell
                         align="right"
@@ -826,7 +1066,7 @@ const AnalyticsPage: React.FC = () => {
                         variant="h3"
                         sx={{ fontWeight: 700, color: '#667eea' }}
                       >
-                        {analyticsData.successRate.successRate.toFixed(1)}%
+                        {(analyticsData.successRate.successRate * 100).toFixed(1)}%
                       </Typography>
                       <TrendingUpIcon
                         sx={{ color: '#22c55e', fontSize: '32px' }}
@@ -847,57 +1087,66 @@ const AnalyticsPage: React.FC = () => {
                 <Typography variant="body2" sx={{ mb: 2, fontWeight: 600 }}>
                   Distribution
                 </Typography>
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2">Successful</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {analyticsData.successRate.successRate.toFixed(1)}%
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      height: '12px',
-                      backgroundColor: '#e5e7eb',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        height: '100%',
-                        backgroundColor: '#22c55e',
-                        width: `${analyticsData.successRate.successRate}%`,
-                        transition: 'width 0.3s ease',
-                      }}
-                    />
-                  </Box>
-                </Box>
+                
+                {analyticsData.successRate.totalAuctions === 0 || (analyticsData.successRate.successfulAuctions === 0 && analyticsData.successRate.failedAuctions === 0) ? (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    No auction data available yet
+                  </Alert>
+                ) : (
+                  <>
+                    <Box sx={{ mb: 3 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="body2">Successful</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {(analyticsData.successRate.successRate * 100).toFixed(1)}%
+                        </Typography>
+                      </Box>
+                      <Box
+                        sx={{
+                          height: '12px',
+                          backgroundColor: '#e5e7eb',
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            height: '100%',
+                            backgroundColor: '#22c55e',
+                            width: `${analyticsData.successRate.successRate * 100}%`,
+                            transition: 'width 0.3s ease',
+                          }}
+                        />
+                      </Box>
+                    </Box>
 
-                <Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2">Failed</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {(100 - analyticsData.successRate.successRate).toFixed(1)}%
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      height: '12px',
-                      backgroundColor: '#e5e7eb',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        height: '100%',
-                        backgroundColor: '#ef4444',
-                        width: `${100 - analyticsData.successRate.successRate}%`,
-                        transition: 'width 0.3s ease',
-                      }}
-                    />
-                  </Box>
-                </Box>
+                    <Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="body2">Failed</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {(100 - (analyticsData.successRate.successRate * 100)).toFixed(1)}%
+                        </Typography>
+                      </Box>
+                      <Box
+                        sx={{
+                          height: '12px',
+                          backgroundColor: '#e5e7eb',
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            height: '100%',
+                            backgroundColor: '#ef4444',
+                            width: `${100 - analyticsData.successRate.successRate}%`,
+                            transition: 'width 0.3s ease',
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                  </>
+                )}
               </Box>
             </Box>
           </CardContent>
@@ -907,4 +1156,4 @@ const AnalyticsPage: React.FC = () => {
   );
 };
 
-export default AnalyticsPage;
+export default InsightPage;

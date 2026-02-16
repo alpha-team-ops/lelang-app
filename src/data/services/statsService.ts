@@ -1,46 +1,70 @@
+import apiClient from '../../config/apiClient';
 import type { DashboardStats } from '../types/index';
-import { dashboardStatsMock, getStatsByPeriod } from '../mock/stats';
+import { dashboardStatsMock, getStatsByPeriod as getStatsByPeriodMock } from '../mock/stats';
+
+interface StatsApiResponse {
+  success: boolean;
+  data: DashboardStats;
+  message?: string;
+}
 
 export const statsService = {
   getDashboardStats: async (): Promise<DashboardStats> => {
-    return dashboardStatsMock;
-    
-    // Nanti tinggal ganti ke:
-    // const response = await fetch('/api/stats/dashboard');
-    // return response.json();
+    try {
+      const response = await apiClient.get<StatsApiResponse>('/admin/stats');
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      console.warn('Stats API returned invalid response, using mock data');
+      return dashboardStatsMock;
+    } catch (error) {
+      console.warn('Stats API error, using mock data:', error);
+      return dashboardStatsMock;
+    }
   },
 
   getStatsByPeriod: async (period: 'today' | 'week' | 'month'): Promise<DashboardStats> => {
-    return getStatsByPeriod(period);
-    
-    // Nanti tinggal ganti ke:
-    // const response = await fetch(`/api/stats/dashboard?period=${period}`);
-    // return response.json();
+    try {
+      const response = await apiClient.get<StatsApiResponse>('/admin/stats', {
+        params: { period },
+      });
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      console.warn('Stats API returned invalid response, using mock data');
+      return getStatsByPeriodMock(period);
+    } catch (error) {
+      console.warn('Stats API error, using mock data:', error);
+      return getStatsByPeriodMock(period);
+    }
   },
 
   getAuctionStats: async () => {
-    // Agregasi data dari auction service
-    return {
-      totalCreated: dashboardStatsMock.totalAuctions,
-      active: dashboardStatsMock.activeAuctions,
-      completed: dashboardStatsMock.completedAuctions,
-      cancelled: dashboardStatsMock.cancelledAuctions,
-    };
-    
-    // Nanti tinggal ganti ke:
-    // const response = await fetch('/api/stats/auctions');
-    // return response.json();
+    try {
+      const stats = await statsService.getDashboardStats();
+      return {
+        totalCreated: stats.totalAuctions,
+        active: stats.activeAuctions,
+        completed: stats.completedAuctions,
+        cancelled: stats.cancelledAuctions,
+      };
+    } catch (error) {
+      console.error('Error fetching auction stats:', error);
+      throw error;
+    }
   },
 
   getBidStats: async () => {
-    return {
-      totalBids: dashboardStatsMock.totalBids,
-      averageBidsPerAuction: dashboardStatsMock.averageBidsPerAuction,
-      totalVolume: dashboardStatsMock.totalVolume,
-    };
-    
-    // Nanti tinggal ganti ke:
-    // const response = await fetch('/api/stats/bids');
-    // return response.json();
+    try {
+      const stats = await statsService.getDashboardStats();
+      return {
+        totalBids: stats.totalBids,
+        averageBidsPerAuction: stats.averageBidsPerAuction,
+        totalVolume: stats.totalVolume,
+      };
+    } catch (error) {
+      console.error('Error fetching bid stats:', error);
+      throw error;
+    }
   },
 };

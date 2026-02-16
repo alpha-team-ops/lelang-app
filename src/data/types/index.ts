@@ -2,6 +2,7 @@
 export interface Auction {
   id: string;
   title: string;
+  itemCode: string;
   description: string;
   category: string;
   condition: string;
@@ -9,7 +10,6 @@ export interface Auction {
   itemLocation?: string; // Lokasi Barang
   purchaseYear?: number; // Tahun Pembelian Barang
   startingPrice: number;
-  reservePrice: number;
   bidIncrement: number;
   currentBid: number;
   totalBids: number;
@@ -42,6 +42,41 @@ export interface PortalAuction {
   status: 'DRAFT' | 'SCHEDULED' | 'LIVE' | 'ENDING' | 'ENDED' | 'CANCELLED';
   organizationCode: string;
   winner?: { fullName?: string; winningBid?: number; status?: string };
+}
+
+// WebSocket Event Payloads
+// See src/types/websocket.ts for detailed payload structures
+export interface BidPlacedPayload {
+  auctionId: string;
+  currentBid: number;
+  participantCount: number;
+  bidderName: string;
+  timestamp: string;
+}
+
+export interface AuctionUpdatedPayload {
+  id: string;
+  currentBid: number;
+  participantCount: number;
+  status: 'DRAFT' | 'SCHEDULED' | 'LIVE' | 'ENDING' | 'ENDED' | 'CANCELLED';
+  viewCount: number;
+  bidderName?: string;
+}
+
+export interface AuctionEndedPayload {
+  id: string;
+  title: string;
+  status: 'ENDED';
+  winningBid: number;
+  winner: {
+    id: string;
+    fullName: string;
+    winningBid: number;
+    totalParticipants: number;
+    status: string;
+  };
+  participantCount: number;
+  endedAt: string;
 }
 
 // Bid Activity Types

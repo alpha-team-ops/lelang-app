@@ -79,6 +79,7 @@ const Time24Input: React.FC<{
 
 interface FormData {
   title: string;
+  itemCode: string;
   description?: string;
   category?: string;
   condition?: string;
@@ -95,12 +96,12 @@ interface FormData {
 
 interface FormErrors {
   title?: string;
+  itemCode?: string;
   description?: string;
   category?: string;
   condition?: string;
   serialNumber?: string;
   startingPrice?: string;
-  reservePrice?: string;
   bidIncrement?: string;
   startDate?: string;
   startTime?: string;
@@ -143,6 +144,7 @@ const formatCurrency = (value: number | string | undefined): string => {
 const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onClose, onSuccess }) => {
   const [formData, setFormData] = useState<FormData>({
     title: '',
+    itemCode: '',
     description: '',
     category: '',
     condition: '',
@@ -202,6 +204,7 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
       
       setFormData({
         title: auction.title || '',
+        itemCode: auction.itemCode || '',
         description: auction.description || '',
         category: auction.category || '',
         condition: normalizeCondition(auction.condition || ''),
@@ -304,6 +307,7 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
     const newErrors: FormErrors = {};
 
     if (!formData.title.trim()) newErrors.title = 'Title is required';
+    if (!formData.itemCode.trim()) newErrors.itemCode = 'Item Code is required';
     if (formData.description && !formData.description.trim()) newErrors.description = 'Description cannot be empty';
     // Starting price and bid increment default to 0, validation handled by backend
 
@@ -354,6 +358,8 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
 
       // Step 2: Build update payload
       const updateData: any = {
+        title: formData.title,
+        itemCode: formData.itemCode,
         title: formData.title,
         startingPrice: Number(formData.startingPrice),
         bidIncrement: Number(formData.bidIncrement),
@@ -544,6 +550,17 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
                   helperText={errors.title}
                   size="small"
                   placeholder="Enter auction title"
+                />
+                <TextField
+                  fullWidth
+                  label="Item Code"
+                  name="itemCode"
+                  value={formData.itemCode}
+                  onChange={handleInputChange}
+                  error={!!errors.itemCode}
+                  helperText={errors.itemCode}
+                  size="small"
+                  placeholder="e.g., AUC-001"
                 />
                 <TextField
                   fullWidth

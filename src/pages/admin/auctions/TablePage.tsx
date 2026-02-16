@@ -21,6 +21,7 @@ import {
   Typography,
   CircularProgress,
   Alert,
+  Checkbox,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -29,6 +30,7 @@ import {
   Add as AddIcon,
   Search as SearchIcon,
   Close as CloseIcon,
+  DeleteOutline as DeleteOutlineIcon,
 } from '@mui/icons-material';
 import AuctionDetailModal from '../../../components/modals/auctions/AuctionDetailModal';
 import CreateAuctionModal from '../../../components/modals/auctions/CreateAuctionModal';
@@ -51,6 +53,9 @@ const TablePage: React.FC = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [liveAuctions, setLiveAuctions] = useState<Record<string, Auction>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Load auctions on mount - only if authenticated
   useEffect(() => {
@@ -138,6 +143,47 @@ const TablePage: React.FC = () => {
       } finally {
         setDeleting(false);
       }
+    }
+  };
+
+  // Bulk Delete Handlers
+  const handleToggleSelectAll = () => {
+    if (selectedIds.size === filteredAuctions.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredAuctions.map((a) => a.id)));
+    }
+  };
+
+  const handleToggleSelect = (auctionId: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(auctionId)) {
+      newSelected.delete(auctionId);
+    } else {
+      newSelected.add(auctionId);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.size === 0) {
+      alert('Please select auctions to delete');
+      return;
+    }
+    setBulkDeleteDialogOpen(true);
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      const deletePromises = Array.from(selectedIds).map((id) => deleteAuction(id));
+      await Promise.all(deletePromises);
+      setSelectedIds(new Set());
+      setBulkDeleteDialogOpen(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete some auctions');
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -262,11 +308,49 @@ const TablePage: React.FC = () => {
         )}
       </Paper>
 
+      {/* Bulk Delete Bar */}
+      {selectedIds.size > 0 && (
+        <Paper
+          sx={{
+            p: 2,
+            mb: 3,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '12px',
+          }}
+        >
+          <Typography sx={{ color: '#991b1b', fontWeight: 600 }}>
+            {selectedIds.size} auction{selectedIds.size !== 1 ? 's' : ''} selected
+          </Typography>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<DeleteOutlineIcon />}
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+            sx={{ textTransform: 'none' }}
+          >
+            Delete Selected
+          </Button>
+        </Paper>
+      )}
+
       {/* Table */}
       <TableContainer component={Paper} sx={{ overflowX: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', borderRadius: '12px' }}>
         <Table size="small">
           <TableHead sx={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
             <TableRow>
+              <TableCell sx={{ width: '50px', py: 2 }}>
+                <Checkbox
+                  checked={selectedIds.size === filteredAuctions.length && filteredAuctions.length > 0}
+                  indeterminate={selectedIds.size > 0 && selectedIds.size < filteredAuctions.length}
+                  onChange={handleToggleSelectAll}
+                  disabled={filteredAuctions.length === 0}
+                />
+              </TableCell>
               <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '150px', py: 2 }}>Title</TableCell>
               <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '200px', py: 2 }}>Description</TableCell>
               <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '120px', py: 2 }}>Serial Number</TableCell>
@@ -282,10 +366,11 @@ const TablePage: React.FC = () => {
                 <TableRow 
                   key={auction.id} 
                   sx={{
+                    backgroundColor: selectedIds.has(auction.id) ? '#fef2f2' : undefined,
                     borderBottom: '1px solid #e5e7eb',
                     transition: 'all 0.3s ease',
                     '&:hover': {
-                      backgroundColor: '#fafbfc',
+                      backgroundColor: selectedIds.has(auction.id) ? '#fce7e7' : '#fafbfc',
                       boxShadow: 'inset 0 0 10px rgba(102, 126, 234, 0.05)',
                     },
                     '&:last-child': {
@@ -293,6 +378,12 @@ const TablePage: React.FC = () => {
                     },
                   }}
                 >
+                  <TableCell sx={{ width: '50px', py: 2 }}>
+                    <Checkbox
+                      checked={selectedIds.has(auction.id)}
+                      onChange={() => handleToggleSelect(auction.id)}
+                    />
+                  </TableCell>
                   <TableCell sx={{ minWidth: '150px', py: 2 }}>
                     <Typography sx={{ fontWeight: 600, color: '#1f2937', fontSize: '14px' }}>
                       {auction.title}
@@ -401,7 +492,7 @@ const TablePage: React.FC = () => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
+                <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
                   <Typography color="textSecondary">
                     No auctions found
                   </Typography>
@@ -480,6 +571,23 @@ const TablePage: React.FC = () => {
           <Button onClick={handleConfirmDelete} color="error" variant="contained" disabled={deleting}>
             {deleting ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
             {deleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={bulkDeleteDialogOpen} onClose={() => !bulkDeleting && setBulkDeleteDialogOpen(false)}>
+        <DialogTitle>Confirm Bulk Delete</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete {selectedIds.size} auction{selectedIds.size !== 1 ? 's' : ''}? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeleteDialogOpen(false)} disabled={bulkDeleting}>Cancel</Button>
+          <Button onClick={handleConfirmBulkDelete} color="error" variant="contained" disabled={bulkDeleting}>
+            {bulkDeleting ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+            {bulkDeleting ? 'Deleting...' : 'Delete All'}
           </Button>
         </DialogActions>
       </Dialog>

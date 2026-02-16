@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Grid,
   Typography,
@@ -21,7 +22,7 @@ import {
   HourglassEmpty as HourglassIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
-import { statsService } from '../../../data/services';
+import { statsService, insightsService } from '../../../data/services';
 import { useAuction } from '../../../config/AuctionContext';
 import { useAuth } from '../../../config/AuthContext';
 import type { DashboardStats } from '../../../data/types';
@@ -49,25 +50,32 @@ const StatCard: React.FC<StatCardProps> = ({
       elevation={0}
       onClick={onClick}
       sx={{ 
-        border: isPriority ? '2px solid' : '1px solid',
-        borderColor: isPriority ? color : '#e2e8f0',
+        border: '1px solid #f0f1f3',
         bgcolor: '#ffffff',
-        borderRadius: '12px',
+        borderRadius: '16px',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         cursor: isClickable ? 'pointer' : 'default',
         position: 'relative',
-        '&:hover': {
-          boxShadow: '0 16px 32px rgba(0, 0, 0, 0.1)',
-          transform: isClickable ? 'translateY(-6px)' : 'none',
-          borderColor: isClickable ? color : '#cbd5e0',
-          bgcolor: isClickable ? `${bgColor}40` : '#ffffff',
+        overflow: 'hidden',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '3px',
+          background: color,
+          opacity: isPriority ? 1 : 0.5,
         },
-        ...(isPriority && {
-          boxShadow: `0 0 16px ${color}20`,
-        }),
+        '&:hover': {
+          boxShadow: '0 12px 24px rgba(0, 0, 0, 0.08)',
+          borderColor: '#e5e7eb',
+          transform: isClickable ? 'translateY(-4px)' : 'none',
+        },
       }}
     >
       {isPriority && (
@@ -83,9 +91,11 @@ const StatCard: React.FC<StatCardProps> = ({
             color: color,
             px: 1.5,
             py: 0.5,
-            borderRadius: '6px',
+            borderRadius: '8px',
             fontSize: '11px',
             fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.3px',
           }}
         >
           <WarningIcon sx={{ fontSize: '14px' }} />
@@ -93,22 +103,21 @@ const StatCard: React.FC<StatCardProps> = ({
         </Box>
       )}
       <CardContent sx={{ p: 3, '&:last-child': { pb: 3 }, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2.5}>
           <Box
             sx={{
               bgcolor: bgColor,
-              borderRadius: '10px',
-              p: 2,
+              borderRadius: '12px',
+              p: 1.5,
               display: 'flex',
               color: color,
-              boxShadow: `0 6px 16px ${color}30`,
               fontSize: '28px',
             }}
           >
-            {React.cloneElement(icon, { fontSize: 'large' } as any)}
+            {React.cloneElement(icon, { fontSize: 'medium' } as any)}
           </Box>
           {trend !== undefined && (
-            <Box display="flex" alignItems="center" gap={0.5}>
+            <Box display="flex" alignItems="center" gap={0.5} sx={{ bgcolor: trend >= 0 ? '#ecfdf5' : '#fef2f2', px: 1.5, py: 0.75, borderRadius: '8px' }}>
               {trend >= 0 ? (
                 <TrendingUpIcon fontSize="small" sx={{ color: '#10b981' }} />
               ) : (
@@ -127,26 +136,26 @@ const StatCard: React.FC<StatCardProps> = ({
             </Box>
           )}
         </Box>
-        <Typography color="text.secondary" variant="body2" sx={{ mb: 1, fontWeight: 700, letterSpacing: '0.4px', fontSize: '13px' }}>
+        <Typography color="text.secondary" variant="body2" sx={{ mb: 1, fontWeight: 600, letterSpacing: '0.3px', fontSize: '12px', textTransform: 'uppercase', color: '#64748b' }}>
           {title}
         </Typography>
-        <Typography variant="h3" sx={{ fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px', mb: subtitle ? 1 : 0 }}>
-          {value !== undefined && value !== null ? value.toLocaleString() : '0'}
+        <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px', mb: subtitle ? 1 : 0 }}>
+          {value !== undefined && value !== null ? typeof value === 'number' && value > 999999 ? `${(value / 1000000).toFixed(1)}M` : value.toLocaleString() : '0'}
         </Typography>
         {subtitle && (
-          <Typography variant="caption" sx={{ color: '#64748b', fontSize: '12px', mb: 2 }}>
+          <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '12px', mb: 2 }}>
             {subtitle}
           </Typography>
         )}
         {badge && (
           <Box mb={2}>
-            <Chip label={badge} size="small" variant="outlined" sx={{ height: 24 }} />
+            <Chip label={badge} size="small" variant="outlined" sx={{ height: 24, borderColor: color, color: color }} />
           </Box>
         )}
         {isClickable && (
           <Box mt="auto" pt={1}>
-            <Typography variant="caption" sx={{ color: color, fontWeight: 600, fontSize: '11px' }}>
-              Klik untuk detail →
+            <Typography variant="caption" sx={{ color: color, fontWeight: 600, fontSize: '11px', opacity: 0.8 }}>
+              View details →
             </Typography>
           </Box>
         )}
@@ -156,10 +165,12 @@ const StatCard: React.FC<StatCardProps> = ({
 );
 
 export default function OverviewPage() {
+  const navigate = useNavigate();
   const { auctions, fetchAuctions } = useAuction();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [revenueFilter, setRevenueFilter] = useState('today');
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -177,11 +188,15 @@ export default function OverviewPage() {
     const loadData = async () => {
       try {
         setLoading(true);
-        const statsData = await statsService.getDashboardStats();
+        const [statsData, dashboardInsights] = await Promise.all([
+          statsService.getDashboardStats(),
+          insightsService.getDashboardInsights('day'),
+        ]);
         setStats(statsData);
+        setAnalyticsData(dashboardInsights);
         await fetchAuctions(1, 100);
       } catch (error) {
-        // Silently fail with fallback data
+        console.error('Error loading overview data:', error);
       } finally {
         setLoading(false);
       }
@@ -197,20 +212,31 @@ export default function OverviewPage() {
   const highestBidAuction = auctions.find(a => a.currentBid === highestBid);
   const avgBidsPerAuction = stats ? (stats.totalBids / (stats.totalAuctions || 1)).toFixed(1) : '0';
 
+  // Calculate engagement metrics
+  const totalViews = analyticsData?.conversionMetrics?.totalViews ?? 0;
+  const totalBidders = analyticsData?.conversionMetrics?.totalBidders ?? 0;
+  const engagementRate = totalViews > 0 ? ((totalBidders / totalViews) * 100).toFixed(1) : '0';
+  const successRate = analyticsData?.successRate?.successRate ?? 0;
+  const successRatePercent = (successRate * 100).toFixed(1);
+  const avgTimeToFirstBid = analyticsData?.biddingInsights?.avgTimeToFirstBid ?? 4.5;
+
   const analytics = {
     active_auctions: activeAuctions,
-    active_auctions_trend: 12,
+    active_auctions_trend: analyticsData?.auctionStatusSummary?.live ?? 0,
     auctions_ending_soon: endingSoon,
-    active_users_today: 156,
+    active_users_today: analyticsData?.conversionMetrics?.totalBidders ?? 0,
     active_users_trend: 8,
     total_bids_today: stats?.totalBids || 0,
     avg_bid_per_auction: parseFloat(avgBidsPerAuction),
     highest_bid_today: highestBid,
     highest_bid_item: highestBidAuction?.title || 'N/A',
     highest_bid_bidder: highestBidAuction?.currentBidder || 'N/A',
-    revenue_today: 18500000,
+    revenue_today: analyticsData?.auctionPerformance?.reduce((sum: number, a: any) => sum + (a.totalBidValue || 0), 0) ?? 0,
     revenue_7days: stats?.totalVolume || 0,
-    avg_time_to_first_bid: 4.5,
+    avg_time_to_first_bid: avgTimeToFirstBid,
+    engagement_rate: parseFloat(engagementRate),
+    success_rate: parseFloat(successRatePercent),
+    total_views: totalViews,
   };
 
   const getGreeting = () => {
@@ -281,11 +307,11 @@ export default function OverviewPage() {
         </Box>
 
         {/* ROW 1 - STATUS (Real-time System Health) */}
-        <Box mb={4}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '12px', color: '#64748b', mb: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <Box mb={5}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '13px', color: '#475569', mb: 3, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             📊 System Status
           </Typography>
-          <Grid container spacing={2.5}>
+          <Grid container spacing={3}>
             {/* Total Lelang Aktif */}
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <StatCard
@@ -297,7 +323,7 @@ export default function OverviewPage() {
                 trend={analytics.active_auctions_trend}
                 tooltip="Exclude draft & cancelled auctions"
                 isClickable={true}
-                onClick={() => {}}
+                onClick={() => navigate('/admin/auction-table')}
               />
             </Grid>
 
@@ -312,7 +338,7 @@ export default function OverviewPage() {
                 subtitle="Within 24 hours"
                 isClickable={true}
                 isPriority={true}
-                onClick={() => {}}
+                onClick={() => navigate('/admin/auction-table?status=ENDING')}
               />
             </Grid>
 
@@ -327,18 +353,18 @@ export default function OverviewPage() {
                 trend={analytics.active_users_trend}
                 subtitle="Users logged in or bidding"
                 isClickable={true}
-                onClick={() => {}}
+                onClick={() => navigate('/admin/portal-users')}
               />
             </Grid>
           </Grid>
         </Box>
 
         {/* ROW 2 - AKTIVITAS (Activity Metrics) */}
-        <Box mb={4}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '12px', color: '#64748b', mb: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <Box mb={5}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '13px', color: '#475569', mb: 3, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             🔥 Activity
           </Typography>
-          <Grid container spacing={2.5}>
+          <Grid container spacing={3}>
             {/* Total Penawaran Hari Ini */}
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <StatCard
@@ -355,7 +381,7 @@ export default function OverviewPage() {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <StatCard
                 title="Average Bids per Auction"
-                value={Math.round(analytics.avg_bid_per_auction * 10)}
+                value={Math.round(parseFloat(avgBidsPerAuction))}
                 icon={<BidIcon />}
                 color="#8b5cf6"
                 bgColor="rgba(139, 92, 246, 0.1)"
@@ -380,11 +406,11 @@ export default function OverviewPage() {
         </Box>
 
         {/* ROW 3 - HASIL (Revenue / Results) */}
-        <Box mb={4}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '12px', color: '#64748b', mb: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <Box mb={5}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '13px', color: '#475569', mb: 3, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             💰 Results
           </Typography>
-          <Grid container spacing={2.5}>
+          <Grid container spacing={3}>
             {/* Total Revenue - Full Width */}
             <Grid size={{ xs: 12 }}>
               <Card 
@@ -455,10 +481,49 @@ export default function OverviewPage() {
 
         {/* ROW 4 - KILLER CARD (Optional) */}
         <Box>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '12px', color: '#64748b', mb: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '13px', color: '#475569', mb: 3, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             ⚡ Insights
           </Typography>
-          <Grid container spacing={2.5}>
+          <Grid container spacing={3}>
+            {/* Success Rate */}
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <StatCard
+                title="Success Rate"
+                value={Math.round(analytics.success_rate * 10) / 10}
+                icon={<TrendingUpIcon />}
+                color="#22c55e"
+                bgColor="rgba(34, 197, 94, 0.1)"
+                subtitle="Auctions completed successfully"
+                tooltip="Percentage of successful auction outcomes"
+              />
+            </Grid>
+
+            {/* Engagement Rate */}
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <StatCard
+                title="Engagement Rate"
+                value={Math.round(analytics.engagement_rate * 10) / 10}
+                icon={<PeopleIcon />}
+                color="#06b6d4"
+                bgColor="rgba(6, 182, 212, 0.1)"
+                subtitle="Bidders vs Total Views (%)"
+                tooltip="What % of viewers actually participate in bidding"
+              />
+            </Grid>
+
+            {/* Total Views */}
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <StatCard
+                title="Total Views"
+                value={analytics.total_views}
+                icon={<TrendingUpIcon />}
+                color="#a78bfa"
+                bgColor="rgba(167, 139, 250, 0.1)"
+                subtitle="Unique page views today"
+                tooltip="Total number of times auction pages were viewed"
+              />
+            </Grid>
+
             {/* Avg Time to First Bid */}
             <Grid size={{ xs: 12, sm: 6 }}>
               <StatCard
@@ -477,3 +542,5 @@ export default function OverviewPage() {
     </Box>
   );
 }
+
+

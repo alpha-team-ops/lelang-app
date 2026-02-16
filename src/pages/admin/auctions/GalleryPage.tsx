@@ -23,6 +23,7 @@ import { usePermission } from '../../../hooks/usePermission';
 import { useRealtimeAuction, useAuctionPolling } from '../../../hooks/useRealtimeAuction';
 import { createEchoInstance } from '../../../lib/websocket';
 import authService from '../../../data/services/authService';
+import { statsService } from '../../../data/services';
 import type { Auction } from '../../../data/types';
 import AuctionDetailModal from '../../../components/modals/auctions/AuctionDetailModal';
 import CreateAuctionModal from '../../../components/modals/auctions/CreateAuctionModal';
@@ -164,6 +165,8 @@ const GalleryPage: React.FC = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [statsData, setStatsData] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Load auctions on mount - only if authenticated
   useEffect(() => {
@@ -176,20 +179,35 @@ const GalleryPage: React.FC = () => {
     }
   }, [fetchAuctions, isAuthenticated, authLoading]);
 
-  // Load only on mount, don't continuous poll - WebSocket handles real-time updates
-  // Continuous polling causes unnecessary re-renders and redundant network calls
+  // Fetch stats from BE
   useEffect(() => {
-    // Removed polling to prevent render loops - WebSocket subscriptions in AuctionCard handle updates
-  }, []);
+    const loadStats = async () => {
+      setStatsLoading(true);
+      try {
+        const data = await statsService.getDashboardStats();
+        setStatsData(data);
+      } catch (err) {
+        console.error('Failed to fetch stats:', err);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    if (isAuthenticated && !authLoading) {
+      loadStats();
+    }
+  }, [isAuthenticated, authLoading]);
 
   // Filter auctions based on tab
   const getFilteredAuctions = () => {
-    const tabs = ['All', 'Draft', 'Live', 'Completed'];
+    const tabs = ['All', 'Draft', 'Scheduled', 'Live', 'Completed'];
     const tab = tabs[tabValue];
 
     switch (tab) {
       case 'Draft':
-        return auctions.filter((a) => a.status === 'DRAFT' || a.status === 'SCHEDULED');
+        return auctions.filter((a) => a.status === 'DRAFT');
+      case 'Scheduled':
+        return auctions.filter((a) => a.status === 'SCHEDULED');
       case 'Live':
         return auctions.filter((a) => a.status === 'LIVE');
       case 'Completed':
@@ -287,9 +305,13 @@ const GalleryPage: React.FC = () => {
               <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
                 Active Auctions
               </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#ef4444' }}>
-                {auctions.filter((a) => a.status === 'LIVE').length}
-              </Typography>
+              {loading ? (
+                <Skeleton variant="text" width="80%" height={40} />
+              ) : (
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#ef4444' }}>
+                  {auctions.filter((a) => a.status === 'LIVE').length}
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -300,9 +322,13 @@ const GalleryPage: React.FC = () => {
               <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
                 Total Bids
               </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#667eea' }}>
-                {auctions.reduce((sum: number, a) => sum + a.totalBids, 0)}
-              </Typography>
+              {statsLoading ? (
+                <Skeleton variant="text" width="80%" height={40} />
+              ) : (
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#667eea' }}>
+                  {statsData?.totalBids || 0}
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -313,9 +339,13 @@ const GalleryPage: React.FC = () => {
               <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
                 Total Revenue
               </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: '#22c55e' }}>
-                Rp 420M
-              </Typography>
+              {statsLoading ? (
+                <Skeleton variant="text" width="80%" height={40} />
+              ) : (
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#22c55e' }}>
+                  Rp {(statsData?.totalVolume ? statsData.totalVolume / 1000000 : 0).toFixed(0)}M
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -334,6 +364,7 @@ const GalleryPage: React.FC = () => {
         >
           <Tab label="All" />
           <Tab label="Draft" />
+          <Tab label="Scheduled" />
           <Tab label="Live" />
           <Tab label="Completed" />
         </Tabs>
@@ -349,6 +380,9 @@ const GalleryPage: React.FC = () => {
           <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} onRefresh={() => fetchAuctions(1, 100)} />
         </TabPanel>
         <TabPanel value={tabValue} index={3}>
+          <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} onRefresh={() => fetchAuctions(1, 100)} />
+        </TabPanel>
+        <TabPanel value={tabValue} index={4}>
           <AuctionListTable auctions={filteredAuctions} onViewDetail={handleViewDetail} onRefresh={() => fetchAuctions(1, 100)} />
         </TabPanel>
       </Card>

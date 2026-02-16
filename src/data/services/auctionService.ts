@@ -120,6 +120,7 @@ portalClient.interceptors.response.use(
 
 export interface CreateAuctionRequest {
   title: string;
+  itemCode: string;
   description?: string;
   category?: string;
   condition?: string;
@@ -135,6 +136,7 @@ export interface CreateAuctionRequest {
 
 export interface UpdateAuctionRequest {
   title?: string;
+  itemCode?: string;
   description?: string;
   category?: string;
   condition?: string;
@@ -216,6 +218,7 @@ export const auctionService = {
       // Only include fields that have values (backend will use defaults for optional fields)
       const payload: any = {
         title: data.title,
+        itemCode: data.itemCode,
         starting_price: data.startingPrice,
         bid_increment: data.bidIncrement,
       };
@@ -257,6 +260,7 @@ export const auctionService = {
       // Convert camelCase to snake_case for API
       const payload: any = {};
       if (data.title !== undefined) payload.title = data.title;
+      if (data.itemCode !== undefined) payload.itemCode = data.itemCode;
       if (data.description !== undefined) payload.description = data.description;
       if (data.category !== undefined) payload.category = data.category;
       if (data.condition !== undefined) payload.condition = data.condition;

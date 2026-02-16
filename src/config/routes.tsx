@@ -13,7 +13,7 @@ import { lazy } from 'react';
 
 // Lazy load pages untuk mengurangi initial bundle
 const OverviewPage = lazy(() => import('../pages/admin/dashboard/OverviewPage'));
-const AnalyticsPage = lazy(() => import('../pages/admin/dashboard/AnalyticsPage'));
+const InsightPage = lazy(() => import('../pages/admin/dashboard/InsightPage'));
 const GalleryPage = lazy(() => import('../pages/admin/auctions/GalleryPage'));
 const TablePage = lazy(() => import('../pages/admin/auctions/TablePage'));
 const ActivityPage = lazy(() => import('../pages/admin/auctions/ActivityPage'));
@@ -50,7 +50,7 @@ export const menuCategories: MenuCategory[] = [
     category: 'Dashboard',
     items: [
       { text: 'Overview', icon: <DashboardIcon />, path: '/admin' },
-      { text: 'Analytics', icon: <AnalyticsIcon />, path: '/admin/analytics' },
+      { text: 'Insights', icon: <AnalyticsIcon />, path: '/admin/insights' },
     ]
   },
   {
@@ -86,8 +86,8 @@ export const protectedRoutes: ProtectedRoute[] = [
     element: <OverviewPage />,
   },
   {
-    path: '/admin/analytics',
-    element: <AnalyticsPage />,
+    path: '/admin/insights',
+    element: <InsightPage />,
   },
   {
     path: '/admin/auction-gallery',

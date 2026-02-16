@@ -83,6 +83,7 @@ const Time24Input: React.FC<{
 
 interface FormData {
   title: string;
+  itemCode: string;
   description: string;
   category: string;
   condition: string;
@@ -100,6 +101,7 @@ interface FormData {
 
 interface FormErrors {
   title?: string;
+  itemCode?: string;
   description?: string;
   category?: string;
   condition?: string;
@@ -153,6 +155,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
   
   const [formData, setFormData] = useState<FormData>({
     title: '',
+    itemCode: '',
     description: '',
     category: '',
     condition: '',
@@ -258,6 +261,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
 
     // Required fields
     if (!formData.title.trim()) newErrors.title = 'Title is required';
+    if (!formData.itemCode.trim()) newErrors.itemCode = 'Item Code is required';
     // Starting price and bid increment default to 0, validation handled by backend
 
     // Optional fields - only validate if filled
@@ -324,6 +328,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
       // auctionService will convert to snake_case for backend
       const payload: any = {
         title: formData.title,
+        itemCode: formData.itemCode,
         startingPrice: Number(formData.startingPrice),
         bidIncrement: Number(formData.bidIncrement),
       };
@@ -540,6 +545,26 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                   placeholder="e.g., Laptop HP ProBook 450"
                   error={!!errors.title}
                   helperText={errors.title}
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      fontSize: '14px',
+                    },
+                  }}
+                />
+              </Box>
+
+              {/* Item Code */}
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Item Code"
+                  name="itemCode"
+                  value={formData.itemCode}
+                  onChange={handleInputChange}
+                  placeholder="e.g., AUC-001"
+                  error={!!errors.itemCode}
+                  helperText={errors.itemCode}
                   size="small"
                   sx={{
                     '& .MuiOutlinedInput-root': {

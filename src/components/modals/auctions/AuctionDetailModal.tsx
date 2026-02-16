@@ -135,44 +135,6 @@ const getBidderDisplayName = (bidder: string | undefined): string => {
   return bidder;
 };
 
-// Helper function to determine actual auction status based on timing
-// Status from backend may not be accurate if startTime/endTime in DB not synced
-const getActualAuctionStatus = (auction: Auction): Auction['status'] => {
-  const now = new Date();
-  
-  // Check if has valid startTime
-  if (auction.startTime) {
-    const startDate = typeof auction.startTime === 'string' ? new Date(auction.startTime) : auction.startTime;
-    if (!isNaN(startDate.getTime())) {
-      // startTime in future → SCHEDULED
-      if (startDate > now) {
-        return 'SCHEDULED';
-      }
-    }
-  }
-  
-  // Check if has valid endTime
-  if (auction.endTime) {
-    const endDate = typeof auction.endTime === 'string' ? new Date(auction.endTime) : auction.endTime;
-    if (!isNaN(endDate.getTime())) {
-      // endTime in past → ENDED
-      if (endDate < now) {
-        return 'ENDED';
-      }
-      // Between startTime and endTime → LIVE
-      if (auction.startTime) {
-        const startDate = typeof auction.startTime === 'string' ? new Date(auction.startTime) : auction.startTime;
-        if (!isNaN(startDate.getTime()) && startDate <= now && endDate > now) {
-          return 'LIVE';
-        }
-      }
-    }
-  }
-  
-  // Return backend status as fallback
-  return auction.status;
-};
-
 // Auction Detail Modal Component
 interface AuctionDetailModalProps {
   open: boolean;
@@ -191,11 +153,11 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
   const [bidActivityLoading, setBidActivityLoading] = useState(false);
   const echoRef = useRef<Echo<any> | null>(null);
 
-  // ✅ Calculate actual status based on startTime/endTime timing
+  // ✅ Use status directly from backend
   const actualStatus = useMemo(() => {
     if (!liveAuction) return 'DRAFT' as const;
-    return getActualAuctionStatus(liveAuction);
-  }, [liveAuction?.startTime, liveAuction?.endTime, liveAuction?.status]);
+    return liveAuction.status;
+  }, [liveAuction?.status]);
 
   // Fetch bid activities for activity tab (authenticated endpoint auto-filters by organization)
   const fetchBidActivities = useCallback(async () => {
@@ -693,6 +655,12 @@ const AuctionDetailModal: React.FC<AuctionDetailModalProps> = ({ open, auction, 
                   <Typography sx={{ fontSize: '13px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Title</Typography>
                   <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937' }}>
                     {liveAuction.title}
+                  </Typography>
+                </Box>
+                <Box sx={{ pb: 2, borderBottom: '1px solid #e5e7eb' }}>
+                  <Typography sx={{ fontSize: '13px', color: '#9ca3af', mb: 1, fontWeight: 500 }}>Item Code</Typography>
+                  <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#1f2937', fontFamily: 'monospace' }}>
+                    {liveAuction.itemCode || '-'}
                   </Typography>
                 </Box>
                 <Box sx={{ pb: 2, borderBottom: '1px solid #e5e7eb' }}>

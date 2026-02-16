@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
-import type { PortalAuction } from '../../data/types';
+import type { PortalAuction, BidPlacedPayload, AuctionUpdatedPayload, AuctionEndedPayload } from '../../data/types';
 import type { AccessLevel } from './utils/sessionManager';
+import { getAccessLevel } from './utils/sessionManager';
 import { bidService, auctionService } from '../../data/services';
 import { useRealtimeAuction } from '../../hooks/useRealtimeAuction';
-import { createEchoInstance } from '../../lib/websocket';
-import Echo from 'laravel-echo';
 import './styles/portal.css';
 
 interface AuctionModalProps {
@@ -15,7 +14,7 @@ interface AuctionModalProps {
   accessLevel?: AccessLevel;
 }
 
-export default function AuctionModal({ auction, onClose, onBidSuccess, accessLevel }: AuctionModalProps) {
+export default function AuctionModal({ auction, onClose, onBidSuccess }: AuctionModalProps) {
   const [bidAmount, setBidAmount] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,9 +23,34 @@ export default function AuctionModal({ auction, onClose, onBidSuccess, accessLev
   const [liveAuction, setLiveAuction] = useState<PortalAuction>(auction);
   const [displayTimeRemaining, setDisplayTimeRemaining] = useState<string>('N/A');
   const [bidNotification, setBidNotification] = useState<{ bidderName: string; currentBid: number } | null>(null);
+  const [currentAccessLevel, setCurrentAccessLevel] = useState<AccessLevel>(getAccessLevel());
   const bidInputRef = useRef<HTMLInputElement>(null);
   const incrementedAuctionIdRef = useRef<string | null>(null);
-  const echoRef = useRef<Echo<any> | null>(null);
+
+  // Sync accessLevel from sessionStorage whenever modal opens or sessionStorage changes
+  useEffect(() => {
+    const updateAccessLevel = () => {
+      const freshAccessLevel = getAccessLevel();
+      setCurrentAccessLevel(freshAccessLevel);
+      console.log('✅ Access Level Updated:', freshAccessLevel);
+    };
+
+    // Update immediately when modal opens
+    updateAccessLevel();
+
+    // Also update when visibility changes (tab switch, etc)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        updateAccessLevel();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [auction.id]);
 
   // Call recordView when modal opens to trigger broadcast from backend
   useEffect(() => {
@@ -43,19 +67,70 @@ export default function AuctionModal({ auction, onClose, onBidSuccess, accessLev
   }, [auction.id]);
 
   // Memoize callback - only update currentBid for bandwidth optimization
-  const handleCurrentBidUpdate = useCallback((currentBid: number) => {
+  const handleCurrentBidUpdate = useCallback((currentBid: number, bidderName?: string) => {
+    const timestamp = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+    console.log(`[UI] currentBid updated @ ${timestamp}`, { from: liveAuction.currentBid, to: currentBid, bidder: bidderName })
     setLiveAuction(prev => ({
       ...prev,
       currentBid: currentBid,
     }));
+    
+    // Show notification if bidderName provided
+    if (bidderName) {
+      setBidNotification({
+        bidderName: bidderName,
+        currentBid: currentBid,
+      });
+      // Auto-clear after 5 seconds
+      setTimeout(() => setBidNotification(null), 5000);
+    }
+  }, [liveAuction.currentBid]);
+
+  // Handle auction update event
+  const handleAuctionUpdate = useCallback((data: AuctionUpdatedPayload) => {
+    const timestamp = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+    console.log(`📊 [UI] auction update @ ${timestamp}`, { status: data.status, bid: data.currentBid, views: data.viewCount });
+    setLiveAuction(prev => ({
+      ...prev,
+      currentBid: data.currentBid,
+      status: data.status,
+      participantCount: data.participantCount,
+      viewCount: data.viewCount,
+    }));
   }, []);
 
-  // Try WebSocket first, fallback to polling - OPTIMIZED for currentBid only
+  // Handle auction ended event
+  const handleAuctionEnded = useCallback((data: AuctionEndedPayload) => {
+    const timestamp = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+    console.log(`🏁 [UI] auction ended @ ${timestamp}`, { winner: data.winner?.fullName, amount: data.winningBid });
+    setLiveAuction(prev => ({
+      ...prev,
+      status: 'ENDED' as const,
+      winner: data.winner ? {
+        fullName: data.winner.fullName,
+        winningBid: data.winner.winningBid,
+        status: data.winner.status,
+      } : undefined,
+    }));
+  }, []);
+
+  // Handle bid placed event
+  const handleBidPlaced = useCallback((data: BidPlacedPayload) => {
+    const timestamp = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+    console.log(`🎯 [UI] bid placed @ ${timestamp}`, { bidder: data.bidderName, amount: data.currentBid });
+    // Current bid is already updated by handleCurrentBidUpdate
+    // This is for any additional bid-specific logic if needed
+  }, []);
+
+  // Subscribe to real-time WebSocket events
   const { isConnected } = useRealtimeAuction({
     auctionId: auction.id,
-    status: auction.status, // Use auction prop (not liveAuction which can be undefined initially)
+    status: auction.status,
     enabled: true,
     onCurrentBidUpdate: handleCurrentBidUpdate,
+    onAuctionUpdate: handleAuctionUpdate,
+    onAuctionEnded: handleAuctionEnded,
+    onBidPlaced: handleBidPlaced,
   });
 
   // Also sync with parent prop changes (from parent's polling)
@@ -128,78 +203,36 @@ export default function AuctionModal({ auction, onClose, onBidSuccess, accessLev
     };
   }, [auction?.id]);
 
-  // WebSocket setup for portal auction real-time updates
-  useEffect(() => {
-    if (!auction?.id) return;
-
-    const setupWebSocket = () => {
-      try {
-        // Get portal token or invitation code for WebSocket auth
-        const userToken = sessionStorage.getItem('portalToken');
-        
-        // Create Echo instance with portal token
-        const echo = createEchoInstance(userToken);
-        echoRef.current = echo;
-
-        const channel = echo.channel(`auction.${auction.id}`);
-
-        channel
-          .listen('auction.updated', (data: any) => {
-            // Update auction state with WebSocket data
-            setLiveAuction((prev) => ({
-              ...prev,
-              currentBid: data.currentBid ?? prev.currentBid,
-              status: data.status ?? prev.status,
-              participantCount: data.participantCount ?? prev.participantCount,
-            }));
-          })
-          .listen('auction.ended', (data: any) => {
-            // Handle auction end
-            setLiveAuction((prev) => ({
-              ...prev,
-              status: 'ENDED' as const,
-              winner: data.winner || null,
-            }));
-          })
-          .listen('bid.placed', (data: any) => {
-            // Show bid notification
-            setBidNotification({
-              bidderName: data.bidderName || 'Unknown',
-              currentBid: data.currentBid,
-            });
-
-            // Update current bid and participants
-            setLiveAuction((prev) => ({
-              ...prev,
-              currentBid: data.currentBid,
-              participantCount: data.participantCount ?? prev.participantCount,
-            }));
-
-            // Clear notification after 5 seconds
-            setTimeout(() => setBidNotification(null), 5000);
-          });
-      } catch (err) {
-        // WebSocket setup failed - polling fallback is in place
-      }
-    };
-
-    setupWebSocket();
-
-    // Cleanup
-    return () => {
-      if (echoRef.current) {
-        echoRef.current.leaveChannel(`auction.${auction.id}`);
-      }
-    };
-  }, [auction?.id]);
-
-  // 🚀 Manual polling fallback for portal auctions - ensure updates even if WebSocket slow
-  // Poll every 2 seconds to get latest price, participants, status
+  // ⬇️ Manual polling fallback for portal auctions - ensure updates even if WebSocket slow
+  // Poll for ALL statuses to catch transitions (DRAFT → SCHEDULED → LIVE)
   useEffect(() => {
     let isPolling = false;
     let pollingInterval: ReturnType<typeof setInterval> | null = null;
 
     const startPolling = () => {
+      const getPollInterval = () => {
+        // Fast polling for active auctions, slow polling for inactive
+        const status = liveAuction?.status || auction?.status;
+        switch (status) {
+          case 'LIVE':
+            return 1000; // 1s for LIVE (price updates - most critical!)
+          case 'SCHEDULED':
+            return 1500; // 1.5s for SCHEDULED (catch status transition fast!)
+          case 'DRAFT':
+            return 5000; // 5s for DRAFT (waiting for schedule)
+          case 'ENDING':
+            return 500; // 500ms for ENDING (very critical moment!)
+          case 'ENDED':
+          case 'CANCELLED':
+            return null; // No polling needed
+          default:
+            return 1500;
+        }
+      };
+
+      const pollInterval = getPollInterval();
+      if (!pollInterval) return; // Don't poll if auction is ended/cancelled
+
       pollingInterval = setInterval(async () => {
         if (isPolling) return; // Skip if already polling
         isPolling = true;
@@ -240,12 +273,11 @@ export default function AuctionModal({ auction, onClose, onBidSuccess, accessLev
         } finally {
           isPolling = false;
         }
-      }, 2000); // Poll every 2s for near-realtime updates
+      }, pollInterval);
     };
 
-    if (auction.status === 'LIVE') {
-      startPolling();
-    }
+    // Always start polling to catch status transitions
+    startPolling();
 
     return () => {
       if (pollingInterval) {
@@ -308,7 +340,15 @@ export default function AuctionModal({ auction, onClose, onBidSuccess, accessLev
     const currentAuction = liveAuction || auction;
     
     if (currentAuction.status !== 'LIVE') {
-      setError('This auction is not currently active.');
+      const statusMessages: { [key: string]: string } = {
+        DRAFT: 'This auction is still in draft. It will be available for bidding soon.',
+        SCHEDULED: 'This auction is scheduled to start soon. You can bid once it goes LIVE.',
+        ENDED: 'This auction has ended. No more bids are accepted.',
+        CANCELLED: 'This auction has been cancelled.',
+      };
+      const statusMessage = statusMessages[currentAuction.status] || 'This auction is not currently active.';
+      setError(statusMessage);
+      console.log(`⚠️ Auction not LIVE: ${currentAuction.status}`);
       return false;
     }
 
@@ -344,14 +384,31 @@ export default function AuctionModal({ auction, onClose, onBidSuccess, accessLev
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    console.log('📤 Bid Submit Attempt');
+    console.log('  Current Access Level (state):', currentAccessLevel);
+    console.log('  Current Access Level (session):', sessionStorage.getItem('accessLevel'));
+    console.log('  Portal Token:', sessionStorage.getItem('portalToken') ? '✅ Present' : '❌ Missing');
+    console.log('  Bid Amount:', bidAmount);
+    console.log('  Auction Status:', (liveAuction || auction).status);
 
-    // Prevent bid if VIEW_ONLY access
-    if (accessLevel === 'VIEW_ONLY') {
+    // Prevent bid if VIEW_ONLY access - check fresh from sessionStorage
+    const currentAccessLevelFromSession = sessionStorage.getItem('accessLevel');
+    if (currentAccessLevelFromSession === 'VIEW_ONLY') {
       setError('You cannot place bids with view-only access. Please register to participate.');
+      console.warn('❌ Bid rejected: VIEW_ONLY access');
+      return;
+    }
+
+    // Check if portal token exists
+    const portalToken = sessionStorage.getItem('portalToken');
+    if (!portalToken) {
+      setError('Your session has expired. Please login again to place a bid.');
+      console.warn('❌ Bid rejected: No portal token');
       return;
     }
 
     if (!validateBid()) {
+      console.warn('❌ Bid validation failed');
       return;
     }
 
@@ -362,12 +419,18 @@ export default function AuctionModal({ auction, onClose, onBidSuccess, accessLev
       const bidValue = parseInt(bidAmount);
       const currentAuction = liveAuction || auction;
       
+      console.log('🚀 Calling bidService.placeBid with:', {
+        auctionId: currentAuction.id,
+        bidAmount: bidValue,
+      });
+
       // Call bidService to place bid using API spec
       await bidService.placeBid({
         auctionId: currentAuction.id,
         bidAmount: bidValue,
       });
 
+      console.log('✅ Bid submitted successfully');
       setBidSuccess(true);
       onBidSuccess(bidValue);
 
@@ -377,6 +440,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess, accessLev
       }, 1500);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit bid. Please try again.';
+      console.error('❌ Bid submission error:', errorMessage);
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -589,13 +653,13 @@ export default function AuctionModal({ auction, onClose, onBidSuccess, accessLev
         </div>
 
         {/* Modal Footer - New Bid (Fixed) */}
-        <div className="modal-footer" style={accessLevel === 'VIEW_ONLY' ? { opacity: 0.6, backgroundColor: '#f5f5f5' } : {}}>
+        <div className="modal-footer">
           <div className="modal-section-title">
-            {accessLevel === 'VIEW_ONLY' ? '🔒 View Only' : '🏷️ New Bid'}
+            🏷️ New Bid
           </div>
-          <form className="bid-form" onSubmit={handleSubmit} style={accessLevel === 'VIEW_ONLY' ? { pointerEvents: 'none' } : {}}>
+          <form className="bid-form" onSubmit={handleSubmit}>
             {/* Bid Amount Input */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', opacity: accessLevel === 'VIEW_ONLY' ? 0.5 : 1 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div className="bid-input-group">
                 <div className="bid-prefix">Rp</div>
                 <input
@@ -604,8 +668,8 @@ export default function AuctionModal({ auction, onClose, onBidSuccess, accessLev
                   className="bid-input"
                   value={formatCurrency(bidAmount)}
                   onChange={handleBidChange}
-                  placeholder={accessLevel === 'VIEW_ONLY' ? 'View only - cannot bid' : 'Enter bid amount'}
-                  disabled={isSubmitting || bidSuccess || accessLevel === 'VIEW_ONLY'}
+                  placeholder="Enter bid amount"
+                  disabled={isSubmitting || bidSuccess}
                   inputMode="numeric"
                   autoComplete="off"
                   spellCheck="false"
@@ -630,18 +694,15 @@ export default function AuctionModal({ auction, onClose, onBidSuccess, accessLev
               <button
                 type="submit"
                 className="bid-submit"
-                disabled={isSubmitting || bidSuccess || auction.status !== 'LIVE' || accessLevel === 'VIEW_ONLY'}
+                disabled={isSubmitting || bidSuccess}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  backgroundColor: accessLevel === 'VIEW_ONLY' ? '#d1d5db' : undefined,
-                  color: accessLevel === 'VIEW_ONLY' ? '#666' : undefined,
-                  cursor: accessLevel === 'VIEW_ONLY' ? 'not-allowed' : 'pointer',
                 }}
               >
-                {accessLevel === 'VIEW_ONLY' ? (
+                {currentAccessLevel === 'VIEW_ONLY' ? (
                   <>
                     <span>🔒</span>
                     View Only - Cannot Bid

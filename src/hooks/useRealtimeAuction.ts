@@ -1,24 +1,45 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { createEchoInstance } from '../lib/websocket'
+import { getEchoInstance } from '../lib/websocket'
 import authService from '../data/services/authService'
 import type { Auction } from '../data/types'
+import type {
+  BidPlacedPayload,
+  AuctionUpdatedPayload,
+  AuctionEndedPayload,
+} from '../types/websocket'
 
 interface UseRealtimeAuctionOptions {
   auctionId: string
   status?: string // 'DRAFT' | 'LIVE' | 'ENDED' | 'SCHEDULED'
   enabled?: boolean
   onCurrentBidUpdate?: (currentBid: number, bidderName?: string) => void
-  onAuctionUpdate?: (data: any) => void
-  onAuctionEnded?: (data: any) => void
+  onAuctionUpdate?: (data: AuctionUpdatedPayload) => void
+  onAuctionEnded?: (data: AuctionEndedPayload) => void
+  onBidPlaced?: (data: BidPlacedPayload) => void
 }
 
 /**
- * Hook untuk subscribe ke real-time auction currentBid updates via WebSocket
- * OPTIMIZED: 
- * - Hanya track currentBid untuk minimize bandwidth
- * - Hanya subscribe ke LIVE auctions (DRAFT/ENDED tidak perlu)
+ * Hook untuk subscribe ke real-time auction updates via WebSocket (Laravel Echo + Reverb)
+ * 
+ * EVENTS:
+ * - bid.placed: Ketika ada bid baru (currentBid update)
+ * - auction.updated: Ketika ada update ke auction (status, viewCount, dll)
+ * - auction.ended: Ketika auction berakhir dan ada winner
+ * 
+ * OPTIMIZATION:
+ * - Hanya subscribe ke LIVE/SCHEDULED auctions (DRAFT/ENDED tidak perlu)
  * - Auto-subscribe saat status berubah ke LIVE
- * Fallback ke polling jika WebSocket tidak tersedia (ADMIN ONLY)
+ * - Auto-cleanup saat status berubah dari LIVE
+ * 
+ * USAGE:
+ * ```tsx
+ * const { isConnected, error } = useRealtimeAuction({
+ *   auctionId: "auction-123",
+ *   status: "LIVE",
+ *   onCurrentBidUpdate: (bid, bidder) => updateUI(bid, bidder),
+ *   onAuctionEnded: (data) => showWinnerModal(data),
+ * });
+ * ```
  */
 export const useRealtimeAuction = ({
   auctionId,
@@ -27,68 +48,89 @@ export const useRealtimeAuction = ({
   onCurrentBidUpdate,
   onAuctionUpdate,
   onAuctionEnded,
+  onBidPlaced,
 }: UseRealtimeAuctionOptions) => {
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const echoInstanceRef = useRef<any>(null)
   
-  // Memoize callbacks to prevent dependency changes
+  // Memoize callbacks to prevent unnecessary re-subscriptions
   const memoizedOnCurrentBidUpdate = useCallback((currentBid: number, bidderName?: string) => {
     onCurrentBidUpdate?.(currentBid, bidderName)
   }, [onCurrentBidUpdate])
 
-  const memoizedOnAuctionUpdate = useCallback((data: any) => {
+  const memoizedOnAuctionUpdate = useCallback((data: AuctionUpdatedPayload) => {
     onAuctionUpdate?.(data)
   }, [onAuctionUpdate])
 
-  const memoizedOnAuctionEnded = useCallback((data: any) => {
+  const memoizedOnAuctionEnded = useCallback((data: AuctionEndedPayload) => {
     onAuctionEnded?.(data)
   }, [onAuctionEnded])
 
-  const subscribeToAuction = useCallback(() => {
-    if (!enabled || !auctionId) return
+  const memoizedOnBidPlaced = useCallback((data: BidPlacedPayload) => {
+    onBidPlaced?.(data)
+  }, [onBidPlaced])
 
-    // ✅ Only subscribe to LIVE auctions
-    // ❌ Skip DRAFT (no bids yet) and ENDED (auction closed)
-    if (!status || status !== 'LIVE') {
+  const subscribeToAuction = useCallback(() => {
+    console.log(`📢 [subscribeToAuction] Called for auction: ${auctionId}, status: ${status}, enabled: ${enabled}`)
+    
+    if (!enabled || !auctionId) {
+      console.log(`⏸️ [subscribeToAuction] Skipped: enabled=${enabled}, auctionId=${auctionId}`)
+      return
+    }
+
+    // ✅ Subscribe ke LIVE dan SCHEDULED (to catch status transitions)
+    // ❌ Skip DRAFT (no real-time activity) dan ENDED (auction closed)
+    if (!status || (status !== 'LIVE' && status !== 'SCHEDULED')) {
+      console.log(`⏸️ [subscribeToAuction] Skipped: status not LIVE/SCHEDULED (${status})`)
       setIsConnected(false)
       return
     }
 
+    console.log(`🔗 [subscribeToAuction] Subscribing to channel: auctions...`)
     try {
-      // Get token for WebSocket authentication
+      // Get global Echo instance (singleton - created once, reused forever)
       const token = authService.getStoredToken() || sessionStorage.getItem('portalToken')
-      const echo = createEchoInstance(token)
+      const echo = getEchoInstance(token)
+      echoInstanceRef.current = echo
 
-      const channel = echo.channel(`auction.${auctionId}`)
+      const channel = echo.channel(`auctions`)
+      
+      console.log(`📡 [subscribeToAuction] Listeners registered for WebSocket events`)
+      console.log(`📡 [DEBUG] Watching channel: auctions with auctionId filter: ${auctionId}`)
 
-      // Listen to auction.updated event (currentBid, status, viewCount changes)
-      channel.listen('auction.updated', (data: any) => {
-        memoizedOnAuctionUpdate(data)
-        if (data.currentBid !== undefined) {
-          memoizedOnCurrentBidUpdate(data.currentBid, data.bidderName)
+      /**
+       * EVENT: AuctionUpdated
+       * Triggered ketika ada update auction
+       */
+      channel.listen('AuctionUpdated', (data: any) => {
+        console.log(`🔵 [WS] AuctionUpdated received:`, data)
+        // Filter hanya untuk auction ini
+        if (data.auctionId === auctionId) {
+          memoizedOnAuctionUpdate(data)
+          if (data.currentBid !== undefined) {
+            memoizedOnCurrentBidUpdate(data.currentBid, data.bidderName)
+          }
+        } else {
+          console.log(`📡 [DEBUG] Event received but auctionId mismatch:`, { eventId: data.auctionId, expectedId: auctionId })
         }
       })
 
-      // Listen to bid.placed event (new bid submitted)
-      channel.listen('bid.placed', (data: any) => {
-        if (data.currentBid !== undefined) {
-          memoizedOnCurrentBidUpdate(data.currentBid, data.bidderName)
-        }
-      })
-
-      // Listen to auction.ended event (auction finished, show winner info)
-      channel.listen('auction.ended', (data: any) => {
-        memoizedOnAuctionEnded(data)
+      // Catch-all listener untuk debug - tangkap SEMUA event
+      channel.bind_global((eventName: string, data: any) => {
+        console.log(`🔊 [DEBUG] Channel event received:`, eventName, data)
       })
 
       setIsConnected(true)
       setError(null)
+      console.log(`✅ [WS] Connected to auctions channel for auction.${auctionId}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to connect WebSocket'
+      console.error('❌ WebSocket subscription error:', message)
       setError(message)
       setIsConnected(false)
     }
-  }, [auctionId, status, enabled, memoizedOnCurrentBidUpdate, memoizedOnAuctionUpdate, memoizedOnAuctionEnded])
+  }, [auctionId, status, enabled, memoizedOnCurrentBidUpdate, memoizedOnAuctionUpdate, memoizedOnAuctionEnded, memoizedOnBidPlaced])
 
   useEffect(() => {
     // Only subscribe if enabled
@@ -97,18 +139,16 @@ export const useRealtimeAuction = ({
     }
 
     return () => {
-      // Always cleanup when disabled or auctionId changes
-      if (auctionId) {
+      // Cleanup: leave channel when disabled or auctionId changes
+      if (auctionId && echoInstanceRef.current) {
         try {
-          const token = authService.getStoredToken() || sessionStorage.getItem('portalToken')
-          const echo = createEchoInstance(token)
-          echo.leaveChannel(`auction.${auctionId}`)
+          echoInstanceRef.current.leaveChannel(`auction.${auctionId}`)
         } catch (err) {
           // Silently fail cleanup
         }
       }
     }
-  }, [auctionId, status, enabled, subscribeToAuction, memoizedOnAuctionUpdate, memoizedOnAuctionEnded])
+  }, [auctionId, status, enabled, subscribeToAuction])
 
   return { isConnected, error }
 }
@@ -176,6 +216,7 @@ export const useAuctionPolling = (
           return
         }
 
+        const timestamp = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
         const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
         
         // ✅ ALWAYS use admin endpoint - both admin and portal pages use this hook
@@ -222,7 +263,9 @@ export const useAuctionPolling = (
           if (responseData.data) {
             // Success - reset error state
             hasLoggedAuctionNotFoundRef.current = false
-            onUpdateRef.current?.(responseData.data)
+            const pollData = responseData.data
+            console.log(`📡 [POLL] tick @ ${timestamp}`, { status: pollData.status, price: pollData.currentBid, views: pollData.viewCount })
+            onUpdateRef.current?.(pollData)
           } else if (responseData.success === false) {
             // Check if auction not found
             if (responseData.message === 'AUCTION_NOT_FOUND') {

@@ -50,12 +50,34 @@ const PortalAuctionCard: React.FC<{
   });
 
   // 🚀 Manual polling for portal auctions (because useAuctionPolling is admin-only)
-  // Poll every 2 seconds to ensure we get latest price, participants, etc.
+  // Poll for ALL auction statuses to catch transitions (DRAFT → SCHEDULED → LIVE → ENDED)
+  // Adjust poll interval based on auction status for efficiency
   useEffect(() => {
     let isPolling = false;
     let pollingInterval: ReturnType<typeof setInterval> | null = null;
 
     const startPolling = () => {
+      const getPollInterval = () => {
+        // Fast polling for active auctions, slow polling for inactive
+        const status = initialAuction.status || liveData.status;
+        switch (status) {
+          case 'LIVE':
+            return 2000; // 2s for LIVE (price updates)
+          case 'SCHEDULED':
+            return 5000; // 5s for SCHEDULED (waiting for start)
+          case 'DRAFT':
+            return 10000; // 10s for DRAFT (waiting for schedule)
+          case 'ENDED':
+          case 'CANCELLED':
+            return null; // No polling needed
+          default:
+            return 5000;
+        }
+      };
+
+      const pollInterval = getPollInterval();
+      if (!pollInterval) return; // Don't poll if auction is ended/cancelled
+
       pollingInterval = setInterval(async () => {
         if (isPolling) return; // Skip if already polling
         isPolling = true;
@@ -97,12 +119,11 @@ const PortalAuctionCard: React.FC<{
         } finally {
           isPolling = false;
         }
-      }, 2000); // Poll every 2s for near-realtime updates
+      }, pollInterval);
     };
 
-    if (initialAuction.status === 'LIVE') {
-      startPolling();
-    }
+    // Always start polling to catch status transitions
+    startPolling();
 
     return () => {
       if (pollingInterval) {
