@@ -217,7 +217,7 @@ export default function OverviewPage() {
     }
     
     // Find the auction with highest bid from priceComparison
-    const highest = analyticsData.priceComparison.reduce((max, item) => {
+    const highest = analyticsData.priceComparison.reduce((max: any, item: any) => {
       return item.highestBid > max.highestBid ? item : max;
     });
     
@@ -247,8 +247,8 @@ export default function OverviewPage() {
     highest_bid_today: highestBidInfo.bid,
     highest_bid_item: highestBidInfo.title,
     highest_bid_bidder: highestBidInfo.bidder,
-    revenue_today: stats?.volumeToday || 0,
-    revenue_7days: stats?.volumeSevenDays || 0,
+    revenue_today: stats?.totalVolume || 0,
+    revenue_7days: stats?.totalVolume || 0,
     avg_time_to_first_bid: avgTimeToFirstBid,
     engagement_rate: parseFloat(engagementRate),
     success_rate: parseFloat(successRatePercent),
