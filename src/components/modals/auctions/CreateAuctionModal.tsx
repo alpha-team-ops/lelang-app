@@ -16,6 +16,7 @@ import {
   Typography,
   IconButton,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -881,9 +882,13 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
             sx={{
               bgcolor: '#667eea',
               textTransform: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
             }}
           >
-            {isSubmitting ? 'Submitting...' : 'Publish Auction'}
+            {isSubmitting && <CircularProgress size={18} sx={{ color: 'white' }} />}
+            {isSubmitting ? 'Publishing...' : 'Publish Auction'}
           </Button>
         </Box>
       </Box>

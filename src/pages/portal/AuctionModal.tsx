@@ -415,6 +415,22 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
     setIsSubmitting(true);
     setError('');
 
+    // Set timeout warning after 5 seconds
+    let timeoutWarningId: NodeJS.Timeout;
+    let showedWarning = false;
+    
+    const showTimeoutWarning = () => {
+      if (!showedWarning) {
+        showedWarning = true;
+        console.warn('⏱️ Bid submission is taking longer than expected...');
+        setError('Bid submission is taking longer than expected. Please wait...');
+      }
+    };
+
+    timeoutWarningId = setTimeout(() => {
+      showTimeoutWarning();
+    }, 5000);
+
     try {
       const bidValue = parseInt(bidAmount);
       const currentAuction = liveAuction || auction;
@@ -424,12 +440,15 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
         bidAmount: bidValue,
       });
 
-      // Call bidService to place bid using API spec
+      // Call bidService to place bid using API spec (with retry logic)
       await bidService.placeBid({
         auctionId: currentAuction.id,
         bidAmount: bidValue,
       });
 
+      // Clear warning timer on success
+      clearTimeout(timeoutWarningId);
+      
       console.log('✅ Bid submitted successfully');
       setBidSuccess(true);
       onBidSuccess(bidValue);
@@ -443,6 +462,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
       console.error('❌ Bid submission error:', errorMessage);
       setError(errorMessage);
     } finally {
+      clearTimeout(timeoutWarningId);
       setIsSubmitting(false);
     }
   };

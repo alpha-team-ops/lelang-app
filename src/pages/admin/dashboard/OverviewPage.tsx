@@ -208,9 +208,25 @@ export default function OverviewPage() {
   // Calculate derived metrics
   const activeAuctions = auctions.filter(a => a.status === 'LIVE' || a.status === 'ENDING').length;
   const endingSoon = auctions.filter(a => a.status === 'ENDING').length;
-  const highestBid = auctions.length > 0 ? Math.max(...auctions.map(a => a.currentBid)) : 0;
-  const highestBidAuction = auctions.find(a => a.currentBid === highestBid);
   const avgBidsPerAuction = stats ? (stats.totalBids / (stats.totalAuctions || 1)).toFixed(1) : '0';
+
+  // ✅ Get highest bid from backend insights (already filtered by date & status=LIVE)
+  const highestBidInfo = (() => {
+    if (!analyticsData?.priceComparison || analyticsData.priceComparison.length === 0) {
+      return { bid: 0, title: 'N/A', bidder: 'N/A' };
+    }
+    
+    // Find the auction with highest bid from priceComparison
+    const highest = analyticsData.priceComparison.reduce((max, item) => {
+      return item.highestBid > max.highestBid ? item : max;
+    });
+    
+    return {
+      bid: highest.highestBid,
+      title: highest.auctionTitle,
+      bidder: highest.currentBidder || 'N/A',
+    };
+  })();
 
   // Calculate engagement metrics
   const totalViews = analyticsData?.conversionMetrics?.totalViews ?? 0;
@@ -228,9 +244,9 @@ export default function OverviewPage() {
     active_users_trend: 8,
     total_bids_today: stats?.totalBids || 0,
     avg_bid_per_auction: parseFloat(avgBidsPerAuction),
-    highest_bid_today: highestBid,
-    highest_bid_item: highestBidAuction?.title || 'N/A',
-    highest_bid_bidder: highestBidAuction?.currentBidder || 'N/A',
+    highest_bid_today: highestBidInfo.bid,
+    highest_bid_item: highestBidInfo.title,
+    highest_bid_bidder: highestBidInfo.bidder,
     revenue_today: stats?.volumeToday || 0,
     revenue_7days: stats?.volumeSevenDays || 0,
     avg_time_to_first_bid: avgTimeToFirstBid,

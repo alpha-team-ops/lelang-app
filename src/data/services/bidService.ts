@@ -65,35 +65,58 @@ export interface GetBidActivityRequest {
 }
 
 export const bidService = {
-  // Place a new bid (requires authentication)
-  placeBid: async (request: PlaceBidRequest): Promise<{ id: string; bidAmount: number; status: string; timestamp: string }> => {
-    try {
-      const response = await bidClient.post('/place', {
-        auctionId: request.auctionId,
-        bidAmount: request.bidAmount,
-      });
+  // Place a new bid with retry logic (requires authentication)
+  placeBid: async (request: PlaceBidRequest, retries: number = 3): Promise<{ id: string; bidAmount: number; status: string; timestamp: string }> => {
+    const errorMap: { [key: string]: string } = {
+      BID_TOO_LOW: 'Bid amount is too low. Please enter a higher bid.',
+      AUCTION_NOT_FOUND: 'Auction not found.',
+      AUCTION_NOT_LIVE: 'This auction is not currently active.',
+      CANNOT_BID_OWN_AUCTION: 'You cannot bid on your own auction.',
+      ACCOUNT_INACTIVE: 'Your account is inactive. Please contact support.',
+      BID_AFTER_END: 'This auction has already ended.',
+      RATE_LIMIT_EXCEEDED: 'Too many bids. Please wait before placing another bid.',
+      INVALID_TOKEN: 'Your session has expired. Please login again.',
+      MISSING_TOKEN: 'Authentication required. Please login to bid.',
+    };
 
-      return response.data.data;
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.response?.data?.message;
-      const errorCode = error.response?.data?.code;
-      
-      // Map error codes to user-friendly messages
-      const errorMap: { [key: string]: string } = {
-        BID_TOO_LOW: 'Bid amount is too low. Please enter a higher bid.',
-        AUCTION_NOT_FOUND: 'Auction not found.',
-        AUCTION_NOT_LIVE: 'This auction is not currently active.',
-        CANNOT_BID_OWN_AUCTION: 'You cannot bid on your own auction.',
-        ACCOUNT_INACTIVE: 'Your account is inactive. Please contact support.',
-        BID_AFTER_END: 'This auction has already ended.',
-        RATE_LIMIT_EXCEEDED: 'Too many bids. Please wait before placing another bid.',
-        INVALID_TOKEN: 'Your session has expired. Please login again.',
-        MISSING_TOKEN: 'Authentication required. Please login to bid.',
-      };
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        // Use camelCase as per backend spec
+        const response = await bidClient.post('/place', {
+          auctionId: request.auctionId,
+          bidAmount: request.bidAmount,
+        });
 
-      const message = errorMap[errorCode] || errorMessage || 'Failed to place bid';
-      throw new Error(message);
+        return response.data.data;
+      } catch (error: any) {
+        console.error(`Bid attempt ${attempt}/${retries}:`, error.message);
+        
+        // Don't retry on 4xx client errors (except timeout)
+        const status = error.response?.status;
+        const code = error.response?.data?.code;
+        
+        if (status && status >= 400 && status < 500 && status !== 408 && status !== 429) {
+          // 4xx error (except timeout & rate limit) - don't retry
+          const errorMessage = error.response?.data?.error || error.response?.data?.message;
+          const message = errorMap[code] || errorMessage || 'Failed to place bid';
+          throw new Error(message);
+        }
+        
+        // For 5xx or timeout errors, retry if attempts remaining
+        if (attempt === retries) {
+          const errorMessage = error.response?.data?.error || error.message;
+          const message = errorMap[code] || errorMessage || 'Failed to place bid. Please try again.';
+          throw new Error(message);
+        }
+        
+        // Wait before retry (exponential backoff)
+        const waitTime = 1000 * Math.pow(2, attempt - 1);
+        console.log(`Retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
     }
+    
+    throw new Error('Failed to place bid after multiple attempts');
   },
 
   // Get bid activity for a specific auction (authenticated admin endpoint, auto-filters by organization)
