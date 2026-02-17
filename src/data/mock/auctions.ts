@@ -26,6 +26,7 @@ const PLACEHOLDER_IMAGES = {
 export const adminAuctionsMock: Auction[] = [
   {
     id: '1',
+    itemCode: 'ITEM-001',
     title: 'Laptop ASUS ROG Gaming',
     description: 'Laptop gaming performance tinggi, 15.6" FHD 144Hz, RTX 4080, RAM 32GB, SSD 1TB',
     category: 'Elektronik',
@@ -54,6 +55,7 @@ export const adminAuctionsMock: Auction[] = [
   },
   {
     id: '2',
+    itemCode: 'ITEM-002',
     title: 'iPhone 14 Pro Max 256GB',
     description: 'Dalam kondisi sempurna, lengkap dengan box dan aksesori original. Warna Space Black',
     category: 'Smartphone',
@@ -83,6 +85,7 @@ export const adminAuctionsMock: Auction[] = [
   },
   {
     id: '3',
+    itemCode: 'ITEM-003',
     title: 'Canon EOS R5 Mirrorless',
     description: 'Kamera profesional 45MP, 8K video recording, AF canggih dengan lensa kit 24-105mm',
     category: 'Kamera',
@@ -111,6 +114,7 @@ export const adminAuctionsMock: Auction[] = [
   },
   {
     id: '4',
+    itemCode: 'ITEM-004',
     title: 'Apple Watch Series 8',
     description: '41mm Midnight, semua fitur berfungsi dengan baik, baterai masih awet',
     category: 'Wearable',
@@ -137,6 +141,7 @@ export const adminAuctionsMock: Auction[] = [
   },
   {
     id: '5',
+    itemCode: 'ITEM-005',
     title: 'iPad Pro 12.9" M2',
     description: '256GB storage, Magic Keyboard included, baterai masih bagus 95%',
     category: 'Tablet',
@@ -165,6 +170,7 @@ export const adminAuctionsMock: Auction[] = [
   },
   {
     id: '6',
+    itemCode: 'ITEM-006',
     title: 'Sony WH-1000XM5 Headphones',
     description: 'Premium noise-cancelling headphones, koleksi pribadi, kondisi mint',
     category: 'Audio',
@@ -192,6 +198,7 @@ export const adminAuctionsMock: Auction[] = [
   },
   {
     id: '7',
+    itemCode: 'ITEM-007',
     title: 'Kursi Gaming Herman Miller',
     description: 'Kursi gaming ergonomis kelas atas dengan semua fitur lengkap',
     category: 'Furniture',
@@ -220,6 +227,7 @@ export const adminAuctionsMock: Auction[] = [
   },
   {
     id: '8',
+    itemCode: 'ITEM-008',
     title: 'Jam Rolex Submariner',
     description: 'Jam tangan mewah original dengan sertifikat, tahun 2015',
     category: 'Jam Tangan',
@@ -247,6 +255,7 @@ export const adminAuctionsMock: Auction[] = [
   },
   {
     id: '9',
+    itemCode: 'ITEM-009',
     title: 'MacBook Pro 13" M2',
     description: 'Apple MacBook Pro 13 inch M2 chip, 8GB RAM, 256GB SSD, condition excellent',
     category: 'Elektronik',
@@ -274,6 +283,7 @@ export const adminAuctionsMock: Auction[] = [
   },
   {
     id: '10',
+    itemCode: 'ITEM-010',
     title: 'MacBook Pro 14" M3',
     description: 'Apple MacBook Pro 14 inch M3 Max chip, 16GB RAM, 512GB SSD, original box included',
     category: 'Elektronik',

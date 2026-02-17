@@ -40,7 +40,7 @@ import {
   LocalFireDepartment as FireIcon,
 } from '@mui/icons-material';
 import { insightsService } from '../../../data/services';
-import type { DashboardInsightsData } from '../../../data/services/insightsService';
+import type { DashboardInsightsData, ConversionMetrics } from '../../../data/services/insightsService';
 
 // StatCard Component
 interface StatCardProps {
@@ -205,10 +205,6 @@ const FunnelCard: React.FC<{ data: ConversionMetrics }> = ({ data }) => {
       <CardContent sx={{ pt: 4, pb: 3 }}>
         <Stack spacing={4}>
           {funnelItems.map((item, index) => {
-            const dropoffFromPrevious = index === 0 
-              ? 0 
-              : funnelItems[index - 1].percentage - item.percentage;
-
             return (
               <Box key={index}>
                 {/* Header dengan Label dan Metrics */}
@@ -378,12 +374,12 @@ const InsightPage: React.FC = () => {
   const [analyticsData, setAnalyticsData] = useState<DashboardInsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day');
+  const [period, setPeriod] = useState<'hour' | 'day' | 'month'>('day');
 
   const MIN_LOADING_TIME = 700; // 0.7 second minimum skeleton visibility
 
   // Fetch analytics data from service
-  const fetchAnalytics = async (selectedPeriod: 'day' | 'week' | 'month' = period) => {
+  const fetchAnalytics = async (selectedPeriod: 'hour' | 'day' | 'month' = period) => {
     const startTime = Date.now();
     let dataToSet: DashboardInsightsData | null = null;
     let errorToSet: string | null = null;
@@ -457,7 +453,7 @@ const InsightPage: React.FC = () => {
   }, [period]);
 
   // Handle period change
-  const handlePeriodChange = (event: React.MouseEvent<HTMLElement>, newPeriod: 'day' | 'week' | 'month' | null) => {
+  const handlePeriodChange = (_event: React.MouseEvent<HTMLElement>, newPeriod: 'hour' | 'day' | 'month' | null) => {
     if (newPeriod !== null) {
       setPeriod(newPeriod);
     }
@@ -605,7 +601,7 @@ const InsightPage: React.FC = () => {
             }}
           >
             <ToggleButton value="day">Day</ToggleButton>
-            <ToggleButton value="week">Week</ToggleButton>
+            <ToggleButton value="hour">Hour</ToggleButton>
             <ToggleButton value="month">Month</ToggleButton>
           </ToggleButtonGroup>
 

@@ -360,7 +360,6 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
       const updateData: any = {
         title: formData.title,
         itemCode: formData.itemCode,
-        title: formData.title,
         startingPrice: Number(formData.startingPrice),
         bidIncrement: Number(formData.bidIncrement),
       };

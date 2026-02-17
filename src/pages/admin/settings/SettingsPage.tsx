@@ -26,9 +26,7 @@ import {
   Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { mockStaff } from '../../../data/mock/staff';
-import { mockOrganizationSettings } from '../../../data/mock/organizationSettings';
 import type { Staff } from '../../../data/mock/staff';
-import type { OrganizationSettings } from '../../../data/mock/organizationSettings';
 
 const LOGGED_IN_EMAIL = 'alpha.dev@deraly.id';
 
@@ -41,7 +39,6 @@ export default function SettingsPage() {
   }, []);
 
   const [profileFormData, setProfileFormData] = useState<Staff | undefined>(currentUser);
-  const [orgFormData, setOrgFormData] = useState<OrganizationSettings>(mockOrganizationSettings);
   const [systemFormData, setSystemFormData] = useState<any>({
     timezone: 'Asia/Jakarta',
     currency: 'IDR',

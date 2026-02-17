@@ -416,7 +416,7 @@ export default function AuctionModal({ auction, onClose, onBidSuccess }: Auction
     setError('');
 
     // Set timeout warning after 5 seconds
-    let timeoutWarningId: NodeJS.Timeout;
+    let timeoutWarningId: ReturnType<typeof setTimeout>;
     let showedWarning = false;
     
     const showTimeoutWarning = () => {

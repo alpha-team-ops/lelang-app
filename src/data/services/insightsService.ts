@@ -99,7 +99,7 @@ export interface TopBiddersQueryParams {
 }
 
 export interface AuctionStatusSummaryQueryParams {
-  period?: 'day' | 'week' | 'month';
+  period?: 'hour' | 'day' | 'month';
 }
 
 // API Response wrapper type

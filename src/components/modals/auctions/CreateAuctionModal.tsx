@@ -364,6 +364,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
       // Reset form
       setFormData({
         title: '',
+        itemCode: '',
         description: '',
         category: '',
         condition: '',
