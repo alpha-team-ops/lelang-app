@@ -51,7 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onApiDocsClick,
   logo = {
     icon: 'AU',
-    title: 'Lelang Dashboard',
+    title: 'Auction Dash',
   },
 }) => {
   const navigate = useNavigate();
@@ -82,8 +82,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           sx={{
             display: 'flex',
             alignItems: 'center',
-            gap: !isMobile && collapsed ? 0 : 1.2,
-            justifyContent: !isMobile && collapsed ? 'center' : 'space-between',
+            gap: !isMobile && collapsed ? 0 : 3,
+            justifyContent: 'flex-start',
             width: '100%',
           }}
         >
@@ -121,6 +121,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 variant="subtitle2"
                 sx={{
                   fontWeight: 750,
+                  fontSize: '16px',
                   lineHeight: 1.2,
                   color: '#0f172a',
                   letterSpacing: '-0.3px',
