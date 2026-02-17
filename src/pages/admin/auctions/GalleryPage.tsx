@@ -343,7 +343,7 @@ const GalleryPage: React.FC = () => {
                 <Skeleton variant="text" width="80%" height={40} />
               ) : (
                 <Typography variant="h6" sx={{ fontWeight: 700, color: '#22c55e' }}>
-                  Rp {(statsData?.totalVolume ? statsData.totalVolume / 1000000 : 0).toFixed(0)}M
+                  Rp {statsData?.totalVolume ? statsData.totalVolume.toLocaleString('id-ID') : 0}
                 </Typography>
               )}
             </CardContent>
