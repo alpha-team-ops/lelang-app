@@ -15,8 +15,6 @@ import {
   Chip,
   Stack,
   Skeleton,
-  ToggleButton,
-  ToggleButtonGroup,
   Button,
 } from '@mui/material';
 import {
@@ -374,12 +372,12 @@ const InsightPage: React.FC = () => {
   const [analyticsData, setAnalyticsData] = useState<DashboardInsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [period, setPeriod] = useState<'hour' | 'day' | 'month'>('day');
+  const [period] = useState<'hour' | 'day' | 'month'>('day'); // Period state - currently unused, awaiting API implementation
 
   const MIN_LOADING_TIME = 700; // 0.7 second minimum skeleton visibility
 
   // Fetch analytics data from service
-  const fetchAnalytics = async (selectedPeriod: 'hour' | 'day' | 'month' = period) => {
+  const fetchAnalytics = async (selectedPeriod: 'hour' | 'day' | 'month' = 'day') => {
     const startTime = Date.now();
     let dataToSet: DashboardInsightsData | null = null;
     let errorToSet: string | null = null;
@@ -450,14 +448,14 @@ const InsightPage: React.FC = () => {
   // Effects
   useEffect(() => {
     fetchAnalytics(period);
-  }, [period]);
+  }, ['day']); // Hardcoded dependency - period filter temporarily disabled
 
-  // Handle period change
-  const handlePeriodChange = (_event: React.MouseEvent<HTMLElement>, newPeriod: 'hour' | 'day' | 'month' | null) => {
-    if (newPeriod !== null) {
-      setPeriod(newPeriod);
-    }
-  };
+  // Handle period change - Commented out for now
+  // const handlePeriodChange = (event: React.MouseEvent<HTMLElement>, newPeriod: 'hour' | 'day' | 'month' | null) => {
+  //   if (newPeriod !== null) {
+  //     setPeriod(newPeriod);
+  //   }
+  // };
 
   // Export analytics data to CSV
   const exportToCSV = () => {
@@ -475,7 +473,7 @@ const InsightPage: React.FC = () => {
 
     const element = document.createElement('a');
     element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent));
-    element.setAttribute('download', `analytics-${period}-${new Date().toISOString().split('T')[0]}.csv`);
+    element.setAttribute('download', `analytics-day-${new Date().toISOString().split('T')[0]}.csv`);
     element.style.display = 'none';
     document.body.appendChild(element);
     element.click();
@@ -576,7 +574,7 @@ const InsightPage: React.FC = () => {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          {/* Period Toggle */}
+          {/* Period Toggle - TODO: Uncomment after API implementation 
           <ToggleButtonGroup
             value={period}
             exclusive
@@ -604,6 +602,7 @@ const InsightPage: React.FC = () => {
             <ToggleButton value="hour">Hour</ToggleButton>
             <ToggleButton value="month">Month</ToggleButton>
           </ToggleButtonGroup>
+          */}
 
           {/* Export Button */}
           <Button
