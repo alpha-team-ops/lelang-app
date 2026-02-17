@@ -343,7 +343,7 @@ const TablePage: React.FC = () => {
         <Table size="small">
           <TableHead sx={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
             <TableRow>
-              <TableCell sx={{ width: '50px', py: 2 }}>
+              <TableCell sx={{ width: '50px', py: 2.5, textAlign: 'center' }}>
                 <Checkbox
                   checked={selectedIds.size === filteredAuctions.length && filteredAuctions.length > 0}
                   indeterminate={selectedIds.size > 0 && selectedIds.size < filteredAuctions.length}
@@ -351,13 +351,14 @@ const TablePage: React.FC = () => {
                   disabled={filteredAuctions.length === 0}
                 />
               </TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '150px', py: 2 }}>Title</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '200px', py: 2 }}>Description</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '120px', py: 2 }}>Serial Number</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '100px', py: 2 }}>Category</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '120px', py: 2 }}>Current Bid</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '100px', py: 2 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#1f2937', textAlign: 'right', minWidth: '120px', py: 2 }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '140px', py: 2.5, textAlign: 'left' }}>Title</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '220px', py: 2.5, textAlign: 'left' }}>Description</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '110px', py: 2.5, textAlign: 'center' }}>Item Code</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '130px', py: 2.5, textAlign: 'center' }}>Serial Number</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '110px', py: 2.5, textAlign: 'left' }}>Category</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '130px', py: 2.5, textAlign: 'right' }}>Current Bid</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '100px', py: 2.5, textAlign: 'center' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#1f2937', minWidth: '120px', py: 2.5, textAlign: 'center' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -378,22 +379,22 @@ const TablePage: React.FC = () => {
                     },
                   }}
                 >
-                  <TableCell sx={{ width: '50px', py: 2 }}>
+                  <TableCell sx={{ width: '50px', py: 2, textAlign: 'center' }}>
                     <Checkbox
                       checked={selectedIds.has(auction.id)}
                       onChange={() => handleToggleSelect(auction.id)}
                     />
                   </TableCell>
-                  <TableCell sx={{ minWidth: '150px', py: 2 }}>
+                  <TableCell sx={{ minWidth: '140px', py: 2, textAlign: 'left' }}>
                     <Typography sx={{ fontWeight: 600, color: '#1f2937', fontSize: '14px' }}>
                       {auction.title}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ minWidth: '200px', py: 2 }}>
+                  <TableCell sx={{ minWidth: '220px', py: 2, textAlign: 'left' }}>
                     <Typography 
                       sx={{ 
-                        minWidth: '200px', 
-                        maxWidth: '300px', 
+                        minWidth: '220px', 
+                        maxWidth: '350px', 
                         whiteSpace: 'normal', 
                         wordBreak: 'break-word',
                         color: '#6b7280',
@@ -408,22 +409,27 @@ const TablePage: React.FC = () => {
                       {auction.description}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ minWidth: '120px', py: 2 }}>
+                  <TableCell sx={{ minWidth: '110px', py: 2, textAlign: 'center' }}>
+                    <Typography sx={{ fontFamily: 'monospace', fontSize: '12px', color: '#ec4899', fontWeight: 600 }}>
+                      {auction.itemCode || '-'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell sx={{ minWidth: '130px', py: 2, textAlign: 'center' }}>
                     <Typography sx={{ fontFamily: 'monospace', fontSize: '12px', color: '#667eea', fontWeight: 500 }}>
                       {auction.serialNumber || '-'}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ minWidth: '100px', py: 2 }}>
+                  <TableCell sx={{ minWidth: '110px', py: 2, textAlign: 'left' }}>
                     <Typography sx={{ color: '#1f2937', fontSize: '14px', fontWeight: 500 }}>
                       {auction.category}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ minWidth: '120px', py: 2 }}>
+                  <TableCell sx={{ minWidth: '130px', py: 2, textAlign: 'right' }}>
                     <Typography sx={{ fontWeight: 700, color: '#0ea5e9', fontSize: '14px' }}>
                       {formatCurrency(auction.currentBid)}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ minWidth: '100px', py: 2 }}>
+                  <TableCell sx={{ minWidth: '100px', py: 2, textAlign: 'center' }}>
                     <Chip
                       label={auction.status}
                       color={getStatusColor(auction.status)}
@@ -436,8 +442,8 @@ const TablePage: React.FC = () => {
                       }}
                     />
                   </TableCell>
-                  <TableCell sx={{ textAlign: 'right', minWidth: '120px', py: 2 }}>
-                    <Stack direction="row" spacing={0.75} justifyContent="flex-end">
+                  <TableCell sx={{ minWidth: '120px', py: 2, textAlign: 'center' }}>
+                    <Stack direction="row" spacing={0.75} justifyContent="center">
                       <IconButton 
                         size="small" 
                         color="primary" 
