@@ -59,6 +59,8 @@ const PortalUsersPage: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalUsers, setTotalUsers] = useState(0);
+  const [activeCount, setActiveCount] = useState(0);
+  const [inactiveCount, setInactiveCount] = useState(0);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [sortBy, setSortBy] = useState<'fullName' | 'email' | 'corporateIdNip' | 'directorateName' | 'status' | 'createdAt'>('fullName');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -107,10 +109,23 @@ const PortalUsersPage: React.FC = () => {
     }
   };
 
+  // Fetch portal users statistics
+  const fetchStats = async (search: string = '') => {
+    try {
+      const stats = await portalUserService.getStats(search || undefined);
+      setTotalUsers(stats.total);
+      setActiveCount(stats.active);
+      setInactiveCount(stats.inactive);
+    } catch (err: any) {
+      console.error('Error fetching stats:', err);
+    }
+  };
+
   // Load data on component mount
   useEffect(() => {
     fetchPortalUsers(0);
     fetchDirectorates();
+    fetchStats();
   }, [statusFilter, rowsPerPage, sortBy, sortOrder]);
 
   // Debounced search
@@ -119,8 +134,10 @@ const PortalUsersPage: React.FC = () => {
       if (searchText) {
         setPage(0);
         fetchPortalUsers(0, searchText);
+        fetchStats(searchText);
       } else if (page === 0) {
         fetchPortalUsers(0);
+        fetchStats();
       }
     }, 500);
     return () => clearTimeout(timer);
@@ -374,9 +391,6 @@ const PortalUsersPage: React.FC = () => {
     );
   }
 
-  const activeCount = portalUsers.filter((u) => u.isActive).length;
-  const inactiveCount = portalUsers.filter((u) => !u.isActive).length;
-
   return (
     <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header */}
@@ -424,7 +438,7 @@ const PortalUsersPage: React.FC = () => {
             Total Users
           </Typography>
           <Typography variant="h6" sx={{ fontWeight: 700, color: '#1976d2' }}>
-            {portalUsers.length}
+            {totalUsers}
           </Typography>
         </Card>
         <Card sx={{ p: 2, textAlign: 'center' }}>

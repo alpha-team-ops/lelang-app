@@ -158,6 +158,34 @@ const portalUserService = {
       throw error;
     }
   },
+
+  /**
+   * Get portal users statistics
+   */
+  async getStats(search?: string): Promise<{
+    total: number;
+    active: number;
+    inactive: number;
+  }> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (search) queryParams.append('search', search);
+
+      const response = await apiClient.get<{
+        success: boolean;
+        data: {
+          total: number;
+          active: number;
+          inactive: number;
+        };
+      }>(`/admin/portal-users/stats?${queryParams.toString()}`);
+
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching portal user stats:', error);
+      return { total: 0, active: 0, inactive: 0 };
+    }
+  },
 };
 
 export default portalUserService;
