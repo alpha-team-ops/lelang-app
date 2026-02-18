@@ -33,6 +33,7 @@ import {
   Visibility as VisibilityIcon,
   Add as AddIcon,
   Search as SearchIcon,
+  FileUpload as FileUploadIcon,
 } from '@mui/icons-material';
 import CreatePortalUserModal from '../../../components/modals/managements/CreatePortalUserModal';
 import { usePermission } from '../../../hooks/usePermission';
@@ -44,6 +45,7 @@ import type { Directorate } from '../../../data/services/directorateService';
 
 const PortalUsersPage: React.FC = () => {
   const { has } = usePermission();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Check permissions
   const canViewPortalUsers = has('manage_portal_users') || has('view_portal_users');
@@ -60,6 +62,12 @@ const PortalUsersPage: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<PortalUser | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [pendingImportData, setPendingImportData] = useState<any[]>([]);
+  const [importResultDialogOpen, setImportResultDialogOpen] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
 
   // Fetch portal users from API
   const fetchPortalUsers = async (p: number = 0, search: string = '') => {
@@ -182,6 +190,169 @@ const PortalUsersPage: React.FC = () => {
     toast.success('Portal user created successfully');
   };
 
+  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const csv = e.target?.result as string;
+        const lines = csv.split('\n').filter((line) => line.trim());
+        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+        
+        // Match backend field names
+        const emailIndex = headers.indexOf('email');
+        const nameIndex = headers.indexOf('fullname');
+        const nipIndex = headers.indexOf('corporateidnip');
+        const statusIndex = headers.indexOf('status');
+        const directorateIndex = headers.indexOf('directoratename');
+        
+        if (emailIndex === -1 || nameIndex === -1 || nipIndex === -1) {
+          toast.error('CSV must contain "email", "fullName", and "corporateIdNip" columns');
+          setImportLoading(false);
+          return;
+        }
+
+        const validRows: any[] = [];
+        const errors: string[] = [];
+
+        // Parse and validate each row
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map((v) => v.trim());
+          
+          if (values.length < 3 || !values[emailIndex]?.trim()) continue;
+
+          try {
+            // Validate email
+            const email = values[emailIndex];
+            if (!email || !email.includes('@')) {
+              errors.push(`Row ${i + 1}: Invalid email`);
+              continue;
+            }
+
+            const fullName = values[nameIndex];
+            if (!fullName) {
+              errors.push(`Row ${i + 1}: Missing full name`);
+              continue;
+            }
+
+            const nip = values[nipIndex];
+            if (!nip) {
+              errors.push(`Row ${i + 1}: Missing NIP`);
+              continue;
+            }
+
+            // Validate and set status (optional, default ACTIVE)
+            let status = 'ACTIVE';
+            if (statusIndex !== -1 && values[statusIndex]) {
+              const statusValue = values[statusIndex].toUpperCase();
+              if (statusValue === 'ACTIVE' || statusValue === 'INACTIVE') {
+                status = statusValue;
+              } else {
+                errors.push(`Row ${i + 1}: Invalid status (must be "ACTIVE" or "INACTIVE")`);
+                continue;
+              }
+            }
+
+            const userData = {
+              fullName,
+              email,
+              corporateIdNip: nip,
+              directorateName: directorateIndex !== -1 ? values[directorateIndex] : '',
+              status,
+            };
+
+            validRows.push({ rowNumber: i + 1, data: userData });
+          } catch (err: any) {
+            errors.push(`Row ${i + 1}: ${err.message || 'Validation error'}`);
+          }
+        }
+
+        if (errors.length > 0) {
+          console.log('CSV validation errors:', errors);
+        }
+
+        if (validRows.length === 0) {
+          toast.error('No valid rows found in CSV');
+          setImportLoading(false);
+          return;
+        }
+
+        // Show preview dialog
+        setPreviewData(validRows);
+        setPendingImportData(validRows);
+        setPreviewDialogOpen(true);
+        setImportLoading(false);
+      } catch (err: any) {
+        console.error('Import error:', err);
+        toast.error('Failed to read CSV: ' + (err.message || 'Unknown error'));
+        setImportLoading(false);
+      } finally {
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleConfirmImport = async () => {
+    setImportLoading(true);
+    try {
+      let totalSuccessful = 0;
+      let totalFailed = 0;
+      const allErrors: any[] = [];
+
+      // Import all rows at once
+      try {
+        // Create all users sequentially
+        for (const item of pendingImportData) {
+          try {
+            await portalUserService.create(item.data as any);
+            totalSuccessful++;
+          } catch (err: any) {
+            totalFailed++;
+            
+            // Extract error details from response
+            if (err.response?.data?.errors) {
+              const fieldErrors = err.response.data.errors;
+              const errorDetail: any = { rowNumber: item.rowNumber, fields: fieldErrors };
+              allErrors.push(errorDetail);
+            } else {
+              allErrors.push({
+                rowNumber: item.rowNumber,
+                fields: { general: [err.message || 'Failed to create user'] }
+              });
+            }
+          }
+        }
+
+        // Show result dialog with summary
+        setImportResult({
+          total: pendingImportData.length,
+          successful: totalSuccessful,
+          failed: totalFailed,
+          errors: allErrors
+        });
+        setImportResultDialogOpen(true);
+
+        // Refresh data
+        await fetchPortalUsers(0);
+
+      } catch (err: any) {
+        toast.error('Import process failed: ' + (err.message || 'Unknown error'));
+      }
+    } finally {
+      setPreviewDialogOpen(false);
+      setPreviewData([]);
+      setPendingImportData([]);
+      setImportLoading(false);
+    }
+  };
+
   const getStatusColor = (isActive: boolean) => {
     return isActive ? 'success' : 'default';
   };
@@ -205,15 +376,35 @@ const PortalUsersPage: React.FC = () => {
           Portal Users Management
         </Typography>
         {canManagePortalUsers && (
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateModalOpen(true)}
-            sx={{ textTransform: 'none', fontSize: '0.95rem' }}
-          >
-            Add Portal User
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              style={{ display: 'none' }}
+              onChange={handleImportCSV}
+              disabled={importLoading}
+            />
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<FileUploadIcon />}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importLoading}
+              sx={{ textTransform: 'none', fontSize: '0.95rem' }}
+            >
+              {importLoading ? 'Importing...' : 'Import CSV'}
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateModalOpen(true)}
+              sx={{ textTransform: 'none', fontSize: '0.95rem' }}
+            >
+              Add Portal User
+            </Button>
+          </Box>
         )}
       </Box>
 
@@ -443,6 +634,156 @@ const PortalUsersPage: React.FC = () => {
             >
               {loading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
               {loading ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Import Preview Dialog */}
+      <Dialog 
+        open={previewDialogOpen} 
+        onClose={() => !importLoading && setPreviewDialogOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          Preview Import Data ({previewData.length} rows)
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <TableContainer>
+            <Table size="small">
+              <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700 }}>Full Name</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>NIP</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Directorate</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {previewData.map((item, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>{item.data.fullName}</TableCell>
+                    <TableCell>{item.data.email}</TableCell>
+                    <TableCell>{item.data.corporateIdNip}</TableCell>
+                    <TableCell>{item.data.directorateName}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={item.data.status} 
+                        color={item.data.status === 'ACTIVE' ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button 
+            onClick={() => setPreviewDialogOpen(false)} 
+            disabled={importLoading}
+            sx={{ textTransform: 'none' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmImport}
+            variant="contained"
+            color="primary"
+            disabled={importLoading}
+            sx={{ textTransform: 'none' }}
+          >
+            {importLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+            {importLoading ? 'Importing...' : 'Confirm Import'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Import Result Dialog */}
+      {importResult && (
+        <Dialog 
+          open={importResultDialogOpen} 
+          onClose={() => setImportResultDialogOpen(false)} 
+          maxWidth="md" 
+          fullWidth
+        >
+          <DialogTitle sx={{ fontWeight: 700 }}>
+            Import Summary
+          </DialogTitle>
+          <DialogContent sx={{ mt: 2 }}>
+            {/* Summary Stats */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, mb: 3 }}>
+              <Card sx={{ p: 2, textAlign: 'center' }}>
+                <Typography color="textSecondary" variant="body2">
+                  Total Rows
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#1976d2' }}>
+                  {importResult.total}
+                </Typography>
+              </Card>
+              <Card sx={{ p: 2, textAlign: 'center' }}>
+                <Typography color="textSecondary" variant="body2">
+                  Successful
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#388e3c' }}>
+                  {importResult.successful}
+                </Typography>
+              </Card>
+              <Card sx={{ p: 2, textAlign: 'center' }}>
+                <Typography color="textSecondary" variant="body2">
+                  Failed
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#d32f2f' }}>
+                  {importResult.failed}
+                </Typography>
+              </Card>
+            </Box>
+
+            {/* Error Details */}
+            {importResult.errors && importResult.errors.length > 0 && (
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
+                  Error Details:
+                </Typography>
+                <Box sx={{ 
+                  maxHeight: '300px', 
+                  overflowY: 'auto',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: 1,
+                  p: 2
+                }}>
+                  {importResult.errors.map((error: any, idx: number) => (
+                    <Box key={idx} sx={{ mb: 2, pb: 2, borderBottom: idx < importResult.errors.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: '#d32f2f' }}>
+                        Row {error.rowNumber}
+                      </Typography>
+                      {Object.entries(error.fields).map(([field, messages]: any) => (
+                        <Box key={field} sx={{ ml: 2, mt: 1 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                            {field}:
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary" sx={{ display: 'block', ml: 1 }}>
+                            {Array.isArray(messages) ? messages.join(', ') : messages}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button 
+              onClick={() => setImportResultDialogOpen(false)} 
+              variant="contained"
+              color="primary"
+              sx={{ textTransform: 'none' }}
+            >
+              Close
             </Button>
           </DialogActions>
         </Dialog>
