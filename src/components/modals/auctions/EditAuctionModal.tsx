@@ -22,6 +22,7 @@ import {
 import { Grid } from '@mui/material';
 import type { Auction } from '../../../data/types';
 import { auctionService, imageService } from '../../../data/services';
+import { useItemManagement } from '../../../config/ItemManagementContext';
 
 // Custom 24-hour Time Input Component
 const Time24Input: React.FC<{
@@ -116,24 +117,12 @@ interface EditAuctionModalProps {
   onSuccess?: () => void;
 }
 
-const CATEGORIES = [
-  'Elektronik',
-  'Jam Tangan',
-  'Furniture',
-  'Fotografi',
-  'Seni',
-  'Perhiasan',
-  'Koleksi',
-  'Lainnya',
-];
-
-const CONDITIONS = [
-  'Baru (Seperti Baru)',
-  'Sangat Baik',
-  'Baik',
-  'Cukup Baik',
-  'Perlu Perbaikan',
-];
+interface EditAuctionModalProps {
+  open: boolean;
+  auction: Auction | null;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
 
 // Format currency with thousand separator
 const formatCurrency = (value: number | string | undefined): string => {
@@ -142,6 +131,7 @@ const formatCurrency = (value: number | string | undefined): string => {
 };
 
 const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onClose, onSuccess }) => {
+  const { categories, conditions } = useItemManagement();
   const [formData, setFormData] = useState<FormData>({
     title: '',
     itemCode: '',
@@ -165,12 +155,21 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
   const [imageFiles, setImageFiles] = useState<File[]>([]);
 
   // Map condition values from backend to available options
+  // Removes extra formatting from old data to match current BE format
   const normalizeCondition = (condition: string): string => {
+    if (!condition) return '';
+    // If it already matches current format, return as-is
+    const validConditions = conditions || ['Bekas - Sangat Baik', 'Bekas - Baik', 'Bekas - Cukup', 'Baru'];
+    if (validConditions.includes(condition)) return condition;
+    
+    // Legacy mapping for old format data
     const conditionMap: { [key: string]: string } = {
-      'Bekas - Sangat Baik': 'Sangat Baik',
-      'Bekas Sangat Baik': 'Sangat Baik',
-      'Baru': 'Baru (Seperti Baru)',
-      'New': 'Baru (Seperti Baru)',
+      'Sangat Baik': 'Bekas - Sangat Baik',
+      'Baik': 'Bekas - Baik',
+      'Cukup': 'Bekas - Cukup',
+      'Baru (Seperti Baru)': 'Baru',
+      'New': 'Baru',
+      'Bekas Sangat Baik': 'Bekas - Sangat Baik',
     };
     return conditionMap[condition] || condition;
   };
@@ -594,7 +593,7 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
                       <MenuItem value="" disabled>
                         Select category
                       </MenuItem>
-                      {CATEGORIES.map((cat) => (
+                      {categories.map((cat) => (
                         <MenuItem key={cat} value={cat}>
                           {cat}
                         </MenuItem>
@@ -611,7 +610,7 @@ const EditAuctionModal: React.FC<EditAuctionModalProps> = ({ open, auction, onCl
                       <MenuItem value="" disabled>
                         Select condition
                       </MenuItem>
-                      {CONDITIONS.map((cond) => (
+                      {conditions.map((cond) => (
                         <MenuItem key={cond} value={cond}>
                           {cond}
                         </MenuItem>

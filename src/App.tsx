@@ -13,6 +13,7 @@ import { OrganizationProvider } from './config/OrganizationContext';
 import { StaffProvider } from './config/StaffContext';
 import { RoleProvider } from './config/RoleContext';
 import { AuctionProvider } from './config/AuctionContext';
+import { ItemManagementProvider } from './config/ItemManagementContext';
 import { ProtectedRoute } from './config/ProtectedRoute';
 
 // Loading component untuk lazy-loaded routes
@@ -126,12 +127,14 @@ function App() {
         <StaffProvider>
           <RoleProvider>
             <AuctionProvider>
-              <ThemeProvider theme={theme}>
-                <CssBaseline />
-                <BrowserRouter>
-                  <AppContent />
-                </BrowserRouter>
-              </ThemeProvider>
+              <ItemManagementProvider>
+                <ThemeProvider theme={theme}>
+                  <CssBaseline />
+                  <BrowserRouter>
+                    <AppContent />
+                  </BrowserRouter>
+                </ThemeProvider>
+              </ItemManagementProvider>
             </AuctionProvider>
           </RoleProvider>
         </StaffProvider>

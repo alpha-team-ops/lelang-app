@@ -11,6 +11,8 @@ import {
   CircularProgress,
   Tooltip,
   Chip,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -25,7 +27,9 @@ import {
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import { useOrganization } from '../../../config/OrganizationContext';
 import { useAuth } from '../../../config/AuthContext';
+import { useItemManagement } from '../../../config/ItemManagementContext';
 import DirectorateManagementModal from '../../../components/modals/managements/DirectorateManagementModal';
+import ItemManagementModal from '../../../components/modals/managements/ItemManagementModal';
 import directorateService from '../../../data/services/directorateService';
 import type { OrganizationSettings } from '../../../data/services/organizationService';
 import type { Directorate } from '../../../data/services/directorateService';
@@ -33,6 +37,7 @@ import type { Directorate } from '../../../data/services/directorateService';
 const OrganizationSettingsPage: React.FC = () => {
   const { organization, loading, error, fetchSettings, updateSettings, uploadLogo, clearError } = useOrganization();
   const { isAuthenticated, loading: authLoading } = useAuth();
+  const { categories, conditions } = useItemManagement();
   const [isEditing, setIsEditing] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -44,6 +49,8 @@ const OrganizationSettingsPage: React.FC = () => {
   const [directorateModalOpen, setDirectorateModalOpen] = useState(false);
   const [directorates, setDirectorates] = useState<Directorate[]>([]);
   const [directoratesLoading, setDirectoratesLoading] = useState(false);
+  const [itemManagementModalOpen, setItemManagementModalOpen] = useState(false);
+  const [itemManagementTab, setItemManagementTab] = useState<'categories' | 'conditions'>('categories');
 
   // Fetch directorates from API
   const fetchDirectorates = async () => {
@@ -98,6 +105,8 @@ const OrganizationSettingsPage: React.FC = () => {
       document.body.removeChild(textArea);
     }
   };
+
+  // Item management handlers removed - now handled by ItemManagementModal
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
     const { name, value } = e.target as HTMLInputElement;
@@ -473,6 +482,100 @@ const OrganizationSettingsPage: React.FC = () => {
             </Box>
           </Box>
 
+          {/* Item Management Section */}
+          <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #e5e7eb' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', gap: 1 }}>
+                Item Management
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => setItemManagementModalOpen(true)}
+                sx={{ textTransform: 'none', fontSize: '0.85rem' }}
+              >
+                Manage
+              </Button>
+            </Box>
+
+            <Typography variant="body2" sx={{ color: '#6b7280', mb: 2.5 }}>
+              Configure item categories and conditions used in auction listings
+            </Typography>
+
+            {/* Preview Display with Tabs */}
+            <Box sx={{ borderBottom: '1px solid #e5e7eb', mb: 2.5 }}>
+              <Tabs 
+                value={itemManagementTab} 
+                onChange={(_, value) => setItemManagementTab(value)}
+                sx={{
+                  '& .MuiTab-root': {
+                    textTransform: 'none',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: '#6b7280',
+                    '&.Mui-selected': {
+                      color: '#1f2937',
+                      fontWeight: 600,
+                    },
+                  },
+                  '& .MuiTabIndicator-root': {
+                    backgroundColor: '#1f2937',
+                  },
+                }}
+              >
+                <Tab label={`Categories (${categories.length})`} value="categories" />
+                <Tab label={`Conditions (${conditions.length})`} value="conditions" />
+              </Tabs>
+            </Box>
+
+            {/* Description - Changes based on selected tab */}
+            <Typography variant="body2" sx={{ color: '#6b7280', mb: 2.5 }}>
+              {itemManagementTab === 'categories' 
+                ? 'Manage item categories available for auctions. Click "Manage" to add, edit, or reorder categories.'
+                : 'Manage item conditions available for auctions. Click "Manage" to add, edit, or reorder conditions.'}
+            </Typography>
+
+            {/* Items Display - Horizontal Layout */}
+            <Box sx={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: 1.5,
+              minHeight: '50px',
+              alignContent: 'flex-start'
+            }}>
+              {(itemManagementTab === 'categories' ? categories : conditions).length > 0 ? (
+                (itemManagementTab === 'categories' ? categories : conditions).map((item) => (
+                  <Box
+                    key={item}
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      px: 3,
+                      py: 1,
+                      backgroundColor: '#f9fafb',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '6px',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: '#f3f4f6',
+                        borderColor: '#d1d5db',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                      },
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#1f2937' }}>
+                      {item}
+                    </Typography>
+                  </Box>
+                ))
+              ) : (
+                <Typography variant="caption" sx={{ color: '#9ca3af', alignSelf: 'center' }}>
+                  No {itemManagementTab} added yet. Click "Manage" to add one.
+                </Typography>
+              )}
+            </Box>
+          </Box>
+
           {/* Portal Invitation Code Section */}
           <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #e5e7eb' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -672,6 +775,13 @@ const OrganizationSettingsPage: React.FC = () => {
         directorates={directorates}
         onDirectoratesChange={setDirectorates}
         loading={directoratesLoading}
+      />
+
+      {/* Item Management Modal */}
+      <ItemManagementModal
+        open={itemManagementModalOpen}
+        onClose={() => setItemManagementModalOpen(false)}
+        initialTab={itemManagementTab}
       />
     </Box>
   );

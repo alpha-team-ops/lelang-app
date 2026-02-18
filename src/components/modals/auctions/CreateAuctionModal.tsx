@@ -26,6 +26,7 @@ import {
 import { auctionService } from '../../../data/services';
 import { imageService } from '../../../data/services';
 import { usePermission } from '../../../hooks/usePermission';
+import { useItemManagement } from '../../../config/ItemManagementContext';
 
 // Custom 24-hour Time Input Component
 const Time24Input: React.FC<{
@@ -123,25 +124,6 @@ interface CreateAuctionModalProps {
   onSuccess?: () => void;
 }
 
-const CATEGORIES = [
-  'Elektronik',
-  'Jam Tangan',
-  'Furniture',
-  'Fotografi',
-  'Seni',
-  'Perhiasan',
-  'Koleksi',
-  'Lainnya',
-];
-
-const CONDITIONS = [
-  'Baru (Seperti Baru)',
-  'Sangat Baik',
-  'Baik',
-  'Cukup Baik',
-  'Perlu Perbaikan',
-];
-
 // Format currency with thousand separator
 const formatCurrency = (value: number | string): string => {
   if (value === '' || value === 0) return '';
@@ -150,6 +132,7 @@ const formatCurrency = (value: number | string): string => {
 
 const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, onSuccess }) => {
   const { has } = usePermission();
+  const { categories, conditions } = useItemManagement();
   
   // Check permission
   const canCreateAuction = has('manage_auctions');
@@ -617,7 +600,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                       label="Category"
                     >
                       <MenuItem value="">-- Select Category --</MenuItem>
-                      {CATEGORIES.map((cat) => (
+                      {categories.map((cat) => (
                         <MenuItem key={cat} value={cat}>
                           {cat}
                         </MenuItem>
@@ -636,7 +619,7 @@ const CreateAuctionModal: React.FC<CreateAuctionModalProps> = ({ open, onClose, 
                       label="Condition"
                     >
                       <MenuItem value="">-- Select Condition --</MenuItem>
-                      {CONDITIONS.map((cond) => (
+                      {conditions.map((cond) => (
                         <MenuItem key={cond} value={cond}>
                           {cond}
                         </MenuItem>
