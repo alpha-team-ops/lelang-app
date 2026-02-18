@@ -34,6 +34,8 @@ import {
   Add as AddIcon,
   Search as SearchIcon,
   FileUpload as FileUploadIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
 } from '@mui/icons-material';
 import CreatePortalUserModal from '../../../components/modals/managements/CreatePortalUserModal';
 import { usePermission } from '../../../hooks/usePermission';
@@ -56,7 +58,10 @@ const PortalUsersPage: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [sortBy, setSortBy] = useState<'fullName' | 'email' | 'corporateIdNip' | 'directorateName' | 'status' | 'createdAt'>('fullName');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<PortalUser | null>(null);
@@ -78,8 +83,11 @@ const PortalUsersPage: React.FC = () => {
         per_page: rowsPerPage,
         search: search || undefined,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
+        sort_by: sortBy,
+        sort_order: sortOrder,
       });
       setPortalUsers(response.portalUsers);
+      setTotalUsers(response.pagination?.total || response.portalUsers.length);
     } catch (err: any) {
       console.error('Error fetching portal users:', err);
       toast.error('Failed to fetch portal users');
@@ -103,7 +111,7 @@ const PortalUsersPage: React.FC = () => {
   useEffect(() => {
     fetchPortalUsers(0);
     fetchDirectorates();
-  }, [statusFilter]);
+  }, [statusFilter, rowsPerPage, sortBy, sortOrder]);
 
   // Debounced search
   useEffect(() => {
@@ -119,7 +127,7 @@ const PortalUsersPage: React.FC = () => {
   }, [searchText]);
 
 
-  // Filter dan search - simplified since API handles server-side filtering
+  // Filter dan search - simplified since API handles server-side filtering and sorting
   const filteredUsers = useMemo(() => {
     return portalUsers;
   }, [portalUsers]);
@@ -130,6 +138,7 @@ const PortalUsersPage: React.FC = () => {
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
+    fetchPortalUsers(newPage, searchText);
   };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -464,12 +473,114 @@ const PortalUsersPage: React.FC = () => {
         <Table>
           <TableHead sx={{ bgcolor: '#f5f5f5' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 700 }}>Full Name</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>NIP</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Directorate</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Created</TableCell>
+              <TableCell 
+                sx={{ fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => {
+                  if (sortBy === 'fullName') {
+                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortBy('fullName');
+                    setSortOrder('asc');
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  Full Name
+                  {sortBy === 'fullName' && (
+                    sortOrder === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell 
+                sx={{ fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => {
+                  if (sortBy === 'email') {
+                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortBy('email');
+                    setSortOrder('asc');
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  Email
+                  {sortBy === 'email' && (
+                    sortOrder === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell 
+                sx={{ fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => {
+                  if (sortBy === 'corporateIdNip') {
+                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortBy('corporateIdNip');
+                    setSortOrder('asc');
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  NIP
+                  {sortBy === 'corporateIdNip' && (
+                    sortOrder === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell 
+                sx={{ fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => {
+                  if (sortBy === 'directorateName') {
+                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortBy('directorateName');
+                    setSortOrder('asc');
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  Directorate
+                  {sortBy === 'directorateName' && (
+                    sortOrder === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell 
+                sx={{ fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => {
+                  if (sortBy === 'status') {
+                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortBy('status');
+                    setSortOrder('asc');
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  Status
+                  {sortBy === 'status' && (
+                    sortOrder === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
+              <TableCell 
+                sx={{ fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => {
+                  if (sortBy === 'createdAt') {
+                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortBy('createdAt');
+                    setSortOrder('asc');
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  Created
+                  {sortBy === 'createdAt' && (
+                    sortOrder === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                  )}
+                </Box>
+              </TableCell>
               <TableCell sx={{ fontWeight: 700, textAlign: 'center' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -532,7 +643,7 @@ const PortalUsersPage: React.FC = () => {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25, 50]}
           component="div"
-          count={filteredUsers.length}
+          count={totalUsers}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}
