@@ -28,15 +28,18 @@ import { Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import type { WinnerBid } from '../../../data/types';
 import { winnerBidService } from '../../../data/services/winnerBidService';
 import { useAuth } from '../../../config/AuthContext';
+import { useItemManagement } from '../../../config/ItemManagementContext';
 import WinnerBidDetailModal from '../../../components/modals/auctions/WinnerBidDetailModal';
 import UpdateWinnerBidStatusModal from '../../../components/modals/auctions/UpdateWinnerBidStatusModal';
 
 const WinnerBidsPage: React.FC = () => {
+  const { categories } = useItemManagement();
   const [winnerBids, setWinnerBids] = useState<WinnerBid[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
@@ -59,6 +62,7 @@ const WinnerBidsPage: React.FC = () => {
       // Call API with filters
       const response = await winnerBidService.getAllWinnerBids({
         status: statusFilter && statusFilter.length > 0 ? statusFilter : undefined,
+        category: categoryFilter && categoryFilter.length > 0 ? categoryFilter : undefined,
         page: page + 1, // API uses 1-based pagination
         limit: rowsPerPage,
       });
@@ -71,7 +75,7 @@ const WinnerBidsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, statusFilter, isAuthenticated]);
+  }, [page, rowsPerPage, statusFilter, categoryFilter, isAuthenticated]);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -196,8 +200,44 @@ const WinnerBidsPage: React.FC = () => {
             />
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <FormControl fullWidth size="small" sx={{ minWidth: '200px' }}>
+          <Grid size={{ xs: 12, sm: 3 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel 
+                id="category-filter-label"
+                sx={{ 
+                  '&.MuiInputLabel-shrink': { transform: 'translate(14px, -9px) scale(0.75)' },
+                  transform: 'translate(14px, -9px) scale(0.75)',
+                  transformOrigin: 'top left'
+                }}
+              >
+                Category
+              </InputLabel>
+              <Select
+                labelId="category-filter-label"
+                id="category-filter"
+                value={categoryFilter}
+                label="Category"
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value);
+                  setPage(0);
+                }}
+                displayEmpty
+                renderValue={(value) => {
+                  return value ? value : 'All';
+                }}
+              >
+                <MenuItem value="">All</MenuItem>
+                {categories.map((cat) => (
+                  <MenuItem key={cat} value={cat}>
+                    {cat}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 3 }}>
+            <FormControl fullWidth size="small">
               <InputLabel 
                 id="status-filter-label"
                 sx={{ 
@@ -206,13 +246,13 @@ const WinnerBidsPage: React.FC = () => {
                   transformOrigin: 'top left'
                 }}
               >
-                Filter by Status
+                Status
               </InputLabel>
               <Select
                 labelId="status-filter-label"
                 id="status-filter"
                 value={statusFilter}
-                label="Filter by Status"
+                label="Status"
                 onChange={(e) => {
                   setStatusFilter(e.target.value);
                   setPage(0);
@@ -220,17 +260,17 @@ const WinnerBidsPage: React.FC = () => {
                 displayEmpty
                 renderValue={(value) => {
                   const statusMap: Record<string, string> = {
-                    '': 'All Status',
-                    'PAYMENT_PENDING': 'Payment Pending',
+                    '': 'All',
+                    'PAYMENT_PENDING': 'Pending',
                     'PAID': 'Paid',
                     'SHIPPED': 'Shipped',
-                    'COMPLETED': 'Completed',
+                    'COMPLETED': 'Done',
                     'CANCELLED': 'Cancelled',
                   };
-                  return statusMap[value as string] || 'All Status';
+                  return statusMap[value as string] || 'All';
                 }}
               >
-                <MenuItem value="">All Status</MenuItem>
+                <MenuItem value="">All</MenuItem>
                 <MenuItem value="PAYMENT_PENDING">Payment Pending</MenuItem>
                 <MenuItem value="PAID">Paid</MenuItem>
                 <MenuItem value="SHIPPED">Shipped</MenuItem>
@@ -260,14 +300,15 @@ const WinnerBidsPage: React.FC = () => {
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#ffffff', borderBottom: '2px solid #e5e7eb' }}>
                   <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>AUCTION TITLE</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>SERIAL NUMBER</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }} align="center">CATEGORY</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }} align="center">SERIAL NUMBER</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>WINNER NAME</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>NIP / ID</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }} align="center">NIP / ID</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }} align="right">
                     WINNING BID
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>STATUS</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }}>PAYMENT DUE</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }} align="center">STATUS</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }} align="center">PAYMENT DUE</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#6b7280', fontSize: '12px', letterSpacing: '0.5px', py: 2.5 }} align="center">
                     ACTIONS
                   </TableCell>
@@ -277,7 +318,23 @@ const WinnerBidsPage: React.FC = () => {
                 {filteredWinnerBids.map((winner) => (
                   <TableRow key={winner.id} hover sx={{ '&:hover': { backgroundColor: '#fafbfc' }, borderBottom: '1px solid #f0f0f0' }}>
                     <TableCell sx={{ fontWeight: 500, color: '#1f2937', py: 2.5, fontSize: '13px' }}>{winner.auctionTitle}</TableCell>
-                    <TableCell sx={{ py: 2.5 }}>
+                    <TableCell sx={{ py: 2.5 }} align="center">
+                      <Chip
+                        label={winner.category}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          fontFamily: 'inherit',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          backgroundColor: '#f3f4f6',
+                          borderColor: '#d1d5db',
+                          color: '#374151',
+                          height: '24px',
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ py: 2.5 }} align="center">
                       <Chip
                         label={winner.serialNumber}
                         size="small"
@@ -294,7 +351,7 @@ const WinnerBidsPage: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell sx={{ fontWeight: 500, color: '#2d3748', py: 2.5, fontSize: '13px' }}>{winner.fullName}</TableCell>
-                    <TableCell sx={{ py: 2.5 }}>
+                    <TableCell sx={{ py: 2.5 }} align="center">
                       <Chip
                         label={winner.corporateIdNip}
                         size="small"
@@ -313,7 +370,7 @@ const WinnerBidsPage: React.FC = () => {
                     <TableCell align="right" sx={{ fontWeight: 600, fontSize: '13px', color: '#1f2937', py: 2.5 }}>
                       {formatCurrency(winner.winningBid)}
                     </TableCell>
-                    <TableCell sx={{ py: 2.5 }}>
+                    <TableCell sx={{ py: 2.5 }} align="center">
                       <Chip
                         label={winner.status.replace(/_/g, ' ')}
                         color={getStatusChipColor(winner.status)}
@@ -321,7 +378,7 @@ const WinnerBidsPage: React.FC = () => {
                         sx={{ fontWeight: 500, fontSize: '11px', letterSpacing: '0px', height: '24px' }}
                       />
                     </TableCell>
-                    <TableCell sx={{ fontSize: '12px', color: '#6b7280', py: 2.5 }}>
+                    <TableCell sx={{ fontSize: '12px', color: '#6b7280', py: 2.5 }} align="center">
                       {formatDate(winner.paymentDueDate)}
                     </TableCell>
                     <TableCell align="center" sx={{ py: 2.5 }}>

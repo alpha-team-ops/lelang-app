@@ -30,6 +30,7 @@ winnerBidClient.interceptors.response.use(
 
 export interface GetWinnerBidsRequest {
   status?: string;
+  category?: string;
   page?: number;
   limit?: number;
 }
@@ -48,6 +49,7 @@ export const winnerBidService = {
       const params = new URLSearchParams();
       
       if (request?.status) params.append('status', request.status);
+      if (request?.category) params.append('category', request.category);
       if (request?.page) params.append('page', request.page.toString());
       if (request?.limit) params.append('limit', request.limit.toString());
 
